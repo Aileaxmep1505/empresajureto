@@ -331,10 +331,75 @@
                         </td>
                         <td>{{ $o->created_at?->format('d/m/Y') ?? '—' }}</td>
                         <td>
-                          @php $st = strtolower((string)$o->status); @endphp
-                          <span class="badge {{ $st==='cancelado'?'badge-danger':($st==='entregado'?'badge-success':'badge-info') }}">
-                            {{ ucfirst($o->status ?? '—') }}
+                          @php
+                            $st = strtolower((string)($o->status ?? ''));
+
+                            $refundedAmount = (float) (
+                                $o->refunded_amount
+                                ?? $o->stripe_refunded_amount
+                                ?? $o->refund_amount
+                                ?? 0
+                            );
+
+                            $hasRefundDate = !empty($o->refunded_at)
+                                || !empty($o->stripe_refunded_at)
+                                || !empty($o->refund_at);
+
+                            $isRefunded = in_array($st, [
+                                    'reembolsado',
+                                    'reembolso_parcial',
+                                    'refunded',
+                                    'partial_refund',
+                                    'refund',
+                                    'devuelto',
+                                    'reembolso',
+                                    'reembolsada'
+                                ], true)
+                                || $hasRefundDate
+                                || $refundedAmount > 0;
+
+                            $isPartialRefund = in_array($st, [
+                                    'reembolso_parcial',
+                                    'partial_refund',
+                                    'partially_refunded'
+                                ], true)
+                                || (
+                                    $isRefunded
+                                    && $refundedAmount > 0
+                                    && (float)($o->total ?? 0) > 0
+                                    && $refundedAmount < (float)($o->total ?? 0)
+                                );
+
+                            $statusLabel = $isRefunded
+                                ? ($isPartialRefund ? 'Reembolso parcial' : 'Reembolsado')
+                                : match ($st) {
+                                    'paid', 'pagado' => 'Pagado',
+                                    'pending', 'pendiente' => 'Pendiente',
+                                    'processing', 'procesando' => 'Procesando',
+                                    'completed', 'completado', 'entregado' => 'Entregado',
+                                    'cancelled', 'canceled', 'cancelado' => 'Cancelado',
+                                    'failed', 'fallido' => 'Fallido',
+                                    default => ucfirst($o->status ?? '—'),
+                                };
+
+                            $statusClass = $isRefunded
+                                ? 'badge-danger'
+                                : ($st === 'cancelado' || $st === 'cancelled' || $st === 'canceled' || $st === 'failed' || $st === 'fallido'
+                                    ? 'badge-danger'
+                                    : ($st === 'entregado' || $st === 'completed' || $st === 'pagado' || $st === 'paid'
+                                        ? 'badge-info'
+                                        : 'badge-info'));
+                          @endphp
+
+                          <span class="badge {{ $statusClass }}">
+                            {{ $statusLabel }}
                           </span>
+
+                          @if($isRefunded && $refundedAmount > 0)
+                            <div class="badge badge-muted" style="margin-top:8px; display:block; width:fit-content;">
+                              Reembolso: ${{ number_format($refundedAmount, 2) }} MXN
+                            </div>
+                          @endif
 
                           @if(!empty($o->shipping_code))
                             <div class="badge badge-muted" style="margin-top:8px; display:block; width:fit-content;">Guía: {{ $o->shipping_code }}</div>
@@ -354,14 +419,14 @@
                             @if(\Illuminate\Support\Facades\Route::has('customer.orders.show'))
                               <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">Ver detalle</a>
                             @endif
-                            @if(\Illuminate\Support\Facades\Route::has('customer.orders.tracking'))
+                            @if(!$isRefunded && \Illuminate\Support\Facades\Route::has('customer.orders.tracking'))
                               <button class="btn btn-primary js-track"
                                       data-url="{{ route('customer.orders.tracking',$o) }}"
                                       data-label="{{ $o->shipping_label_url ?? '' }}">
                                 Seguimiento
                               </button>
                             @endif
-                            @if(\Illuminate\Support\Facades\Route::has('customer.orders.label') && !empty($o->shipping_label_url))
+                            @if(!$isRefunded && \Illuminate\Support\Facades\Route::has('customer.orders.label') && !empty($o->shipping_label_url))
                               <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">PDF</a>
                             @endif
                           </div>
@@ -397,10 +462,75 @@
                         </td>
                         <td>{{ $o->created_at?->format('d/m/Y') ?? '—' }}</td>
                         <td>
-                          @php $st = strtolower((string)$o->status); @endphp
-                          <span class="badge {{ $st==='cancelado'?'badge-danger':($st==='entregado'?'badge-success':'badge-info') }}">
-                            {{ ucfirst($o->status ?? '—') }}
+                          @php
+                            $st = strtolower((string)($o->status ?? ''));
+
+                            $refundedAmount = (float) (
+                                $o->refunded_amount
+                                ?? $o->stripe_refunded_amount
+                                ?? $o->refund_amount
+                                ?? 0
+                            );
+
+                            $hasRefundDate = !empty($o->refunded_at)
+                                || !empty($o->stripe_refunded_at)
+                                || !empty($o->refund_at);
+
+                            $isRefunded = in_array($st, [
+                                    'reembolsado',
+                                    'reembolso_parcial',
+                                    'refunded',
+                                    'partial_refund',
+                                    'refund',
+                                    'devuelto',
+                                    'reembolso',
+                                    'reembolsada'
+                                ], true)
+                                || $hasRefundDate
+                                || $refundedAmount > 0;
+
+                            $isPartialRefund = in_array($st, [
+                                    'reembolso_parcial',
+                                    'partial_refund',
+                                    'partially_refunded'
+                                ], true)
+                                || (
+                                    $isRefunded
+                                    && $refundedAmount > 0
+                                    && (float)($o->total ?? 0) > 0
+                                    && $refundedAmount < (float)($o->total ?? 0)
+                                );
+
+                            $statusLabel = $isRefunded
+                                ? ($isPartialRefund ? 'Reembolso parcial' : 'Reembolsado')
+                                : match ($st) {
+                                    'paid', 'pagado' => 'Pagado',
+                                    'pending', 'pendiente' => 'Pendiente',
+                                    'processing', 'procesando' => 'Procesando',
+                                    'completed', 'completado', 'entregado' => 'Entregado',
+                                    'cancelled', 'canceled', 'cancelado' => 'Cancelado',
+                                    'failed', 'fallido' => 'Fallido',
+                                    default => ucfirst($o->status ?? '—'),
+                                };
+
+                            $statusClass = $isRefunded
+                                ? 'badge-danger'
+                                : ($st === 'cancelado' || $st === 'cancelled' || $st === 'canceled' || $st === 'failed' || $st === 'fallido'
+                                    ? 'badge-danger'
+                                    : ($st === 'entregado' || $st === 'completed' || $st === 'pagado' || $st === 'paid'
+                                        ? 'badge-info'
+                                        : 'badge-info'));
+                          @endphp
+
+                          <span class="badge {{ $statusClass }}">
+                            {{ $statusLabel }}
                           </span>
+
+                          @if($isRefunded && $refundedAmount > 0)
+                            <div class="badge badge-muted" style="margin-top:8px; display:block; width:fit-content;">
+                              Reembolso: ${{ number_format($refundedAmount, 2) }} MXN
+                            </div>
+                          @endif
                           @if(!empty($o->shipping_code))
                             <div class="badge badge-muted" style="margin-top:8px; display:block; width:fit-content;">Guía: {{ $o->shipping_code }}</div>
                           @endif
@@ -420,14 +550,14 @@
                             @if(\Illuminate\Support\Facades\Route::has('customer.orders.show'))
                               <a class="btn btn-ghost" href="{{ route('customer.orders.show',$o) }}">Ver detalle</a>
                             @endif
-                            @if(\Illuminate\Support\Facades\Route::has('customer.orders.tracking'))
+                            @if(!$isRefunded && \Illuminate\Support\Facades\Route::has('customer.orders.tracking'))
                               <button class="btn btn-primary js-track"
                                       data-url="{{ route('customer.orders.tracking',$o) }}"
                                       data-label="{{ $o->shipping_label_url ?? '' }}">
                                 Seguimiento
                               </button>
                             @endif
-                            @if(\Illuminate\Support\Facades\Route::has('customer.orders.label') && !empty($o->shipping_label_url))
+                            @if(!$isRefunded && \Illuminate\Support\Facades\Route::has('customer.orders.label') && !empty($o->shipping_label_url))
                               <a class="btn btn-ghost" href="{{ route('customer.orders.label',$o) }}" target="_blank" rel="noopener">PDF</a>
                             @endif
                           </div>
