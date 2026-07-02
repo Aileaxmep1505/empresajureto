@@ -572,7 +572,11 @@ Route::get('/debug/skydropx/quote',    [SkydropxDebugController::class, 'quote']
 | WEBHOOKS
 |--------------------------------------------------------------------------
 */
-Route::post('/webhooks/stripe', [StripeWebhookController::class,'handle'])->name('webhooks.stripe');
+Route::get('/stripe/webhook/test', [StripeWebhookController::class, 'test'])
+    ->name('stripe.webhook.test');
+
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])
+    ->name('stripe.webhook');
 
 /* Categorías web */
 Route::get('/categoria/{category:slug}', [CategoryController::class, 'show'])

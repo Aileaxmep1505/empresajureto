@@ -1306,7 +1306,7 @@ class CheckoutController extends Controller
 
                     $this->createOrderItemSafe($order, [
                         'catalog_item_id' => $row['id'] ?? ($row['catalog_item_id'] ?? null),
-                        'product_id'      => $row['product_id'] ?? ($row['id'] ?? null),
+                        'product_id'      => $row['product_id'] ?? null,
                         'name'            => $row['name'] ?? 'Producto',
                         'sku'             => $row['sku'] ?? null,
                         'price'           => round($price, 2),
@@ -1969,8 +1969,33 @@ class CheckoutController extends Controller
 
         $insert = ['order_id' => $order->id];
 
-        $this->putIfColumnTable($insert, 'catalog_item_id', $data['catalog_item_id'] ?? null, 'order_items');
-        $this->putIfColumnTable($insert, 'product_id', $data['product_id'] ?? null, 'order_items');
+        $catalogItemId = $data['catalog_item_id'] ?? null;
+        $productId = $data['product_id'] ?? null;
+
+        /*
+         * FIX:
+         * order_items.product_id tiene FK contra products.id.
+         * Tu carrito viene de catalog_items, por eso NO metemos catalog_item_id
+         * como product_id si ese producto no existe en products.
+         */
+        $safeProductId = null;
+
+        if ($productId && Schema::hasTable('products')) {
+            try {
+                $existsProduct = DB::table('products')
+                    ->where('id', $productId)
+                    ->exists();
+
+                if ($existsProduct) {
+                    $safeProductId = $productId;
+                }
+            } catch (\Throwable $e) {
+                $safeProductId = null;
+            }
+        }
+
+        $this->putIfColumnTable($insert, 'catalog_item_id', $catalogItemId, 'order_items');
+        $this->putIfColumnTable($insert, 'product_id', $safeProductId, 'order_items');
         $this->putIfColumnTable($insert, 'name', $data['name'] ?? 'Producto', 'order_items');
         $this->putIfColumnTable($insert, 'product_name', $data['name'] ?? 'Producto', 'order_items');
         $this->putIfColumnTable($insert, 'item_name', $data['name'] ?? 'Producto', 'order_items');
@@ -1988,19 +2013,17 @@ class CheckoutController extends Controller
         $this->putIfColumnTable($insert, 'total', $data['amount'] ?? 0, 'order_items');
         $this->putIfColumnTable($insert, 'line_total', $data['amount'] ?? 0, 'order_items');
         $this->putIfColumnTable($insert, 'subtotal', $data['amount'] ?? 0, 'order_items');
-        $this->putIfColumnTable($insert, 'image', data_get($data, 'meta.image'), 'order_items');
-        $this->putIfColumnTable($insert, 'image_url', data_get($data, 'meta.image'), 'order_items');
-        $this->putIfColumnTable($insert, 'thumbnail', data_get($data, 'meta.image'), 'order_items');
+        $image = data_get($data, 'meta.image');
+        $this->putIfColumnTable($insert, 'image', $image, 'order_items');
+        $this->putIfColumnTable($insert, 'image_url', $image, 'order_items');
+        $this->putIfColumnTable($insert, 'thumbnail', $image, 'order_items');
         $this->putIfColumnTable($insert, 'currency', $data['currency'] ?? 'MXN', 'order_items');
         $this->putIfColumnTable($insert, 'tax_rate', $data['tax_rate'] ?? null, 'order_items');
         $this->putIfColumnTable($insert, 'discount', $data['discount'] ?? 0, 'order_items');
-
         $meta = $data['meta'] ?? [];
         $this->putIfColumnTable($insert, 'meta', is_string($meta) ? $meta : json_encode($meta, JSON_UNESCAPED_UNICODE), 'order_items');
-
         $this->putIfColumnTable($insert, 'created_at', now(), 'order_items');
         $this->putIfColumnTable($insert, 'updated_at', now(), 'order_items');
-
         DB::table('order_items')->insert($insert);
     }
 

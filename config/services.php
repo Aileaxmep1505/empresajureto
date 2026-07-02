@@ -198,15 +198,13 @@ return [
     | Stripe
     |--------------------------------------------------------------------------
     */
-    'stripe' => [
-        'key'            => env('STRIPE_KEY'),
-        'secret'         => env('STRIPE_SECRET'),
-        'webhook_secret' => env('STRIPE_WEBHOOK_SECRET', null),
-
-        'success_url' => env('STRIPE_SUCCESS_URL'),
-        'cancel_url'  => env('STRIPE_CANCEL_URL'),
-    ],
-
+ 'stripe' => [
+    'key' => env('STRIPE_KEY'),
+    'secret' => env('STRIPE_SECRET'),
+    'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+    'success_url' => env('STRIPE_SUCCESS_URL'),
+    'cancel_url' => env('STRIPE_CANCEL_URL'),
+],
     /*
     |--------------------------------------------------------------------------
     | Skydropx Pro
