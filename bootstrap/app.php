@@ -29,10 +29,15 @@ return Application::configure(basePath: dirname(__DIR__))
         |--------------------------------------------------------------------------
         | ✅ Excluir webhooks externos del CSRF
         |--------------------------------------------------------------------------
+        | Stripe y otros servicios externos no mandan token CSRF de Laravel.
         */
         $middleware->validateCsrfTokens(except: [
             'webhooks/whatsapp',
             'webhooks/whatsapp/*',
+
+            // Stripe
+            'stripe/webhook',
+            '/stripe/webhook',
         ]);
 
         // Aliases de middleware personalizados
