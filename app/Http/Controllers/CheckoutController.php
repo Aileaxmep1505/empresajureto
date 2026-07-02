@@ -415,95 +415,134 @@ class CheckoutController extends Controller
 
     public function shippingSelect(Request $req)
     {
-        $data = $req->validate([
-            'code'        => 'required|string',
-            'price'       => 'nullable',
-            'name'        => 'nullable',
-            'carrier'     => 'nullable',
-            'carrier_key' => 'nullable',
-            'service'     => 'nullable',
-            'eta'         => 'nullable',
-            'logo_url'    => 'nullable',
-            'raw'         => 'nullable',
-        ]);
+        /*
+         * FIX DEFINITIVO:
+         * Guarda la paquetería seleccionada en checkout.shipping.
+         * También soporta formularios normales y AJAX/fetch.
+         */
+        $code = $req->input('code')
+            ?: $req->input('shipping_code')
+            ?: $req->input('selected_shipping')
+            ?: $req->input('shipping');
 
-        $norm = collect(session('shipping.options_norm', []));
-        $opt  = $norm->firstWhere('code', $data['code']);
+        if (!$code) {
+            if ($req->ajax() || $req->header('X-Requested-With') === 'XMLHttpRequest') {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Selecciona una opción de envío.',
+                ], 422);
+            }
 
-        if (!$opt) {
-            $all = collect(session('shipping.options', []));
-            $opt = $all->firstWhere('code', $data['code']);
+            return back()->withErrors([
+                'shipping' => 'Selecciona una opción de envío.',
+            ]);
         }
 
+        $options = session('shipping.options_norm')
+            ?: session('shipping.options')
+            ?: data_get(session('shipping'), 'options_norm')
+            ?: data_get(session('shipping'), 'options')
+            ?: [];
+
+        $opt = collect($options)->first(function ($option) use ($code) {
+            return (string)($option['code'] ?? '') === (string)$code
+                || (string)($option['id'] ?? '') === (string)$code;
+        });
+
         if (!$opt) {
-            return back()->withErrors(['code' => 'Opción de envío no válida o expirada. Regresa a envío y vuelve a cotizar.']);
+            Log::warning('Checkout shipping option no encontrada', [
+                'code' => $code,
+                'options_count' => is_countable($options) ? count($options) : 0,
+                'options_codes' => collect($options)->pluck('code')->values()->all(),
+                'legacy_shipping' => session('shipping'),
+            ]);
+
+            if ($req->ajax() || $req->header('X-Requested-With') === 'XMLHttpRequest') {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Opción de envío no válida o expirada. Regresa a envío y vuelve a cotizar.',
+                ], 422);
+            }
+
+            return back()->withErrors([
+                'code' => 'Opción de envío no válida o expirada. Regresa a envío y vuelve a cotizar.',
+            ]);
         }
+
+        $opt = (array) $opt;
 
         $cart = $this->getCartRows();
-        $subtotal  = array_reduce($cart, fn($c, $r) => $c + (($r['price'] ?? 0) * ($r['qty'] ?? 1)), 0);
+        $subtotal = array_reduce($cart, function ($carry, $row) {
+            return $carry + (((float)($row['price'] ?? 0)) * max(1, (int)($row['qty'] ?? 1)));
+        }, 0.0);
+
         $threshold = $this->threshold;
 
         $carrierName = $opt['carrier'] ?? $opt['name'] ?? 'Paquetería';
         $carrierKey  = $opt['carrier_key'] ?? $this->carrierKey($carrierName);
+        $carrierCost = (float)($opt['price'] ?? 0);
 
         $payload = [
-            'code'         => $opt['code'],
-            'id'           => $opt['id'] ?? $opt['code'],
-            'provider'     => 'envia.com',
-            'name'         => $opt['name'] ?? $carrierName,
-            'carrier'      => $carrierName,
-            'carrier_key'  => $carrierKey,
-            'service'      => $opt['service'] ?? null,
-            'service_label'=> $opt['service_label'] ?? $opt['service_description'] ?? ($opt['service'] ?? null),
-            'eta'          => $opt['eta'] ?? null,
-            'logo_url'     => $opt['logo_url'] ?? $this->carrierLogoUrl($carrierName),
-            'raw'          => $opt['raw'] ?? null,
+            'code'                => $opt['code'] ?? $code,
+            'id'                  => $opt['id'] ?? ($opt['code'] ?? $code),
+            'provider'            => $opt['provider'] ?? 'envia.com',
+            'name'                => $opt['name'] ?? $carrierName,
+            'carrier'             => $carrierName,
+            'carrier_key'         => $carrierKey,
+            'service'             => $opt['service'] ?? null,
+            'service_label'       => $opt['service_label'] ?? $opt['service_description'] ?? ($opt['service'] ?? null),
+            'service_description' => $opt['service_description'] ?? $opt['service_label'] ?? ($opt['service'] ?? null),
+            'eta'                 => $opt['eta'] ?? null,
+            'logo_url'            => $opt['logo_url'] ?? $this->carrierLogoUrl($carrierName),
+            'raw'                 => $opt['raw'] ?? null,
+            'currency'            => $opt['currency'] ?? 'MXN',
         ];
-
-        $selectedShipping = null;
 
         if ($subtotal >= $threshold && $threshold > 0) {
             $selectedShipping = array_merge($payload, [
                 'price'        => 0.0,
                 'store_pays'   => true,
-                'carrier_cost' => (float)($opt['price'] ?? 0),
+                'carrier_cost' => $carrierCost,
                 'auto_applied' => false,
             ]);
         } else {
             $selectedShipping = array_merge($payload, [
-                'price'        => (float)($opt['price'] ?? 0),
+                'price'        => $carrierCost,
                 'store_pays'   => false,
-                'carrier_cost' => (float)($opt['price'] ?? 0),
+                'carrier_cost' => $carrierCost,
                 'auto_applied' => false,
             ]);
         }
 
+        /*
+         * IMPORTANTE:
+         * No dejamos el seleccionado solamente en shipping, porque shipping también se usa
+         * como contenedor de options/options_norm/envia_debug.
+         */
         session([
             'checkout.shipping' => $selectedShipping,
-            'shipping' => $selectedShipping,
+            'shipping_selected' => $selectedShipping,
+            'checkout.shipping_code' => $selectedShipping['code'] ?? $code,
         ]);
+
         session()->save();
 
         Log::info('Checkout shipping selected and saved', [
             'code' => $selectedShipping['code'] ?? null,
             'carrier' => $selectedShipping['carrier'] ?? null,
             'service' => $selectedShipping['service'] ?? null,
+            'service_label' => $selectedShipping['service_label'] ?? null,
             'price' => $selectedShipping['price'] ?? null,
+            'carrier_cost' => $selectedShipping['carrier_cost'] ?? null,
+            'store_pays' => $selectedShipping['store_pays'] ?? false,
             'session_has_checkout_shipping' => session()->has('checkout.shipping'),
         ]);
 
-        /*
-         * IMPORTANTE:
-         * Esta ruta también se usa por formulario normal desde el navegador.
-         * No uses wantsJson(), porque algunos navegadores/devtools mandan Accept con json
-         * y entonces se queda mostrando el JSON en pantalla.
-         *
-         * Solo devolvemos JSON si realmente viene por AJAX/fetch.
-         */
         if ($req->ajax() || $req->header('X-Requested-With') === 'XMLHttpRequest') {
             return response()->json([
                 'ok' => true,
-                'shipping' => session('checkout.shipping'),
+                'redirect' => route('checkout.payment'),
+                'shipping' => $selectedShipping,
             ]);
         }
 
@@ -853,42 +892,156 @@ class CheckoutController extends Controller
     public function payment(Request $req)
     {
         $cart = $this->getCartRows();
-        if (empty($cart)) return redirect()->route('web.cart.index')->with('ok','Tu carrito está vacío.');
 
-        // Respaldo importante: Stripe regresa después del pago y a veces el carrito ya no está disponible.
+        if (empty($cart)) {
+            return redirect()
+                ->route('web.cart.index')
+                ->with('ok', 'Tu carrito está vacío.');
+        }
+
+        /*
+         * Respaldo importante:
+         * Stripe regresa después del pago y a veces el carrito ya no está disponible.
+         */
         session([
             'checkout.cart_snapshot' => $cart,
             'checkout.cart_snapshot_at' => now()->toDateTimeString(),
         ]);
 
-        $subtotal = array_reduce($cart, fn($c,$r)=> $c + ($r['price']*$r['qty']), 0);
+        $subtotal = array_reduce($cart, function ($carry, $row) {
+            return $carry + (((float)($row['price'] ?? 0)) * max(1, (int)($row['qty'] ?? 1)));
+        }, 0.0);
 
+        $subtotal = round((float)$subtotal, 2);
+
+        /*
+         * 1) Intentamos leer el envío seleccionado normal.
+         */
         $shipping = session('checkout.shipping');
 
-        if (empty($shipping)) {
-            $shipping = session('shipping');
+        /*
+         * 2) Compatibilidad con el nuevo respaldo shipping_selected.
+         */
+        if (empty($shipping) || !is_array($shipping) || empty($shipping['code'])) {
+            $selected = session('shipping_selected');
+
+            if (is_array($selected) && !empty($selected['code'])) {
+                $shipping = $selected;
+            }
+        }
+
+        /*
+         * 3) Compatibilidad con versiones viejas donde session('shipping') era directamente
+         * la paquetería seleccionada.
+         */
+        if (empty($shipping) || !is_array($shipping) || empty($shipping['code'])) {
+            $legacyShipping = session('shipping');
+
+            if (is_array($legacyShipping) && !empty($legacyShipping['code'])) {
+                $shipping = $legacyShipping;
+            }
+        }
+
+        /*
+         * 4) FIX FUERTE:
+         * Tu log muestra checkout_shipping null, pero legacy_shipping trae:
+         * legacy_shipping.options
+         * legacy_shipping.options_norm
+         *
+         * Entonces recuperamos automáticamente la tarifa válida más barata.
+         */
+        if (empty($shipping) || !is_array($shipping) || empty($shipping['code'])) {
+            $options = session('shipping.options_norm')
+                ?: session('shipping.options')
+                ?: data_get(session('shipping'), 'options_norm')
+                ?: data_get(session('shipping'), 'options')
+                ?: [];
+
+            $options = collect($options)
+                ->filter(function ($option) {
+                    return !empty($option['code'])
+                        && isset($option['price'])
+                        && (float)$option['price'] >= 0;
+                })
+                ->sortBy(function ($option) {
+                    return (float)($option['price'] ?? 999999);
+                })
+                ->values()
+                ->all();
+
+            if (!empty($options)) {
+                $shipping = (array) $options[0];
+
+                $shipping['price'] = (float)($shipping['price'] ?? 0);
+                $shipping['carrier'] = $shipping['carrier'] ?? $shipping['name'] ?? 'Paquetería';
+                $shipping['name'] = $shipping['name'] ?? $shipping['carrier'];
+                $shipping['carrier_key'] = $shipping['carrier_key'] ?? $this->carrierKey((string)($shipping['carrier'] ?? ''));
+                $shipping['service'] = $shipping['service'] ?? null;
+                $shipping['service_label'] = $shipping['service_label']
+                    ?? $shipping['service_description']
+                    ?? $shipping['service']
+                    ?? 'Envío seleccionado';
+                $shipping['store_pays'] = false;
+                $shipping['carrier_cost'] = (float)($shipping['carrier_cost'] ?? $shipping['price'] ?? 0);
+                $shipping['auto_applied'] = false;
+
+                session([
+                    'checkout.shipping' => $shipping,
+                    'shipping_selected' => $shipping,
+                    'checkout.shipping_code' => $shipping['code'] ?? null,
+                ]);
+
+                session()->save();
+
+                Log::info('Checkout payment recuperó envío desde opciones anidadas', [
+                    'code' => $shipping['code'] ?? null,
+                    'carrier' => $shipping['carrier'] ?? null,
+                    'service' => $shipping['service'] ?? null,
+                    'service_label' => $shipping['service_label'] ?? null,
+                    'price' => $shipping['price'] ?? null,
+                ]);
+            }
         }
 
         if (empty($shipping) || !is_array($shipping) || empty($shipping['code'])) {
             Log::warning('Checkout payment sin envío seleccionado', [
                 'checkout_shipping' => session('checkout.shipping'),
+                'shipping_selected' => session('shipping_selected'),
                 'legacy_shipping' => session('shipping'),
             ]);
 
             return redirect()
                 ->route('checkout.shipping')
-                ->withErrors(['shipping' => 'Selecciona una opción de envío antes de continuar al pago.']);
+                ->withErrors([
+                    'shipping' => 'Selecciona una opción de envío antes de continuar al pago.',
+                ]);
         }
 
         $shipping = (array) $shipping;
-        $total    = $subtotal + (float)($shipping['price'] ?? 0);
+
+        $shipping['price'] = (float)($shipping['price'] ?? 0);
+        $shipping['carrier'] = $shipping['carrier'] ?? $shipping['name'] ?? 'Paquetería';
+        $shipping['name'] = $shipping['name'] ?? $shipping['carrier'];
+        $shipping['service_label'] = $shipping['service_label']
+            ?? $shipping['service_description']
+            ?? $shipping['service']
+            ?? 'Envío seleccionado';
+
+        session([
+            'checkout.shipping' => $shipping,
+            'shipping_selected' => $shipping,
+        ]);
+
+        session()->save();
+
+        $total = round($subtotal + (float)($shipping['price'] ?? 0), 2);
 
         $address = null;
         if ($id = session('checkout.address_id')) {
             $address = ShippingAddress::where('user_id', Auth::id())->find($id);
         }
 
-        return view('checkout.payment', compact('cart','subtotal','shipping','total','address'));
+        return view('checkout.payment', compact('cart', 'subtotal', 'shipping', 'total', 'address'));
     }
 
     /* ===========================================================
