@@ -304,6 +304,361 @@
     #rp-driver-pro textarea:focus{
       border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-soft);
     }
+
+
+    /* ==========================================================
+       MOBILE NAVIGATION BOTTOM SHEET
+       En celular el panel NO se abre por clic: se expande al deslizar hacia arriba.
+       ========================================================== */
+    #rp-driver-pro .mobile-sheet-head,
+    #rp-driver-pro .mobile-map-actions,
+    #rp-driver-pro .mobile-sheet-tabs{ display:none; }
+
+    @media (max-width: 991.98px){
+      html, body{ height:100%; }
+      body{ overflow:hidden; }
+
+      #rp-driver-pro{
+        min-height:100dvh;
+        height:100dvh;
+        overflow:hidden;
+        background:#fff;
+      }
+
+      #rp-driver-pro .row.g-0{
+        display:block;
+        padding:0;
+        height:100dvh;
+      }
+
+      #rp-driver-pro .col-lg-9{
+        position:fixed;
+        inset:0;
+        z-index:1;
+        max-width:none;
+        width:100%;
+      }
+
+      #rp-driver-pro .map-card{
+        height:100dvh;
+        min-height:100dvh;
+        width:100%;
+        border:0;
+        border-radius:0;
+        padding:0;
+        box-shadow:none;
+        background:#eef1f5;
+      }
+
+      #rp-driver-pro .map-card .map{
+        height:100dvh;
+        border-radius:0;
+      }
+
+      #rp-driver-pro .map-legend,
+      #rp-driver-pro .routes-panel{
+        display:none !important;
+      }
+
+      #rp-driver-pro .dbg{
+        top:12px;
+        right:12px;
+        max-width:calc(100vw - 24px);
+      }
+
+      #rp-driver-pro .mobile-map-actions{
+        display:grid;
+        gap:12px;
+        position:fixed;
+        right:14px;
+        top:calc(env(safe-area-inset-top, 0px) + 86px);
+        z-index:760;
+      }
+
+      #rp-driver-pro .map-float-btn{
+        width:54px;
+        height:54px;
+        border:0;
+        border-radius:999px;
+        background:rgba(255,255,255,.96);
+        color:var(--ink-strong);
+        display:grid;
+        place-items:center;
+        font-size:22px;
+        box-shadow:0 8px 26px rgba(0,0,0,.16);
+        backdrop-filter:blur(12px);
+        -webkit-backdrop-filter:blur(12px);
+      }
+
+      #rp-driver-pro .map-float-btn.is-active{
+        color:#fff;
+        background:var(--blue);
+      }
+
+      #rp-driver-pro .map-float-btn:active{ transform:scale(.96); }
+
+      #rp-driver-pro .side{
+        position:fixed;
+        left:0;
+        right:0;
+        bottom:0;
+        z-index:820;
+        width:100%;
+        max-width:none;
+        min-height:0;
+        max-height:88dvh;
+        overflow:hidden;
+        background:rgba(255,255,255,.96);
+        border:1px solid var(--line);
+        border-left:0;
+        border-right:0;
+        border-bottom:0;
+        border-radius:28px 28px 0 0;
+        box-shadow:0 -18px 60px rgba(0,0,0,.20);
+        backdrop-filter:blur(18px);
+        -webkit-backdrop-filter:blur(18px);
+        transform:translateY(calc(100% - 138px));
+        transition:transform .28s cubic-bezier(.2,.8,.2,1), max-height .28s ease;
+        touch-action:pan-y;
+        padding:0;
+      }
+
+      #rp-driver-pro .side.sheet-open{
+        transform:translateY(0);
+        overflow:auto;
+        -webkit-overflow-scrolling:touch;
+      }
+
+      #rp-driver-pro .mobile-sheet-head{
+        display:block;
+        position:sticky;
+        top:0;
+        z-index:4;
+        background:rgba(255,255,255,.98);
+        border-radius:28px 28px 0 0;
+        padding:8px 16px 12px;
+        border-bottom:1px solid rgba(235,235,235,.8);
+      }
+
+      #rp-driver-pro .sheet-grabber{
+        width:100%;
+        height:24px;
+        border:0;
+        background:transparent;
+        display:grid;
+        place-items:center;
+        padding:0;
+        margin:0;
+      }
+
+      #rp-driver-pro .sheet-grabber span{
+        width:48px;
+        height:5px;
+        border-radius:999px;
+        background:#d1d5db;
+      }
+
+      #rp-driver-pro .sheet-compact{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:14px;
+      }
+
+      #rp-driver-pro .sheet-time{
+        font-size:34px;
+        line-height:1;
+        font-weight:700;
+        color:#8a5a00;
+        letter-spacing:-.04em;
+      }
+
+      #rp-driver-pro .sheet-sub{
+        margin-top:4px;
+        display:flex;
+        align-items:center;
+        gap:6px;
+        color:#777;
+        font-weight:600;
+        font-size:15px;
+      }
+
+      #rp-driver-pro .sheet-actions{
+        display:flex;
+        align-items:center;
+        gap:10px;
+        flex:0 0 auto;
+      }
+
+      #rp-driver-pro .sheet-round-btn{
+        width:54px;
+        height:54px;
+        border:0;
+        border-radius:999px;
+        background:#f3f4f6;
+        color:var(--ink-strong);
+        display:grid;
+        place-items:center;
+        font-size:22px;
+        box-shadow:0 4px 12px rgba(0,0,0,.04);
+      }
+
+      #rp-driver-pro .sheet-round-btn.primary{
+        background:var(--blue);
+        color:#fff;
+      }
+
+      #rp-driver-pro .sheet-exit-btn{
+        height:54px;
+        padding:0 20px;
+        border:0;
+        border-radius:999px;
+        background:#ef4444;
+        color:#fff;
+        font-weight:700;
+        font-size:16px;
+      }
+
+      #rp-driver-pro .sheet-swipe-hint{
+        margin:10px 0 0;
+        color:var(--muted);
+        font-size:13px;
+        font-weight:700;
+        text-align:center;
+      }
+
+      #rp-driver-pro .side:not(.sheet-open) .toolbar,
+      #rp-driver-pro .side:not(.sheet-open) .grid,
+      #rp-driver-pro .side:not(.sheet-open) .mobile-sheet-tabs{
+        display:none !important;
+      }
+
+      #rp-driver-pro .side.sheet-open .toolbar{
+        position:relative;
+        top:auto;
+        margin:12px 16px 12px;
+        padding:18px;
+        border-radius:22px;
+      }
+
+      #rp-driver-pro .side.sheet-open .grid{
+        display:grid;
+        gap:12px;
+        padding:0 16px calc(20px + env(safe-area-inset-bottom, 0px));
+      }
+
+      #rp-driver-pro .side.sheet-open .g3{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+
+      #rp-driver-pro .mobile-sheet-tabs{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+        margin:0 16px 12px;
+        padding:6px;
+        border:1px solid var(--line);
+        border-radius:999px;
+        background:#f9fafb;
+      }
+
+      #rp-driver-pro .sheet-tab{
+        border:0;
+        border-radius:999px;
+        padding:11px 12px;
+        background:transparent;
+        color:var(--muted);
+        font-weight:700;
+      }
+
+      #rp-driver-pro .sheet-tab.active{
+        background:#fff;
+        color:var(--blue);
+        box-shadow:0 4px 12px rgba(0,0,0,.04);
+      }
+
+      #rp-driver-pro .grid.sheet-mode-steps .js-main-card,
+      #rp-driver-pro .grid.sheet-mode-steps #cardStops,
+      #rp-driver-pro .grid.sheet-mode-stops #cardSteps{
+        display:none !important;
+      }
+
+      #rp-driver-pro .grid.sheet-mode-steps #cardSteps,
+      #rp-driver-pro .grid.sheet-mode-stops #cardStops{
+        display:block !important;
+        grid-column:1/-1;
+      }
+
+      #rp-driver-pro .card{
+        border-radius:22px;
+      }
+
+      #rp-driver-pro .card-body{
+        padding:18px;
+      }
+
+      #rp-driver-pro .next{
+        border-left:5px solid var(--blue);
+      }
+
+      #rp-driver-pro .metric{
+        min-height:118px;
+      }
+
+      #rp-driver-pro .metric .label{
+        font-size:12px;
+      }
+
+      #rp-driver-pro .metric .value{
+        font-size:1.55rem;
+      }
+
+      #rp-driver-pro .gps-actions{
+        display:grid !important;
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+
+      #rp-driver-pro .gps-actions .btn{
+        width:100%;
+        min-height:46px;
+      }
+
+      #rp-driver-pro .btn-fab{
+        display:none !important;
+      }
+
+      #rp-driver-pro .toastx{
+        bottom:150px;
+        width:min(92vw, 420px);
+        text-align:center;
+        border-radius:999px;
+        z-index:2000;
+      }
+
+      #rp-driver-pro .map-hud{
+        top:calc(env(safe-area-inset-top, 0px) + 16px);
+      }
+    }
+
+    @media (max-width: 520px){
+      #rp-driver-pro .side.sheet-open .g3{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+      #rp-driver-pro .sheet-time{ font-size:30px; }
+      #rp-driver-pro .sheet-round-btn{ width:50px; height:50px; }
+      #rp-driver-pro .sheet-exit-btn{ height:50px; padding:0 18px; }
+      #rp-driver-pro .metric .value{ font-size:1.35rem; }
+      #rp-driver-pro .metric .label{ font-size:11px; }
+      #rp-driver-pro .card-body{ padding:16px; }
+    }
+
+    @media (max-width: 390px){
+      #rp-driver-pro .sheet-exit-btn{ padding:0 15px; font-size:14px; }
+      #rp-driver-pro .sheet-actions{ gap:8px; }
+      #rp-driver-pro .sheet-round-btn{ width:48px; height:48px; }
+    }
+
   </style>
 
   <script>
@@ -319,7 +674,43 @@
 
   <div class="row g-0">
     {{-- IZQUIERDA --}}
-    <div class="col-lg-3 side">
+    <div class="col-lg-3 side sheet-peek" id="driverSheet">
+
+      {{-- Bottom sheet móvil: se expande deslizando hacia arriba --}}
+      <div class="mobile-sheet-head" id="mobileSheetHead">
+        <button type="button" class="sheet-grabber" id="sheetGrabber" aria-label="Desliza hacia arriba para abrir">
+          <span></span>
+        </button>
+
+        <div class="sheet-compact">
+          <div>
+            <div class="sheet-time" id="sheetDuration">—</div>
+            <div class="sheet-sub">
+              <span id="sheetDistance">— km</span>
+              <span>•</span>
+              <span id="sheetEta">Ruta</span>
+            </div>
+          </div>
+
+          <div class="sheet-actions">
+            <button type="button" class="sheet-round-btn primary" id="btnSheetCenter" title="Centrar ubicación">
+              <i class="bi bi-navigation-fill"></i>
+            </button>
+            <button type="button" class="sheet-round-btn" id="btnSheetDirections" title="Ver indicaciones">
+              <i class="bi bi-signpost-split-fill"></i>
+            </button>
+            <button type="button" class="sheet-exit-btn" id="btnSheetHide">Ocultar</button>
+          </div>
+        </div>
+
+        <div class="sheet-swipe-hint" id="sheetSwipeHint">Desliza hacia arriba para ver detalles e indicaciones</div>
+      </div>
+
+      <div class="mobile-sheet-tabs" id="mobileSheetTabs">
+        <button type="button" class="sheet-tab active" data-sheet-tab="stops">Paradas</button>
+        <button type="button" class="sheet-tab" data-sheet-tab="steps">Indicaciones</button>
+      </div>
+
       <div class="toolbar d-flex align-items-center justify-content-between">
         <div>
           <div class="side-title">{{ $routePlan->name ?? ('Ruta #'.$routePlan->id) }}</div>
@@ -356,7 +747,7 @@
       </div>
 
       <div class="grid g3">
-        <div class="card next" style="grid-column:1/-1">
+        <div class="card next js-main-card" style="grid-column:1/-1">
           <div class="card-body d-flex justify-content-between align-items-center">
             <div>
               <div class="small text-uppercase muted mb-1">Siguiente punto</div>
@@ -367,7 +758,7 @@
           </div>
         </div>
 
-        <div class="card metric">
+        <div class="card metric js-main-card">
           <div class="card-body">
             <div class="label">Fin estimado</div>
             <div class="value" id="etaFinish">—</div>
@@ -375,7 +766,7 @@
           </div>
         </div>
 
-        <div class="card metric">
+        <div class="card metric js-main-card">
           <div class="card-body">
             <div class="label">Pendientes</div>
             <div class="value"><span id="pendingCount">—</span>/<span id="totalCount">—</span></div>
@@ -383,7 +774,7 @@
           </div>
         </div>
 
-        <div class="card metric">
+        <div class="card metric js-main-card">
           <div class="card-body">
             <div class="label">Distancia</div>
             <div class="value"><span id="totalKm">—</span> km</div>
@@ -391,7 +782,7 @@
           </div>
         </div>
 
-        <div class="card" style="grid-column:1/-1">
+        <div class="card" id="cardStops" style="grid-column:1/-1">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <h6 class="m-0">Paradas</h6>
@@ -412,7 +803,7 @@
           </div>
         </div>
 
-        <div class="card" style="grid-column:1/-1">
+        <div class="card" id="cardSteps" style="grid-column:1/-1">
           <div class="card-body">
             <h6 class="mb-2">Instrucciones por calles</h6>
             <ul id="steps" class="steps"></ul>
@@ -420,7 +811,7 @@
           </div>
         </div>
 
-        <div class="card" style="grid-column:1/-1">
+        <div class="card js-main-card" style="grid-column:1/-1">
           <div class="card-body">
             <h6 class="mb-2">Recomendación IA</h6>
             <div id="advice" class="small"></div>
@@ -436,6 +827,20 @@
 
         {{-- DEBUG chip --}}
         <div id="dbgChip" class="dbg">debug</div>
+
+      {{-- Acciones flotantes móviles --}}
+      <div class="mobile-map-actions">
+        <button type="button" class="map-float-btn" id="btnMobileCenter" title="Centrar ubicación">
+          <i class="bi bi-navigation-fill"></i>
+        </button>
+        <button type="button" class="map-float-btn is-active" id="btnMobileTraffic" title="Mostrar/ocultar tráfico">
+          <i class="bi bi-car-front-fill"></i>
+        </button>
+        <button type="button" class="map-float-btn" id="btnMobileSheetHint" title="Abrir panel">
+          <i class="bi bi-chevron-double-up"></i>
+        </button>
+      </div>
+
 
         <div class="map-legend">
           <span class="chip"><i class="bi bi-square-fill" style="color:#2563eb"></i> Principal</span>
@@ -549,6 +954,111 @@
 
   // ✅ Estado de lock (server)
   let serverLocked = false;
+
+  let gpsSoftTimeoutShown = false;
+  let activeSheetTab = 'stops';
+
+  function isMobileView(){
+    return window.matchMedia('(max-width: 991.98px)').matches;
+  }
+
+  function setSheetOpen(open){
+    const sheet = document.getElementById('driverSheet');
+    if (!sheet) return;
+    sheet.classList.toggle('sheet-open', !!open);
+    sheet.classList.toggle('sheet-peek', !open);
+    setTimeout(()=>{ try{ google.maps.event.trigger(map, 'resize'); }catch(e){} }, 320);
+  }
+
+  function setSheetTab(tab){
+    activeSheetTab = tab === 'steps' ? 'steps' : 'stops';
+    const grid = document.querySelector('#rp-driver-pro .side .grid');
+    if (grid) {
+      grid.classList.toggle('sheet-mode-steps', activeSheetTab === 'steps');
+      grid.classList.toggle('sheet-mode-stops', activeSheetTab !== 'steps');
+    }
+    document.querySelectorAll('#rp-driver-pro .sheet-tab').forEach(btn=>{
+      btn.classList.toggle('active', btn.dataset.sheetTab === activeSheetTab);
+    });
+  }
+
+  function promptSwipeUp(){
+    mapToast('Desliza el panel hacia arriba para abrir detalles');
+    const hint = document.getElementById('sheetSwipeHint');
+    if (hint) {
+      hint.style.color = '#007aff';
+      hint.textContent = 'Desliza hacia arriba para abrir';
+      clearTimeout(hint._t);
+      hint._t = setTimeout(()=>{
+        hint.style.color = '';
+        hint.textContent = 'Desliza hacia arriba para ver detalles e indicaciones';
+      }, 2400);
+    }
+  }
+
+  function centerOnDriver(zoom=17){
+    if (!currentPos || !map) {
+      promptSwipeUp();
+      return;
+    }
+    followMode = true;
+    map.panTo({ lat: currentPos.lat, lng: currentPos.lng });
+    map.setZoom(zoom);
+  }
+
+  function initMobileSheet(){
+    const sheet = document.getElementById('driverSheet');
+    if (!sheet) return;
+
+    setSheetTab('stops');
+
+    let startY = 0;
+    let currentY = 0;
+    let tracking = false;
+
+    sheet.addEventListener('touchstart', (e)=>{
+      if (!isMobileView()) return;
+      startY = e.changedTouches[0].clientY;
+      currentY = startY;
+      tracking = true;
+    }, { passive:true });
+
+    sheet.addEventListener('touchmove', (e)=>{
+      if (!tracking || !isMobileView()) return;
+      currentY = e.changedTouches[0].clientY;
+    }, { passive:true });
+
+    sheet.addEventListener('touchend', ()=>{
+      if (!tracking || !isMobileView()) return;
+      tracking = false;
+      const diff = currentY - startY;
+      if (Math.abs(diff) < 45) return;
+      if (diff < 0) setSheetOpen(true);   // arriba abre
+      else setSheetOpen(false);           // abajo contrae
+    }, { passive:true });
+
+    document.getElementById('btnSheetHide')?.addEventListener('click', ()=>setSheetOpen(false));
+    document.getElementById('btnSheetCenter')?.addEventListener('click', ()=>centerOnDriver(17));
+    document.getElementById('btnMobileCenter')?.addEventListener('click', ()=>centerOnDriver(17));
+
+    document.getElementById('btnSheetDirections')?.addEventListener('click', ()=>{
+      setSheetTab('steps');
+      if (isMobileView()) promptSwipeUp();
+      else setSheetOpen(true);
+    });
+
+    document.getElementById('btnMobileSheetHint')?.addEventListener('click', promptSwipeUp);
+
+    document.querySelectorAll('#rp-driver-pro .sheet-tab').forEach(btn=>{
+      btn.addEventListener('click', ()=>setSheetTab(btn.dataset.sheetTab));
+    });
+
+    document.getElementById('btnMobileTraffic')?.addEventListener('click', function(){
+      if (!trafficLayer || !map) return;
+      const active = this.classList.toggle('is-active');
+      trafficLayer.setMap(active ? map : null);
+    });
+  }
 
   /* ===== Utils ===== */
   const mm = (s)=> Math.round((s||0)/60);
@@ -1011,10 +1521,22 @@
 
   function renderAdvice(md){ document.getElementById('advice').innerHTML = mdToHtml(md||'Sin observaciones.'); }
   function renderKPIsDistance(payload){
-    const m=Number(payload?.routes?.[0]?.total_m||0);
-    document.getElementById('totalKm').textContent=m?(m/1000).toFixed(1):'—';
-    const mins = Math.max(1, Math.round(Number(payload?.routes?.[0]?.total_sec||0)/60));
-    document.getElementById('kpiTotal').textContent = `${mins} min`;
+    const r0 = payload?.routes?.[0] || {};
+    const m=Number(r0.total_m||0);
+    const sec=Number(r0.total_sec||0);
+    const mins = sec ? Math.max(1, Math.round(sec/60)) : 0;
+    const kmText = m ? (m/1000).toFixed(1) : '—';
+    const timeText = mins ? `${mins} min` : '—';
+
+    document.getElementById('totalKm').textContent=kmText;
+    document.getElementById('kpiTotal').textContent = timeText;
+
+    const sheetDuration = document.getElementById('sheetDuration');
+    const sheetDistance = document.getElementById('sheetDistance');
+    const sheetEta = document.getElementById('sheetEta');
+    if (sheetDuration) sheetDuration.textContent = timeText;
+    if (sheetDistance) sheetDistance.textContent = m ? `${kmText} km` : '— km';
+    if (sheetEta) sheetEta.textContent = currentPos ? 'Ruta activa' : 'Ruta';
   }
 
   function drawAll(payload){
@@ -1163,15 +1685,22 @@
       async (err)=>{
         const msg =
           err.code===1 ? 'Permiso de ubicación denegado. Actívalo en tu navegador.' :
-          err.code===2 ? 'No se pudo obtener señal GPS.' :
-          err.code===3 ? 'El GPS tardó demasiado (timeout).' :
+          err.code===2 ? 'No se pudo obtener señal GPS. Acércate a una ventana o activa precisión alta.' :
+          err.code===3 ? 'Buscando señal GPS… puede tardar unos segundos.' :
           (err.message || 'Error de GPS');
+
+        if (err.code === 3) {
+          mapToast(msg);
+          dbgChip('GPS buscando señal');
+          await sendClientLog('warning', 'gps timeout soft', { code: err.code, message: err.message });
+          return;
+        }
 
         showToast(msg, false);
         dbgChip('GPS: ' + msg, true);
         await sendClientLog('error', 'gps error', { code: err.code, message: err.message });
       },
-      { enableHighAccuracy:true, maximumAge:5000, timeout:20000 }
+      { enableHighAccuracy:true, maximumAge:10000, timeout:45000 }
     );
   }
 
@@ -1180,6 +1709,20 @@
       navigator.geolocation.clearWatch(watcherId);
       watcherId=null;
     }
+  }
+
+  function getCurrentPositionPromise(options){
+    return new Promise((resolve, reject)=>{
+      navigator.geolocation.getCurrentPosition(
+        p=>resolve({
+          lat:p.coords.latitude,
+          lng:p.coords.longitude,
+          accuracy:p.coords.accuracy ?? null,
+        }),
+        err=>reject(err),
+        options
+      );
+    });
   }
 
   async function requestGpsOnce(){
@@ -1192,24 +1735,43 @@
       return null;
     }
 
-    try{
-      const pos = await new Promise((resolve, reject)=>{
-        navigator.geolocation.getCurrentPosition(
-          p=>resolve({lat:p.coords.latitude,lng:p.coords.longitude}),
-          err=>reject(err),
-          { enableHighAccuracy:true, timeout:12000, maximumAge:5000 }
-        );
-      });
+    gpsSoftTimeoutShown = false;
+    mapToast('Buscando ubicación…');
 
-      currentPos = pos;
+    try{
+      let pos = null;
+
+      // 1) intento rápido usando ubicación cacheada si el navegador la tiene.
+      try {
+        pos = await getCurrentPositionPromise({
+          enableHighAccuracy:false,
+          timeout:7000,
+          maximumAge:60000
+        });
+      } catch (fastErr) {
+        if (fastErr?.code === 1) throw fastErr;
+        gpsSoftTimeoutShown = true;
+        mapToast('Sigo buscando GPS con alta precisión…');
+      }
+
+      // 2) si el rápido no alcanzó, alta precisión con más tiempo.
+      if (!pos) {
+        pos = await getCurrentPositionPromise({
+          enableHighAccuracy:true,
+          timeout:45000,
+          maximumAge:15000
+        });
+      }
+
+      currentPos = { lat: pos.lat, lng: pos.lng };
       dbgChip('GPS listo: ' + pos.lat.toFixed(5) + ', ' + pos.lng.toFixed(5));
-      await saveDriverLocation(pos);
-      return pos;
+      await saveDriverLocation(currentPos);
+      return currentPos;
     }catch(err){
       const msg =
         err?.code===1 ? 'Permiso denegado. Actívalo desde el candado.' :
-        err?.code===2 ? 'No se pudo obtener señal GPS.' :
-        err?.code===3 ? 'El GPS tardó demasiado.' :
+        err?.code===2 ? 'No se pudo obtener señal GPS. Activa ubicación precisa y datos móviles.' :
+        err?.code===3 ? 'No llegó señal GPS. Intenta de nuevo en exterior o con datos activos.' :
         (err?.message || 'No se pudo obtener ubicación');
 
       showToast(msg, false);
@@ -1510,6 +2072,7 @@
   window.initGoogleDriverMap = async function () {
     try {
       initMap();
+      initMobileSheet();
       await autoBoot();
     } catch (e) {
       dbgChip('No se pudo iniciar Google Maps: ' + String(e), true);
