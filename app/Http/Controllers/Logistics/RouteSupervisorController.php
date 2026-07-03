@@ -3,25 +3,30 @@
 namespace App\Http\Controllers\Logistics;
 
 use App\Http\Controllers\Controller;
+use App\Models\DriverPosition;
 use App\Models\RoutePlan;
 use App\Models\RouteStop;
-use App\Models\DriverPosition;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class RouteSupervisorController extends Controller
 {
+    /**
+     * Valida que el usuario pueda ver el supervisor.
+     * Si usas Spatie, bloquea a cliente_web.
+     */
     private function canUserManage(): bool
     {
-        $u = Auth::user();
+        $user = Auth::user();
 
-        if (!$u) {
+        if (!$user) {
             return false;
         }
 
-        if (class_exists(\Spatie\Permission\Models\Role::class) && method_exists($u, 'hasRole')) {
-            return !$u->hasRole('cliente_web');
+        if (class_exists(\Spatie\Permission\Models\Role::class) && method_exists($user, 'hasRole')) {
+            return !$user->hasRole('cliente_web');
         }
 
         return true;
@@ -32,6 +37,19 @@ class RouteSupervisorController extends Controller
         abort_unless($this->canUserManage(), 403);
     }
 
+    /**
+     * Configuración de presencia.
+     *
+     * online_seconds:
+     *   Cuánto tiempo se considera "en vivo".
+     *
+     * warn_seconds:
+     *   Cuándo mostrar advertencia de señal tardía.
+     *
+     * fresh_position_minutes:
+     *   Si la última ubicación tiene más de estos minutos,
+     *   NO se manda como last_position para evitar pintar puntos viejos.
+     */
     private function presenceConfig(): array
     {
         return [
@@ -41,33 +59,39 @@ class RouteSupervisorController extends Controller
         ];
     }
 
-    private function lastSeenAt(?DriverPosition $last): ?\Illuminate\Support\Carbon
+    /**
+     * Obtiene la fecha real más confiable de una posición.
+     */
+    private function lastSeenAt(?DriverPosition $position): ?Carbon
     {
-        if (!$last) {
+        if (!$position) {
             return null;
         }
 
-        if (!empty($last->received_at)) {
-            return \Illuminate\Support\Carbon::parse($last->received_at);
+        if (!empty($position->received_at)) {
+            return Carbon::parse($position->received_at);
         }
 
-        if (!empty($last->captured_at)) {
-            return \Illuminate\Support\Carbon::parse($last->captured_at);
+        if (!empty($position->captured_at)) {
+            return Carbon::parse($position->captured_at);
         }
 
-        if (!empty($last->created_at)) {
-            return \Illuminate\Support\Carbon::parse($last->created_at);
+        if (!empty($position->created_at)) {
+            return Carbon::parse($position->created_at);
         }
 
         return null;
     }
 
-    private function presencePayload(?DriverPosition $last): array
+    /**
+     * Estado de presencia para el panel del supervisor.
+     */
+    private function presencePayload(?DriverPosition $position): array
     {
-        $cfg = $this->presenceConfig();
-        $seen = $this->lastSeenAt($last);
+        $config = $this->presenceConfig();
+        $seenAt = $this->lastSeenAt($position);
 
-        if (!$seen) {
+        if (!$seenAt) {
             return [
                 'state' => 'offline',
                 'last_seen_at' => null,
@@ -78,27 +102,35 @@ class RouteSupervisorController extends Controller
             ];
         }
 
-        $age = now()->diffInSeconds($seen);
-        $online = $age <= $cfg['online_seconds'];
+        $age = now()->diffInSeconds($seenAt);
+        $online = $age <= $config['online_seconds'];
 
         return [
             'state' => $online ? 'online' : 'offline',
-            'last_seen_at' => $seen->toIso8601String(),
+            'last_seen_at' => $seenAt->toIso8601String(),
             'stale_seconds' => $age,
-            'warn' => $age >= $cfg['warn_seconds'],
-            'disconnected_at' => $online ? null : $seen->toIso8601String(),
+            'warn' => $age >= $config['warn_seconds'],
+            'disconnected_at' => $online ? null : $seenAt->toIso8601String(),
             'message' => $online ? 'Chofer en vivo' : 'Ubicación vencida',
         ];
     }
 
-    private function buildPositionPayload(?DriverPosition $last): ?array
+    /**
+     * Convierte una posición de DB a JSON para el supervisor.
+     *
+     * IMPORTANTE:
+     * Para el supervisor se manda lat/lng reales del GPS.
+     * snap_lat/snap_lng se dejan como datos informativos, pero el Blade
+     * debe pintar lat/lng para no mover al chofer a una calle incorrecta.
+     */
+    private function buildPositionPayload(?DriverPosition $position): ?array
     {
-        if (!$last) {
+        if (!$position) {
             return null;
         }
 
-        $lat = $last->lat !== null ? (float) $last->lat : null;
-        $lng = $last->lng !== null ? (float) $last->lng : null;
+        $lat = $position->lat !== null ? (float) $position->lat : null;
+        $lng = $position->lng !== null ? (float) $position->lng : null;
 
         if ($lat === null || $lng === null) {
             return null;
@@ -108,35 +140,43 @@ class RouteSupervisorController extends Controller
             return null;
         }
 
-        $seen = $this->lastSeenAt($last);
+        if (abs($lat) > 90 || abs($lng) > 180) {
+            return null;
+        }
+
+        $seenAt = $this->lastSeenAt($position);
 
         return [
-            'id' => $last->id,
+            'id' => $position->id,
+            'user_id' => $position->user_id,
 
-            // Para supervisor usamos GPS real, no snap.
             'lat' => $lat,
             'lng' => $lng,
 
-            // Los dejamos informativos, pero el Blade debe pintar lat/lng.
-            'snap_lat' => $last->snap_lat !== null ? (float) $last->snap_lat : null,
-            'snap_lng' => $last->snap_lng !== null ? (float) $last->snap_lng : null,
-            'snap_place_id' => $last->snap_place_id ?? null,
+            'snap_lat' => $position->snap_lat !== null ? (float) $position->snap_lat : null,
+            'snap_lng' => $position->snap_lng !== null ? (float) $position->snap_lng : null,
+            'snap_place_id' => $position->snap_place_id ?? null,
 
-            'accuracy' => $last->accuracy,
-            'speed' => $last->speed,
-            'heading' => $last->heading,
+            'accuracy' => $position->accuracy !== null ? (float) $position->accuracy : null,
+            'speed' => $position->speed !== null ? (float) $position->speed : null,
+            'heading' => $position->heading !== null ? (float) $position->heading : null,
 
-            'captured_at' => optional($last->captured_at)->toIso8601String(),
-            'received_at' => optional($last->received_at)->toIso8601String(),
-            'seen_at' => $seen?->toIso8601String(),
+            'captured_at' => optional($position->captured_at)->toIso8601String(),
+            'received_at' => optional($position->received_at)->toIso8601String(),
+            'seen_at' => $seenAt?->toIso8601String(),
 
-            'app_state' => $last->app_state ?? null,
-            'battery' => $last->battery ?? null,
-            'network' => $last->network ?? null,
-            'is_mocked' => $last->is_mocked ?? null,
+            'app_state' => $position->app_state ?? null,
+            'battery' => $position->battery !== null ? (float) $position->battery : null,
+            'network' => $position->network ?? null,
+            'is_mocked' => $position->is_mocked,
         ];
     }
 
+    /**
+     * Última ubicación reciente del chofer.
+     *
+     * Esta es la que SÍ se manda como last_position al supervisor.
+     */
     private function latestFreshDriverPosition(?int $driverId): ?DriverPosition
     {
         if (!$driverId) {
@@ -146,8 +186,8 @@ class RouteSupervisorController extends Controller
         $cutoff = now()->subMinutes($this->presenceConfig()['fresh_position_minutes']);
 
         return DriverPosition::where('user_id', $driverId)
-            ->where(function ($q) use ($cutoff) {
-                $q->where('received_at', '>=', $cutoff)
+            ->where(function ($query) use ($cutoff) {
+                $query->where('received_at', '>=', $cutoff)
                     ->orWhere('captured_at', '>=', $cutoff)
                     ->orWhere('created_at', '>=', $cutoff);
             })
@@ -155,6 +195,11 @@ class RouteSupervisorController extends Controller
             ->first();
     }
 
+    /**
+     * Última ubicación guardada aunque sea vieja.
+     *
+     * Solo se usa para debug en Network/logs, NO para pintar el marcador.
+     */
     private function latestAnyDriverPosition(?int $driverId): ?DriverPosition
     {
         if (!$driverId) {
@@ -166,6 +211,9 @@ class RouteSupervisorController extends Controller
             ->first();
     }
 
+    /**
+     * Vista HTML del supervisor.
+     */
     public function show(RoutePlan $routePlan)
     {
         $this->canManage();
@@ -175,7 +223,10 @@ class RouteSupervisorController extends Controller
         return view('supervisor.routes.show', compact('routePlan'));
     }
 
-    public function poll(RoutePlan $routePlan, Request $r)
+    /**
+     * Endpoint JSON que consume el Blade del supervisor.
+     */
+    public function poll(RoutePlan $routePlan, Request $request)
     {
         $this->canManage();
 
@@ -197,8 +248,8 @@ class RouteSupervisorController extends Controller
         $freshLast = $this->latestFreshDriverPosition($routePlan->driver_id);
         $anyLast = $this->latestAnyDriverPosition($routePlan->driver_id);
 
-        $pos = $this->buildPositionPayload($freshLast);
-        $presence = $this->presencePayload($freshLast);
+        $positionPayload = $this->buildPositionPayload($freshLast);
+        $presencePayload = $this->presencePayload($freshLast);
 
         $done = (int) $stops->where('status', 'done')->count();
         $total = (int) $stops->count();
@@ -206,12 +257,20 @@ class RouteSupervisorController extends Controller
 
         Log::info('supervisor.route.poll', [
             'route_plan_id' => $routePlan->id,
+            'route_name' => $routePlan->name,
             'driver_id' => $routePlan->driver_id,
+            'driver_name' => $routePlan->driver?->name,
+
             'fresh_position_id' => $freshLast?->id,
+            'fresh_position_user_id' => $freshLast?->user_id,
             'fresh_seen_at' => $this->lastSeenAt($freshLast)?->toDateTimeString(),
+
             'any_position_id' => $anyLast?->id,
+            'any_position_user_id' => $anyLast?->user_id,
             'any_seen_at' => $this->lastSeenAt($anyLast)?->toDateTimeString(),
-            'has_live_position' => $pos !== null,
+
+            'has_live_position' => $positionPayload !== null,
+            'server_time' => now()->toDateTimeString(),
         ]);
 
         return response()->json([
@@ -232,15 +291,28 @@ class RouteSupervisorController extends Controller
             'driver' => [
                 'id' => $routePlan->driver_id,
                 'name' => $routePlan->driver?->name,
-                'presence' => $presence,
-                'last_position' => $pos,
+                'presence' => $presencePayload,
 
-                // Esto es solo para depurar en Network.
+                /**
+                 * Esta es la única ubicación que debe pintar el mapa.
+                 * Si viene null, el Blade debe quitar el marcador y mostrar
+                 * "Sin ubicación reciente".
+                 */
+                'last_position' => $positionPayload,
+
+                /**
+                 * Debug para Network:
+                 * Te dice cuál fue la última posición guardada aunque sea vieja.
+                 */
                 'debug_last_saved' => [
                     'id' => $anyLast?->id,
+                    'user_id' => $anyLast?->user_id,
                     'seen_at' => $this->lastSeenAt($anyLast)?->toIso8601String(),
                     'lat' => $anyLast?->lat !== null ? (float) $anyLast->lat : null,
                     'lng' => $anyLast?->lng !== null ? (float) $anyLast->lng : null,
+                    'created_at' => optional($anyLast?->created_at)->toIso8601String(),
+                    'captured_at' => optional($anyLast?->captured_at)->toIso8601String(),
+                    'received_at' => optional($anyLast?->received_at)->toIso8601String(),
                 ],
             ],
 

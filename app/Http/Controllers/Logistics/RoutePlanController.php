@@ -792,99 +792,216 @@ class RoutePlanController extends Controller
         return view('driver.routes.show', compact('routePlan', 'stops'));
     }
 
+
+    private function resolveLocationTargetUserId(Request $request): int
+    {
+        $authUser = Auth::user();
+        abort_unless($authUser, 401);
+
+        $targetUserId = (int) $authUser->id;
+        $routePlanId = $request->input('route_plan_id') ?: $request->query('route_plan_id');
+
+        if ($routePlanId) {
+            $routePlan = RoutePlan::query()->find($routePlanId);
+
+            if ($routePlan && $routePlan->driver_id) {
+                $targetUserId = (int) $routePlan->driver_id;
+            }
+        }
+
+        return $targetUserId;
+    }
+
     public function saveDriverLocation(Request $r)
     {
-        $u = Auth::user(); abort_unless($u, 401);
+        $authUser = Auth::user();
+        abort_unless($authUser, 401);
 
         $data = $r->validate([
-            'lat' => ['required', 'numeric'],
-            'lng' => ['required', 'numeric'],
+            'route_plan_id' => ['nullable', 'integer', 'exists:route_plans,id'],
+            'route_driver_id' => ['nullable', 'integer'],
+            'auth_user_id' => ['nullable', 'integer'],
+
+            'lat' => ['required', 'numeric', 'between:-90,90'],
+            'lng' => ['required', 'numeric', 'between:-180,180'],
             'accuracy' => ['nullable', 'numeric'],
-            'speed'    => ['nullable', 'numeric'],
-            'heading'  => ['nullable', 'numeric'],
+            'speed' => ['nullable', 'numeric'],
+            'heading' => ['nullable', 'numeric'],
             'captured_at' => ['nullable', 'date'],
-            'app_state' => ['nullable', 'string', 'max:30'],
-            'battery'   => ['nullable', 'integer', 'min:0', 'max:100'],
-            'network'   => ['nullable', 'string', 'max:30'],
+
+            'app_state' => ['nullable', 'string', 'max:80'],
+            'battery' => ['nullable', 'numeric'],
+            'network' => ['nullable', 'string', 'max:80'],
             'is_mocked' => ['nullable', 'boolean'],
         ]);
 
-        $lat = (float)$data['lat'];
-        $lng = (float)$data['lng'];
-        $acc = isset($data['accuracy']) ? (float)$data['accuracy'] : null;
+        $lat = (float) $data['lat'];
+        $lng = (float) $data['lng'];
+        $accuracy = isset($data['accuracy']) ? (float) $data['accuracy'] : null;
 
-        if (abs($lat) < 0.0000001 && abs($lng) < 0.0000001) {
-            return response()->json(['ok'=>false,'message'=>'GPS inválido (0,0)'], 422);
-        }
-        if (abs($lat) > 90 || abs($lng) > 180) {
-            return response()->json(['ok'=>false,'message'=>'GPS fuera de rango'], 422);
-        }
-
-        if ($acc !== null && $acc > 200) {
-            return response()->json(['ok'=>false,'message'=>'Precisión muy baja (accuracy alto)'], 202);
+        if (!$this->validLatLng($lat, $lng)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'GPS inválido.',
+            ], 422);
         }
 
-        $prev = DriverPosition::where('user_id', $u->id)->latest('captured_at')->first();
-        $capAt = !empty($data['captured_at']) ? \Illuminate\Support\Carbon::parse($data['captured_at']) : now();
+        if ($accuracy !== null && $accuracy > 500) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Precisión muy baja. Intenta moverte a un lugar con mejor señal.',
+            ], 202);
+        }
 
-        if ($prev && $prev->lat !== null && $prev->lng !== null && $prev->captured_at) {
-            $prevAt = \Illuminate\Support\Carbon::parse($prev->captured_at);
-            if ($capAt->diffInSeconds($prevAt) <= 15) {
-                $dist = $this->haversineMeters((float)$prev->lat, (float)$prev->lng, $lat, $lng);
-                if ($dist > 2000) {
-                    return response()->json(['ok'=>false,'message'=>'Salto GPS detectado'], 202);
+        $routePlan = null;
+        $targetUserId = (int) $authUser->id;
+
+        if (!empty($data['route_plan_id'])) {
+            $routePlan = RoutePlan::query()->find((int) $data['route_plan_id']);
+
+            if ($routePlan && $routePlan->driver_id) {
+                $targetUserId = (int) $routePlan->driver_id;
+            }
+        }
+
+        $capturedAt = !empty($data['captured_at'])
+            ? \Illuminate\Support\Carbon::parse($data['captured_at'])
+            : now();
+
+        $prev = DriverPosition::where('user_id', $targetUserId)
+            ->orderByRaw('COALESCE(received_at, captured_at, created_at) DESC')
+            ->first();
+
+        if ($prev && $prev->lat !== null && $prev->lng !== null) {
+            $prevSeen = $this->lastSeenAt($prev);
+
+            if ($prevSeen && $capturedAt->diffInSeconds($prevSeen) <= 15) {
+                $dist = $this->haversineMeters(
+                    (float) $prev->lat,
+                    (float) $prev->lng,
+                    $lat,
+                    $lng
+                );
+
+                if ($dist > 2500) {
+                    Log::warning('driver.location.jump_detected', [
+                        'auth_user_id' => $authUser->id,
+                        'target_user_id' => $targetUserId,
+                        'route_plan_id' => $routePlan?->id,
+                        'prev_position_id' => $prev->id,
+                        'distance_m' => $dist,
+                        'lat' => $lat,
+                        'lng' => $lng,
+                    ]);
+
+                    return response()->json([
+                        'ok' => false,
+                        'message' => 'Salto GPS detectado. Intenta de nuevo.',
+                    ], 202);
                 }
             }
         }
 
-        $snapLat = null; $snapLng = null; $snapDist = null;
-        try {
-            $near = $this->osrm->nearest(['lat'=>$lat,'lng'=>$lng], ['number'=>1]);
-            if (($near['code'] ?? '') === 'Ok' && !empty($near['waypoints'][0]['location'])) {
-                $loc = $near['waypoints'][0]['location'];
-                $snapLng = isset($loc[0]) ? (float)$loc[0] : null;
-                $snapLat = isset($loc[1]) ? (float)$loc[1] : null;
-                if (isset($near['waypoints'][0]['distance'])) {
-                    $snapDist = (int) round($near['waypoints'][0]['distance']);
-                }
-            }
-        } catch (\Throwable $e) {
-        }
-
-        DriverPosition::create([
-            'user_id'     => $u->id,
-            'lat'         => $lat,
-            'lng'         => $lng,
-            'accuracy'    => $data['accuracy'] ?? null,
-            'speed'       => $data['speed'] ?? null,
-            'heading'     => $data['heading'] ?? null,
-            'captured_at' => $data['captured_at'] ?? now(),
+        $payload = [
+            'user_id' => $targetUserId,
+            'lat' => $lat,
+            'lng' => $lng,
+            'accuracy' => $data['accuracy'] ?? null,
+            'speed' => $data['speed'] ?? null,
+            'heading' => $data['heading'] ?? null,
+            'captured_at' => $capturedAt,
             'received_at' => now(),
             'app_state' => $data['app_state'] ?? null,
-            'battery'   => $data['battery'] ?? null,
-            'network'   => $data['network'] ?? null,
+            'battery' => $data['battery'] ?? null,
+            'network' => $data['network'] ?? null,
             'is_mocked' => $data['is_mocked'] ?? null,
-            'snap_lat' => $snapLat,
-            'snap_lng' => $snapLng,
-            'snap_distance_m' => $snapDist,
+        ];
+
+        if (Schema::hasColumn('driver_positions', 'snap_lat')) {
+            $payload['snap_lat'] = null;
+        }
+
+        if (Schema::hasColumn('driver_positions', 'snap_lng')) {
+            $payload['snap_lng'] = null;
+        }
+
+        if (Schema::hasColumn('driver_positions', 'snap_distance_m')) {
+            $payload['snap_distance_m'] = null;
+        }
+
+        if (Schema::hasColumn('driver_positions', 'snap_place_id')) {
+            $payload['snap_place_id'] = null;
+        }
+
+        try {
+            $position = DriverPosition::create($payload);
+        } catch (\Throwable $e) {
+            Log::error('driver.location.save.failed', [
+                'auth_user_id' => $authUser->id,
+                'target_user_id' => $targetUserId,
+                'route_plan_id' => $routePlan?->id,
+                'payload' => $payload,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'message' => 'No se pudo guardar la ubicación.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+
+        Log::info('driver.location.saved', [
+            'position_id' => $position->id,
+            'auth_user_id' => $authUser->id,
+            'saved_user_id' => $position->user_id,
+            'route_plan_id' => $routePlan?->id,
+            'route_driver_id' => $routePlan?->driver_id,
+            'lat' => $position->lat,
+            'lng' => $position->lng,
+            'accuracy' => $position->accuracy,
+            'received_at' => optional($position->received_at)->toDateTimeString(),
         ]);
 
-        return response()->json(['ok' => true], 200);
+        return response()->json([
+            'ok' => true,
+            'id' => $position->id,
+            'auth_user_id' => $authUser->id,
+            'saved_user_id' => $position->user_id,
+            'route_plan_id' => $routePlan?->id,
+            'route_driver_id' => $routePlan?->driver_id,
+            'lat' => (float) $position->lat,
+            'lng' => (float) $position->lng,
+            'accuracy' => $position->accuracy,
+            'captured_at' => optional($position->captured_at)->toIso8601String(),
+            'received_at' => optional($position->received_at)->toIso8601String(),
+        ], 200);
     }
 
-    public function getDriverLocation()
+    public function getDriverLocation(Request $request)
     {
-        $u = Auth::user(); abort_unless($u, 401);
+        $authUser = Auth::user();
+        abort_unless($authUser, 401);
 
-        $last = DriverPosition::where('user_id', $u->id)
-            ->latest('captured_at')
+        $targetUserId = $this->resolveLocationTargetUserId($request);
+
+        $last = DriverPosition::where('user_id', $targetUserId)
+            ->orderByRaw('COALESCE(received_at, captured_at, created_at) DESC')
             ->first();
 
         return response()->json([
-            'lat' => $last?->lat,
-            'lng' => $last?->lng,
+            'ok' => true,
+            'auth_user_id' => $authUser->id,
+            'target_user_id' => $targetUserId,
+            'found' => (bool) $last,
+            'id' => $last?->id,
+            'lat' => $last?->lat !== null ? (float) $last->lat : null,
+            'lng' => $last?->lng !== null ? (float) $last->lng : null,
+            'accuracy' => $last?->accuracy,
+            'speed' => $last?->speed,
+            'heading' => $last?->heading,
             'captured_at' => optional($last?->captured_at)->toIso8601String(),
-            'received_at' => $this->lastSeenAt($last)?->toIso8601String(),
+            'received_at' => optional($last?->received_at)->toIso8601String(),
             'presence' => $this->presencePayload($last),
         ], 200);
     }
@@ -896,7 +1013,7 @@ class RoutePlanController extends Controller
         abort_unless($ok, 403);
 
         $last = DriverPosition::where('user_id', $routePlan->driver_id)
-            ->latest('captured_at')
+            ->orderByRaw('COALESCE(received_at, captured_at, created_at) DESC')
             ->first();
 
         $stops = $routePlan->stops()
@@ -1000,7 +1117,9 @@ class RoutePlanController extends Controller
         $startLng = $this->normalizeCoord($r->input('start_lng'));
 
         if (!$this->validLatLng($startLat, $startLng)) {
-            $last = DriverPosition::where('user_id', Auth::id())->latest('captured_at')->first();
+            $last = DriverPosition::where('user_id', $routePlan->driver_id ?: Auth::id())
+                ->orderByRaw('COALESCE(received_at, captured_at, created_at) DESC')
+                ->first();
             if (!$last) return response()->json(['message'=>'No hay ubicación actual del chofer.'], 422);
             $startLat = $this->normalizeCoord($last->lat);
             $startLng = $this->normalizeCoord($last->lng);
@@ -1034,7 +1153,9 @@ class RoutePlanController extends Controller
         }
 
         if (!$this->validLatLng($startLat, $startLng)) {
-            $last = DriverPosition::where('user_id', Auth::id())->latest('captured_at')->first();
+            $last = DriverPosition::where('user_id', $routePlan->driver_id ?: Auth::id())
+                ->orderByRaw('COALESCE(received_at, captured_at, created_at) DESC')
+                ->first();
             if (!$last) {
                 return response()->json(['message' => 'No hay ubicación actual del chofer. Toca “Usar mi ubicación”.'], 422);
             }

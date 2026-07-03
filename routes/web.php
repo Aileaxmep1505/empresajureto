@@ -2634,3 +2634,15 @@ Route::middleware(['auth'])
 
     Route::post('/routes/google/estimate', [RouteGoogleController::class, 'estimate'])
     ->name('routes.google.estimate');
+
+    use App\Http\Controllers\Logistics\DriverLocationController;
+
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::post('/api/driver/location/save', [RoutePlanController::class, 'saveDriverLocation'])
+        ->name('api.driver.location.save');
+
+    Route::get('/api/driver/location/last', [RoutePlanController::class, 'getDriverLocation'])
+        ->name('api.driver.location.last');
+});

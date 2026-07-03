@@ -1,4 +1,4 @@
-{{-- resources/views/ruta/show.blade.php --}}
+{{-- resources/views/driver/routes/show.blade.php --}}
 @extends('layouts.app')
 @section('title','Mi ruta')
 @section('content_class', 'content--flush')
@@ -1211,8 +1211,17 @@
 
   /* ===== Datos servidor ===== */
   const planId        = {{ $routePlan->id }};
+  const routeDriverId = @json($routePlan->driver_id);
+  const authUserId    = @json(auth()->id());
   const initialStops  = @json($stops);
   const csrf          = @json(csrf_token());
+
+  console.log('[DRIVER_SESSION_DEBUG]', {
+    authUserId,
+    routePlanId: planId,
+    routeDriverId,
+    routeDriverName: @json($routePlan->driver->name ?? null),
+  });
 
   // ✅ Nuevas rutas: start bloquea el orden 1 vez
   const URL_START     = @json(route('api.routes.start', $routePlan));
@@ -1223,7 +1232,17 @@
   const URL_LAST_LOC  = @json(route('api.driver.location.last'));
   const URL_LIVE      = @json(route('api.routes.live', $routePlan));
 
-  dlog('boot', { planId, initialStopsCount: (initialStops||[]).length, URL_START, URL_COMPUTE, URL_RECOMPUTE });
+  dlog('boot', { 
+    planId, 
+    routeDriverId,
+    authUserId,
+    initialStopsCount: (initialStops||[]).length, 
+    URL_START, 
+    URL_COMPUTE, 
+    URL_RECOMPUTE,
+    URL_SAVE_LOC,
+    URL_LAST_LOC
+  });
 
   /* ===== Estado ===== */
   let map, meMarker, mainLine, alt1Line, alt2Line, segLines = [];
@@ -1520,7 +1539,7 @@
       trafficToggle.addEventListener('change', () => {
         trafficEnabled = trafficToggle.checked;
         trafficLayer.setMap(trafficEnabled ? map : null);
-        showNavToast(trafficEnabled ? 'Tráfico activado' : 'Tráfico oculto');
+        mapToast(trafficEnabled ? 'Tráfico activado' : 'Tráfico oculto');
       });
     }
 
@@ -1529,7 +1548,7 @@
         trafficEnabled = !trafficEnabled;
         if (trafficToggle) trafficToggle.checked = trafficEnabled;
         trafficLayer.setMap(trafficEnabled ? map : null);
-        showNavToast(trafficEnabled ? 'Tráfico activado' : 'Tráfico oculto');
+        mapToast(trafficEnabled ? 'Tráfico activado' : 'Tráfico oculto');
       });
     }
   }
@@ -1928,22 +1947,69 @@
   }
 
   /* ===== Persistencia ===== */
-  async function saveDriverLocation(pos){
-    const payload = { lat: pos.lat, lng: pos.lng, captured_at: new Date().toISOString() };
+  async function saveDriverLocation(pos) {
+    if (!pos || !pos.lat || !pos.lng) {
+      showToast('Ubicación inválida, no se guardó.', false);
+      return false;
+    }
+
+    const payload = {
+      route_plan_id: planId,
+      route_driver_id: routeDriverId,
+      auth_user_id: authUserId,
+
+      lat: pos.lat,
+      lng: pos.lng,
+      accuracy: pos.accuracy ?? null,
+      speed: pos.speed ?? null,
+      heading: pos.heading ?? null,
+      captured_at: new Date().toISOString(),
+
+      app_state: document.visibilityState || null,
+      battery: null,
+      network: navigator.connection?.effectiveType || null,
+      is_mocked: null,
+    };
+
+    try {
+      if (navigator.getBattery) {
+        const battery = await navigator.getBattery();
+        payload.battery = Math.round((battery.level || 0) * 100);
+      }
+    } catch (e) {}
+
+    console.log('[SAVE_DRIVER_LOCATION_REQUEST]', {
+      url: URL_SAVE_LOC,
+      payload,
+    });
 
     const r = await safeJsonFetch(URL_SAVE_LOC, fopts({
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'Accept':'application/json',
-        'X-CSRF-TOKEN': csrf
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': csrf,
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     }));
 
-    if (!r.ok){
-      await sendClientLog('error', 'saveDriverLocation failed', { r });
+    console.log('[SAVE_DRIVER_LOCATION_RESPONSE]', r);
+
+    if (!r.ok || !r.data?.ok) {
+      showToast('No se guardó la ubicación. Revisa sesión/API.', false);
+      dbgChip('No se guardó ubicación', true);
+
+      await sendClientLog('error', 'saveDriverLocation failed', {
+        response: r,
+        payload,
+        url: URL_SAVE_LOC,
+      });
+
+      return false;
     }
+
+    dbgChip('Ubicación guardada #' + r.data.id);
+    return true;
   }
 
   function startWatching(){
@@ -1961,7 +2027,13 @@
 
     watcherId = navigator.geolocation.watchPosition(
       async (p)=>{
-        currentPos={ lat:p.coords.latitude, lng:p.coords.longitude };
+        currentPos={
+          lat:p.coords.latitude,
+          lng:p.coords.longitude,
+          accuracy:p.coords.accuracy ?? null,
+          heading:p.coords.heading ?? null,
+          speed:p.coords.speed ?? null,
+        };
 
         if (!didAutoZoom && lastPos){
           const toRad=d=>d*Math.PI/180, R=6371000;
@@ -2257,7 +2329,9 @@
 
     // 2) última ubicación guardada
     try{
-      const r = await safeJsonFetch(URL_LAST_LOC, fopts({ headers:{'Accept':'application/json'} }));
+      const r = await safeJsonFetch(URL_LAST_LOC + '?route_plan_id=' + encodeURIComponent(planId), fopts({
+        headers: { 'Accept':'application/json' }
+      }));
       if (r.ok && r.data?.lat && r.data?.lng){
         currentPos={ lat:Number(r.data.lat), lng:Number(r.data.lng) };
         await compute(currentPos);
