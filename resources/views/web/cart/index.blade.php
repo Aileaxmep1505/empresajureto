@@ -400,6 +400,149 @@
     word-break: break-all;
     display:block;
   }
+
+  /* Modal de confirmación blanco, compacto y con fondo borroso */
+  #cart .confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(17, 17, 17, 0.26);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  #cart .confirm-overlay.is-open {
+    display: flex;
+  }
+
+  #cart .confirm-modal {
+    width: min(430px, 100%);
+    background: #ffffff;
+    border: 1px solid #ebebeb;
+    border-radius: 16px;
+    padding: 22px 24px 18px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.14);
+    color: #111111;
+    transform: translateY(8px) scale(.985);
+    opacity: 0;
+    transition: transform .18s ease, opacity .18s ease;
+  }
+
+  #cart .confirm-overlay.is-open .confirm-modal {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  #cart .confirm-title {
+    margin: 0 0 22px;
+    font-size: 18px;
+    line-height: 1.25;
+    font-weight: 600;
+    color: #111111;
+    letter-spacing: -.01em;
+  }
+
+  #cart .confirm-message {
+    margin: 0 0 26px;
+    color: #555555;
+    font-size: 15px;
+    line-height: 1.45;
+    font-weight: 500;
+  }
+
+  #cart .confirm-message b,
+  #cart .confirm-message strong {
+    color: #111111;
+    font-weight: 700;
+  }
+
+  #cart .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+  }
+
+  #cart .confirm-actions button {
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 999px;
+    padding: 10px 18px;
+    transition: background .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+    outline: none;
+  }
+
+  #cart .btn-cancelar {
+    background: transparent;
+    color: #555555;
+    border: 1px solid #ebebeb;
+  }
+
+  #cart .btn-cancelar:hover {
+    background: #f9fafb;
+    color: #111111;
+  }
+
+  #cart .btn-eliminar {
+    background: #ff0033;
+    color: #ffffff;
+    border: 1px solid #ff0033;
+    box-shadow: 0 8px 18px rgba(255, 0, 51, .18);
+  }
+
+  #cart .btn-eliminar:hover {
+    background: #e6002e;
+    border-color: #e6002e;
+    box-shadow: 0 10px 24px rgba(255, 0, 51, .24);
+  }
+
+  #cart .btn-cancelar:active,
+  #cart .btn-eliminar:active {
+    transform: scale(.98);
+  }
+
+  @media (max-width: 520px) {
+    #cart .confirm-modal {
+      width: min(390px, 100%);
+      padding: 20px 20px 16px;
+    }
+
+    #cart .confirm-actions button {
+      padding: 9px 16px;
+    }
+  }
+
+    #cart .confirm-actions button {
+      padding: 9px 16px;
+    }
+  }
+
+    #cart .confirm-actions {
+      gap: 10px;
+    }
+
+    #cart .confirm-actions button {
+      padding: 8px 16px;
+    }
+  }
+
+    #cart .confirm-actions{
+      padding: 16px 18px 18px;
+      flex-direction: column-reverse;
+    }
+
+    #cart .confirm-actions .btn{
+      width: 100%;
+    }
+  }
+
 </style>
 
 <div id="cart">
@@ -513,7 +656,11 @@
                   </td>
 
                   <td class="cell-actions" style="text-align:right;">
-                    <form method="POST" action="{{ route('web.cart.remove') }}" onsubmit="return confirm('¿Quitar del carrito?')">
+                    <form method="POST" action="{{ route('web.cart.remove') }}"
+                          class="js-cart-confirm-form"
+                          data-confirm-title="¿Eliminar?"
+                          data-confirm-message="Esto eliminará <strong>este producto</strong> de tu carrito."
+                          data-confirm-action="Eliminar">
                       @csrf
                       <input type="hidden" name="catalog_item_id" value="{{ $row['id'] }}">
                       <button class="btn btn-danger" type="submit" aria-label="Quitar">
@@ -533,7 +680,11 @@
             <a class="btn btn-ghost" style="width: auto;" href="{{ route('web.catalog.index') }}">
               Seguir comprando
             </a>
-            <form method="POST" action="{{ route('web.cart.clear') }}" onsubmit="return confirm('¿Vaciar carrito por completo?')">
+            <form method="POST" action="{{ route('web.cart.clear') }}"
+              class="js-cart-confirm-form"
+              data-confirm-title="¿Vaciar carrito?"
+              data-confirm-message="Esto eliminará <strong>todos los productos</strong> de tu carrito."
+              data-confirm-action="Vaciar carrito">
               @csrf
               <button class="btn btn-ghost" style="width: auto; border-color: transparent; color: var(--muted);" type="submit">
                 Vaciar carrito
@@ -611,7 +762,24 @@
       @endif
     </div>
   </div>
-</div>
+
+
+
+  {{-- Modal de confirmación blanco y compacto --}}
+  <div class="confirm-overlay" id="cartConfirmOverlay" aria-hidden="true">
+    <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="cartConfirmTitle" aria-describedby="cartConfirmMessage">
+      <h2 class="confirm-title" id="cartConfirmTitle">¿Eliminar?</h2>
+
+      <p class="confirm-message" id="cartConfirmMessage">
+        Esto eliminará <strong>este producto</strong> de tu carrito.
+      </p>
+
+      <div class="confirm-actions">
+        <button type="button" class="btn-cancelar" id="cartConfirmCancel">Cancelar</button>
+        <button type="button" class="btn-eliminar" id="cartConfirmAccept">Eliminar</button>
+      </div>
+    </div>
+  </div>
 
 @push('scripts')
 <script>
@@ -729,8 +897,91 @@
     cartSet(id, Math.max(1,(parseInt(input.value||'1',10)-1)));
   }
 
+
+  let pendingConfirmForm = null;
+
+  function openCartConfirm(form){
+    pendingConfirmForm = form;
+
+    const overlay = document.getElementById('cartConfirmOverlay');
+    const title = document.getElementById('cartConfirmTitle');
+    const message = document.getElementById('cartConfirmMessage');
+    const accept = document.getElementById('cartConfirmAccept');
+
+    if (!overlay || !title || !message || !accept) {
+      form.submit();
+      return;
+    }
+
+    title.textContent = form.dataset.confirmTitle || '¿Confirmar acción?';
+    message.innerHTML = form.dataset.confirmMessage || 'Esta acción modificará tu carrito.';
+    accept.textContent = form.dataset.confirmAction || 'Eliminar';
+
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden', 'false');
+
+    setTimeout(() => accept.focus(), 80);
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeCartConfirm(){
+    const overlay = document.getElementById('cartConfirmOverlay');
+    if (!overlay) return;
+
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    pendingConfirmForm = null;
+  }
+
+  function submitPendingConfirm(){
+    if (!pendingConfirmForm) return;
+
+    const form = pendingConfirmForm;
+    pendingConfirmForm = null;
+    document.body.style.overflow = '';
+
+    const accept = document.getElementById('cartConfirmAccept');
+    if (accept) {
+      accept.disabled = true;
+      accept.textContent = 'Procesando...';
+    }
+
+    form.submit();
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     setFreeBar({{ json_encode($subtotal) }});
+
+
+    document.querySelectorAll('.js-cart-confirm-form').forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        openCartConfirm(form);
+      });
+    });
+
+    const confirmOverlay = document.getElementById('cartConfirmOverlay');
+    const confirmCancel = document.getElementById('cartConfirmCancel');
+    const confirmClose = document.getElementById('cartConfirmClose');
+    const confirmAccept = document.getElementById('cartConfirmAccept');
+
+    confirmCancel?.addEventListener('click', closeCartConfirm);
+    confirmClose?.addEventListener('click', closeCartConfirm);
+    confirmAccept?.addEventListener('click', submitPendingConfirm);
+
+    confirmOverlay?.addEventListener('click', (event) => {
+      if (event.target === confirmOverlay) {
+        closeCartConfirm();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeCartConfirm();
+      }
+    });
+
 
     console.log('--- CART IMG DEBUG (DOM) ---');
     document.querySelectorAll('#cartRows img.thumb').forEach((img, i) => {

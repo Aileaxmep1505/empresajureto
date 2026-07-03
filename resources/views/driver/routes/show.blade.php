@@ -1,7 +1,7 @@
 {{-- resources/views/ruta/show.blade.php --}}
 @extends('layouts.app')
 @section('title','Mi ruta')
-
+@section('content_class', 'content--flush')
 @section('content')
 @php
   /**
@@ -21,217 +21,341 @@
   } catch (\Throwable $e) {}
 @endphp
 
+{{-- Tipografía Quicksand + iconos --}}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"/>
+
 <div class="container-fluid p-0" id="rp-driver-pro">
   <style>
-    /* =========================
+    /* ==========================================================
        NAMESPACE #rp-driver-pro
-       ========================= */
+       Sistema de diseño limpio / minimalista (Quicksand, blanco)
+       ========================================================== */
     #rp-driver-pro{
-      --ink:#0e1726; --muted:#6b7280; --line:#e5e7eb; --bg:#f6f8fb; --card:#ffffff;
-      --brand:#6ea8fe; --brand-ink:#0b1220;
-      --ok:#86efac; --ok-ink:#064e3b;
-      --amber:#fde68a; --amber-ink:#7c2d12;
-      --red:#fecaca; --red-ink:#7f1d1d;
-      color:var(--ink); background:linear-gradient(180deg,#fbfdff,#f6f8fb);
-      font-synthesis-weight:none;
-      min-height:calc(100vh - 56px);
-    }
+      --bg:#f9fafb;          /* Fondo general */
+      --card:#ffffff;        /* Contenedores */
+      --ink:#333333;         /* Texto principal */
+      --ink-strong:#111111;  /* Títulos */
+      --muted:#888888;       /* Texto secundario / iconos */
+      --line:#ebebeb;        /* Bordes y separadores */
+      --blue:#007aff;        /* Primario */
+      --blue-soft:#e6f0ff;   /* Hover / badge info */
+      --success:#15803d;
+      --success-soft:#e6ffe6;
+      --danger:#ff4a4a;
+      --danger-soft:#ffebeb;
+      --amber:#c2660c;
+      --amber-soft:#fff4e0;
 
-    /* ====== 2 columnas en desktop + separación ====== */
-    #rp-driver-pro .row.g-0{display:flex;flex-direction:column;gap:12px}
-    #rp-driver-pro .col-lg-3,#rp-driver-pro .col-lg-9{min-width:0}
+      color:var(--ink);
+      background:var(--bg);
+      min-height:calc(100vh - 56px);
+      padding:0;
+      font-family:'Quicksand', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing:antialiased;
+      text-rendering:optimizeLegibility;
+    }
+    #rp-driver-pro *{ box-sizing:border-box; }
+    #rp-driver-pro,
+    #rp-driver-pro .btn,
+    #rp-driver-pro input,
+    #rp-driver-pro select,
+    #rp-driver-pro textarea{
+      font-family:'Quicksand', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+    /* No forzar la tipografía dentro del mapa de Google */
+    #rp-driver-pro #map,
+    #rp-driver-pro #map *{ font-family:Roboto, Arial, sans-serif !important; }
+
+    /* ===== Fallbacks de utilidades (seguros aunque Bootstrap esté presente) ===== */
+    #rp-driver-pro .d-flex{ display:flex; }
+    #rp-driver-pro .align-items-center{ align-items:center; }
+    #rp-driver-pro .justify-content-between{ justify-content:space-between; }
+    #rp-driver-pro .flex-wrap{ flex-wrap:wrap; }
+    #rp-driver-pro .gap-2{ gap:.5rem; }
+    #rp-driver-pro .mt-2{ margin-top:.5rem; }
+    #rp-driver-pro .mb-1{ margin-bottom:.25rem; }
+    #rp-driver-pro .mb-2{ margin-bottom:.5rem; }
+    #rp-driver-pro .m-0{ margin:0; }
+    #rp-driver-pro .small{ font-size:.85rem; }
+    #rp-driver-pro .text-uppercase{ text-transform:uppercase; }
+    #rp-driver-pro .text-muted{ color:var(--muted) !important; }
+    #rp-driver-pro .fw-bold{ font-weight:700; color:var(--ink-strong); }
+    #rp-driver-pro .h5{ font-size:1.1rem; font-weight:700; color:var(--ink-strong); }
+    #rp-driver-pro .h6, #rp-driver-pro h6{ font-size:.95rem; font-weight:700; color:var(--ink-strong); }
+    #rp-driver-pro .muted{ color:var(--muted); }
+
+    /* ===== Layout: 2 columnas ===== */
+    #rp-driver-pro .row.g-0{ display:flex; flex-direction:column; gap:14px; padding:16px; }
+    #rp-driver-pro .col-lg-3, #rp-driver-pro .col-lg-9{ min-width:0; }
     @media (min-width: 992px){
-      #rp-driver-pro .row.g-0{flex-direction:row;gap:16px}
-      #rp-driver-pro .col-lg-3{flex:0 0 25%;max-width:25%}
-      #rp-driver-pro .col-lg-9{flex:1 1 75%;max-width:75%}
+      #rp-driver-pro .row.g-0{ flex-direction:row; gap:16px; }
+      #rp-driver-pro .col-lg-3{ flex:0 0 26%; max-width:26%; }
+      #rp-driver-pro .col-lg-9{ flex:1 1 74%; max-width:74%; }
     }
 
-    /* Panel izquierdo */
-    #rp-driver-pro .side{
-      border-right:1px solid var(--line); background:var(--card);
-      min-height:calc(100vh - 56px);
-    }
+    /* ===== Panel izquierdo ===== */
+    #rp-driver-pro .side{ background:transparent; border:none; min-height:auto; }
+
     #rp-driver-pro .toolbar{
-      position:sticky; top:56px; z-index:6; background:var(--card);
-      border-bottom:1px solid var(--line); backdrop-filter:saturate(140%) blur(4px);
+      position:sticky; top:56px; z-index:6;
+      background:var(--card); border:1px solid var(--line); border-radius:16px;
+      box-shadow:0 4px 12px rgba(0,0,0,.02);
+      padding:16px 18px; margin-bottom:14px; gap:12px;
     }
-    #rp-driver-pro .grid{display:grid; gap:12px}
-    #rp-driver-pro .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
-    @media (max-width: 991.98px){ #rp-driver-pro .g3{grid-template-columns:1fr 1fr} }
-    @media (max-width: 575.98px){ #rp-driver-pro .g3{grid-template-columns:1fr} }
+    #rp-driver-pro .side-title{ font-weight:700; font-size:1.02rem; color:var(--ink-strong); line-height:1.25; }
+    #rp-driver-pro .side-sub{ font-size:.85rem; color:var(--muted); margin-top:2px; }
+    #rp-driver-pro .side-hint{ font-size:.8rem; color:var(--muted); line-height:1.45; }
+    #rp-driver-pro .side-hint strong{ color:var(--ink); font-weight:600; }
 
-    /* Tarjetas del panel */
-    #rp-driver-pro .card{ border:1px solid var(--line); border-radius:16px; background:var(--card); }
-    #rp-driver-pro .card-body{padding:12px 14px}
-    #rp-driver-pro .next{
-      border-left:4px solid var(--brand);
-      background: radial-gradient(800px 300px at -10% -40%, rgba(110,168,254,.20), transparent 60%),
-                  linear-gradient(180deg,#f5f9ff,transparent);
+    #rp-driver-pro .kpi-pill{
+      display:inline-flex; align-items:center; gap:.4rem;
+      background:var(--blue-soft); color:var(--blue);
+      border-radius:999px; padding:.42rem .8rem; font-weight:600; font-size:.85rem;
+      white-space:nowrap;
     }
-    #rp-driver-pro .metric .label{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
-    #rp-driver-pro .metric .value{font-weight:800;font-size:1.2rem}
+
+    #rp-driver-pro .gps-actions{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    @media (max-width:575.98px){
+      #rp-driver-pro .gps-actions .btn{ width:100%; }
+    }
+
+    /* Grid de tarjetas */
+    #rp-driver-pro .grid{ display:grid; gap:12px; }
+    #rp-driver-pro .side .grid{ padding:0; }
+    #rp-driver-pro .g3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    @media (max-width: 991.98px){ #rp-driver-pro .g3{ grid-template-columns:1fr 1fr; } }
+    @media (max-width: 575.98px){ #rp-driver-pro .g3{ grid-template-columns:1fr; } }
+
+    /* ===== Tarjetas ===== */
+    #rp-driver-pro .card{
+      border:1px solid var(--line); border-radius:16px; background:var(--card);
+      box-shadow:0 4px 12px rgba(0,0,0,.02);
+      transition:transform .18s ease, box-shadow .18s ease;
+    }
+    #rp-driver-pro .card-body{ padding:16px 18px; }
+    #rp-driver-pro .next:hover,
+    #rp-driver-pro .metric:hover{ transform:translateY(-2px); box-shadow:0 10px 22px rgba(0,0,0,.05); }
+    #rp-driver-pro .next{ border-left:3px solid var(--blue); }
+    #rp-driver-pro .card h6{ color:var(--ink-strong); }
+
+    #rp-driver-pro .metric .label{ font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; font-weight:600; }
+    #rp-driver-pro .metric .value{ font-weight:700; font-size:1.35rem; color:var(--ink-strong); margin-top:.15rem; }
 
     /* Skeleton */
     #rp-driver-pro .sk{
-      background:linear-gradient(90deg,#eef2ff 0%, #f1f5f9 50%, #eef2ff 100%);
+      background:linear-gradient(90deg,#f3f4f6 0%, #eef1f5 50%, #f3f4f6 100%);
       background-size:200% 100%;
-      animation: shimmer 1.2s infinite linear;
+      animation: rp-shimmer 1.2s infinite linear;
     }
-    @keyframes shimmer{
-      0%{background-position:0% 0%}
-      100%{background-position:-200% 0%}
-    }
+    @keyframes rp-shimmer{ 0%{background-position:0 0} 100%{background-position:-200% 0} }
 
     /* ===== Mapa en tarjeta ===== */
     #rp-driver-pro .map-card{
-      background:#fff; border:1px solid var(--line); border-radius:18px;
-      padding:12px; box-shadow:0 16px 40px rgba(2,8,23,.08);
+      background:var(--card); border:1px solid var(--line); border-radius:18px;
+      padding:12px; box-shadow:0 6px 18px rgba(0,0,0,.03);
       height:calc(100vh - 56px); min-height:560px; position:relative;
     }
     #rp-driver-pro .map-card .map{
-      width:100%; height:100%; border-radius:14px; overflow:hidden; background:#e9eef8;
+      width:100%; height:100%; border-radius:14px; overflow:hidden; background:#eef1f5;
+    }
+    @media (max-width:991.98px){
+      #rp-driver-pro .map-card{ height:70vh; min-height:440px; }
     }
 
     /* Overlays dentro del mapa */
     #rp-driver-pro .map-legend{
-      position:absolute; left:16px; top:16px; z-index:520;
-      background:rgba(255,255,255,.9); backdrop-filter:blur(6px);
+      position:absolute; left:22px; top:22px; z-index:520;
+      background:rgba(255,255,255,.94); backdrop-filter:blur(6px);
       border:1px solid var(--line); border-radius:14px; padding:8px 10px;
-      display:flex; flex-wrap:wrap; gap:.5rem;
+      display:flex; flex-wrap:wrap; gap:.4rem;
+      box-shadow:0 4px 14px rgba(0,0,0,.04);
     }
     #rp-driver-pro .routes-panel{
-      position:absolute; left:16px; bottom:16px; z-index:520;
-      background:rgba(255,255,255,.95); backdrop-filter:blur(6px);
-      border:1px solid var(--line); border-radius:14px; padding:10px; min-width:260px;
+      position:absolute; left:22px; bottom:22px; z-index:520;
+      background:rgba(255,255,255,.96); backdrop-filter:blur(6px);
+      border:1px solid var(--line); border-radius:16px; padding:12px; min-width:260px;
       max-width:min(90%,360px);
+      box-shadow:0 8px 24px rgba(0,0,0,.06);
     }
-    #rp-driver-pro .routes-list{display:grid; gap:.5rem}
-    #rp-driver-pro .route-card{border:1px solid var(--line);border-radius:12px;padding:.55rem .7rem}
-    #rp-driver-pro .route-card.active{border-color:var(--brand); box-shadow:0 10px 28px rgba(110,168,254,.18)}
-    #rp-driver-pro .route-head{display:flex;justify-content:space-between;align-items:center}
-    #rp-driver-pro .route-badge{display:inline-flex;align-items:center;gap:.35rem;border-radius:999px;padding:.15rem .55rem;font-weight:700;font-size:.8rem}
-    #rp-driver-pro .rb-blue{background:#ecf3ff;color:#1e40af;border:1px solid #cfe0ff}
-    #rp-driver-pro .rb-amber{background:#fff8e6;color:#92400e;border:1px solid #fed7aa}
-    #rp-driver-pro .rb-red{background:#fff1f1;color:#7f1d1d;border:1px solid #fecaca}
-    #rp-driver-pro .small-muted{font-size:.85rem;color:#6b7280}
+    #rp-driver-pro .routes-list{ display:grid; gap:.5rem; }
+    #rp-driver-pro .route-card{ border:1px solid var(--line); border-radius:12px; padding:.6rem .75rem; background:#fff; transition:.18s; }
+    #rp-driver-pro .route-card.active{ border-color:var(--blue); box-shadow:0 6px 18px rgba(0,122,255,.12); }
+    #rp-driver-pro .route-head{ display:flex; justify-content:space-between; align-items:center; }
+    #rp-driver-pro .route-badge{ display:inline-flex; align-items:center; gap:.35rem; border-radius:999px; padding:.2rem .6rem; font-weight:700; font-size:.78rem; }
+    #rp-driver-pro .rb-blue{ background:var(--blue-soft); color:var(--blue); }
+    #rp-driver-pro .rb-amber{ background:var(--amber-soft); color:var(--amber); }
+    #rp-driver-pro .rb-red{ background:var(--danger-soft); color:var(--danger); }
+    #rp-driver-pro .small-muted{ font-size:.83rem; color:var(--muted); }
 
     /* Chips leyenda */
-    #rp-driver-pro .chip{ display:inline-flex; align-items:center; gap:.35rem;
-      border:1px solid var(--line); background:#fff; border-radius:999px; padding:.18rem .6rem;
-      font-weight:700; font-size:.85rem;
+    #rp-driver-pro .chip{
+      display:inline-flex; align-items:center; gap:.35rem;
+      border:1px solid var(--line); background:#fff; border-radius:999px; padding:.25rem .6rem;
+      font-weight:600; font-size:.78rem; color:var(--ink);
     }
-    #rp-driver-pro .chip.alt{background:#f0fff8;border-color:#bbf7d0}
-    #rp-driver-pro .chip.warn{background:#fff6f6;border-color:#fecaca}
+    #rp-driver-pro .chip.alt{ background:var(--success-soft); border-color:#c9f2cf; }
+    #rp-driver-pro .chip.warn{ background:var(--danger-soft); border-color:#ffd4d4; }
 
     /* ===== Timeline ===== */
-    #rp-driver-pro .timeline{list-style:none;margin:0;padding:0;position:relative}
-    #rp-driver-pro .timeline:before{content:"";position:absolute;left:14px;top:0;bottom:0;width:2px;background:var(--line)}
-    #rp-driver-pro .tl-item{display:grid;grid-template-columns:28px 1fr;gap:12px;padding:12px 0}
-    #rp-driver-pro .dot{width:12px;height:12px;border-radius:50%;margin-top:8px;border:2px solid #2563eb;background:#fff}
-    #rp-driver-pro .dot.done{border-color:var(--ok-ink);background:var(--ok)}
+    #rp-driver-pro .timeline{ list-style:none; margin:0; padding:0; position:relative; }
+    #rp-driver-pro .timeline:before{ content:""; position:absolute; left:14px; top:4px; bottom:4px; width:2px; background:var(--line); }
+    #rp-driver-pro .tl-item{ display:grid; grid-template-columns:28px 1fr; gap:12px; padding:10px 0; }
+    #rp-driver-pro .dot{ width:12px; height:12px; border-radius:50%; margin-top:8px; border:2px solid var(--blue); background:#fff; }
+    #rp-driver-pro .dot.done{ border-color:var(--success); background:var(--success); }
     #rp-driver-pro .tl-card{
-      border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px 12px;
-      display:grid; gap:.4rem;
+      border:1px solid var(--line); border-radius:12px; background:#fff; padding:10px 12px;
+      display:grid; gap:.4rem; box-shadow:0 4px 12px rgba(0,0,0,.02);
     }
-    #rp-driver-pro .tl-top{
-      display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:.5rem;
-    }
+    #rp-driver-pro .tl-top{ display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:.5rem; }
     #rp-driver-pro .tl-title{
-      font-weight:800; font-size:.98rem; line-height:1.25;
+      font-weight:700; font-size:.95rem; line-height:1.25; color:var(--ink-strong);
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
     }
-    #rp-driver-pro .tl-badges{display:flex; gap:.35rem; align-items:center}
-    #rp-driver-pro .badge-ok{background:var(--ok);color:var(--ok-ink);border-radius:999px;padding:.15rem .55rem;font-weight:800;font-size:.75rem}
-    #rp-driver-pro .badge-pending{background:#f3f4f6;color:#111827;border-radius:999px;padding:.15rem .55rem;font-weight:800;font-size:.75rem}
+    #rp-driver-pro .tl-badges{ display:flex; gap:.35rem; align-items:center; }
     #rp-driver-pro .tl-btn{ justify-self:end; white-space:nowrap; }
-    #rp-driver-pro .tl-meta{
-      display:grid; grid-template-columns:1fr 1fr; gap:.35rem .75rem; align-items:center;
-    }
-    #rp-driver-pro .tl-meta .muted{color:var(--muted); font-size:.85rem}
-    #rp-driver-pro .tl-meta strong{font-weight:800}
+    #rp-driver-pro .tl-meta{ display:grid; grid-template-columns:1fr 1fr; gap:.35rem .75rem; align-items:center; }
+    #rp-driver-pro .tl-meta .muted{ color:var(--muted); font-size:.82rem; }
+    #rp-driver-pro .tl-meta strong{ font-weight:700; color:var(--ink); }
     @media (max-width:575.98px){
-      #rp-driver-pro .tl-top{grid-template-columns:1fr auto}
-      #rp-driver-pro .tl-badges{display:none}
-      #rp-driver-pro .tl-meta{grid-template-columns:1fr}
+      #rp-driver-pro .tl-top{ grid-template-columns:1fr auto; }
+      #rp-driver-pro .tl-badges{ display:none; }
+      #rp-driver-pro .tl-meta{ grid-template-columns:1fr; }
     }
 
-    /* Toast + HUD */
-    #rp-driver-pro .toastx{
-      position:fixed;left:50%;transform:translateX(-50%);bottom:24px;
-      background:#111827;color:#fff;padding:.7rem 1rem;border-radius:12px;z-index:2000;display:none;
-      box-shadow:0 14px 32px rgba(2,8,23,.22)
+    /* Pasos por calles */
+    #rp-driver-pro .steps{ list-style:none; margin:.25rem 0 0; padding:0; display:grid; gap:.4rem; }
+    #rp-driver-pro .steps li{
+      font-size:.86rem; color:var(--ink); line-height:1.35;
+      padding:.4rem .6rem; border:1px solid var(--line); border-radius:10px; background:#fff;
     }
-    #rp-driver-pro .toastx.show{display:block}
-    #rp-driver-pro .map-hud{position:absolute; left:50%; top:14px; transform:translateX(-50%); z-index:500; display:flex; gap:8px; pointer-events:none;}
-    #rp-driver-pro .nav-toast{background:#111827; color:#fff; border-radius:12px; padding:.6rem .9rem; box-shadow:0 18px 40px rgba(2,8,23,.18); font-weight:700; display:none;}
+    #rp-driver-pro .steps li .muted{ color:var(--muted); }
+
+    /* Consejo IA */
+    #rp-driver-pro #advice{ color:var(--ink); line-height:1.5; font-size:.9rem; }
+
+    /* ===== Badges ===== */
+    #rp-driver-pro .badge-ok{ background:var(--success-soft); color:var(--success); border-radius:999px; padding:.22rem .6rem; font-weight:700; font-size:.72rem; display:inline-flex; align-items:center; gap:.3rem; }
+    #rp-driver-pro .badge-pending{ background:#f3f4f6; color:#555; border-radius:999px; padding:.22rem .6rem; font-weight:700; font-size:.72rem; display:inline-flex; align-items:center; gap:.3rem; }
+
+    /* ===== Botones ===== */
+    #rp-driver-pro .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:.4rem;
+      font-weight:600; font-size:.9rem; line-height:1;
+      padding:.6rem 1rem; border-radius:999px; border:1px solid transparent;
+      cursor:pointer; text-decoration:none; white-space:nowrap;
+      transition: background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .12s ease;
+    }
+    #rp-driver-pro .btn-sm{ padding:.42rem .8rem; font-size:.82rem; }
+    #rp-driver-pro .btn:active{ transform:scale(.97); }
+
+    #rp-driver-pro .btn-primary{ background:var(--blue); color:#fff; }
+    #rp-driver-pro .btn-primary:hover{ background:#0a6cf0; transform:translateY(-1px); box-shadow:0 6px 16px rgba(0,122,255,.26); }
+
+    #rp-driver-pro .btn-outline-primary{ background:#fff; color:var(--blue); border-color:var(--blue); }
+    #rp-driver-pro .btn-outline-primary:hover{ background:var(--blue-soft); transform:translateY(-1px); }
+
+    /* Ghost / neutro (Waze) */
+    #rp-driver-pro .btn-outline-dark{ background:#fff; color:#555; border-color:var(--line); }
+    #rp-driver-pro .btn-outline-dark:hover{ background:#f9fafb; color:var(--ink-strong); transform:translateY(-1px); }
+
+    #rp-driver-pro .btn-success{ background:var(--success-soft); color:var(--success); border-color:#c9f2cf; }
+    #rp-driver-pro .btn-outline-success{ background:#fff; color:var(--success); border-color:#c9f2cf; }
+    #rp-driver-pro .btn-outline-success:hover{ background:var(--success-soft); transform:translateY(-1px); }
+
+    #rp-driver-pro .btn:disabled,
+    #rp-driver-pro .btn.disabled{ opacity:.5; cursor:not-allowed; box-shadow:none; transform:none; pointer-events:none; }
+
+    #rp-driver-pro .btn-fab{ position:fixed; right:20px; bottom:20px; z-index:10; padding:.7rem 1.15rem; box-shadow:0 10px 26px rgba(0,122,255,.32); }
+
+    /* ===== Toast + HUD ===== */
+    #rp-driver-pro .toastx{
+      position:fixed; left:50%; transform:translateX(-50%); bottom:24px;
+      background:#111111; color:#fff; padding:.7rem 1.1rem; border-radius:12px; z-index:2000; display:none;
+      box-shadow:0 12px 30px rgba(0,0,0,.2); font-weight:600; font-size:.9rem;
+    }
+    #rp-driver-pro .toastx.show{ display:block; }
+    #rp-driver-pro .map-hud{ position:absolute; left:50%; top:16px; transform:translateX(-50%); z-index:500; display:flex; gap:8px; pointer-events:none; }
+    #rp-driver-pro .nav-toast{ background:#111111; color:#fff; border-radius:12px; padding:.55rem .9rem; box-shadow:0 10px 26px rgba(0,0,0,.18); font-weight:600; font-size:.85rem; display:none; }
     #rp-driver-pro .nav-toast.show{ display:block; }
 
-    /* Botones */
-    #rp-driver-pro .btn{ border-radius:12px; border:1px solid transparent; font-weight:700; box-shadow:0 6px 16px rgba(2,8,23,.06); transition:.18s; }
-    #rp-driver-pro .btn:hover{
-      background:#fff !important; color:#0b1220 !important;
-      box-shadow:0 18px 42px rgba(2,8,23,.16) !important; transform:scale(1.03);
-    }
-    #rp-driver-pro .btn-fab{position:fixed; right:18px; bottom:18px; z-index:10}
-
-    /* Flags numerados */
-    .flagpin{
-      --bg:#2563eb;
-      background:var(--bg); color:#fff; font-weight:800; font-size:.78rem;
-      border-radius:10px 10px 2px 10px; padding:.15rem .45rem; box-shadow:0 6px 14px rgba(2,8,23,.25);
-      border:2px solid #fff;
-    }
-    .flagpin.done{ --bg:#6b7280; }
-
-    /* DEBUG chip */
+    /* ===== DEBUG chip ===== */
     #rp-driver-pro .dbg{
-      position:absolute; right:16px; top:16px; z-index:650;
-      background:rgba(17,24,39,.92); color:#fff;
-      border-radius:999px; padding:.35rem .7rem;
-      font-weight:800; font-size:.8rem;
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:0 14px 34px rgba(2,8,23,.22);
-      display:none;
-      max-width:min(92vw, 560px);
+      position:absolute; right:22px; top:22px; z-index:650;
+      background:#111111; color:#fff;
+      border-radius:999px; padding:.35rem .7rem; font-weight:600; font-size:.78rem;
+      box-shadow:0 8px 22px rgba(0,0,0,.18);
+      display:none; max-width:min(92vw, 560px);
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+
+    /* ===== Inputs / selects (para uso futuro) ===== */
+    #rp-driver-pro input,
+    #rp-driver-pro select,
+    #rp-driver-pro textarea{
+      font-size:.9rem; color:var(--ink);
+      background:#fff; border:1px solid var(--line); border-radius:8px; padding:.55rem .7rem;
+      transition:border-color .18s ease, box-shadow .18s ease; outline:none;
+    }
+    #rp-driver-pro input:focus,
+    #rp-driver-pro select:focus,
+    #rp-driver-pro textarea:focus{
+      border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-soft);
     }
   </style>
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"/>
+  <script>
+    window.gm_authFailure = function () {
+      const el = document.getElementById('dbgChip');
+      if (el) {
+        el.textContent = 'Error Google Maps API Key';
+        el.style.display = 'block';
+        el.style.background = '#991b1b';
+      }
+    };
+  </script>
 
   <div class="row g-0">
     {{-- IZQUIERDA --}}
     <div class="col-lg-3 side">
-      <div class="toolbar p-3 d-flex align-items-center justify-content-between">
+      <div class="toolbar d-flex align-items-center justify-content-between">
         <div>
-          <div class="fw-bold">{{ $routePlan->name ?? ('Ruta #'.$routePlan->id) }}</div>
-          <div class="text-muted small">Chofer: {{ $routePlan->driver->name ?? '—' }}</div>
+          <div class="side-title">{{ $routePlan->name ?? ('Ruta #'.$routePlan->id) }}</div>
+          <div class="side-sub">Chofer: {{ $routePlan->driver->name ?? '—' }}</div>
 
-          {{-- ✅ Controles GPS (solo si no se ha iniciado / no está bloqueado) --}}
-          <div id="gpsControls" class="d-flex gap-2 mt-2" style="display:none">
-            <button id="btnStart" class="btn btn-sm btn-primary" type="button">
-              <i class="bi bi-play-circle"></i> Iniciar ruta (usar mi ubicación)
+          {{-- ✅ Controles GPS visibles para solicitar ubicación e iniciar cálculo --}}
+          <div id="gpsControls" class="gps-actions mt-2">
+            <button id="btnLocate" class="btn btn-sm btn-outline-primary" type="button">
+              <i class="bi bi-geo-alt-fill"></i> Ver mi ubicación
             </button>
+
+            <button id="btnStart" class="btn btn-sm btn-primary" type="button">
+              <i class="bi bi-play-circle"></i> Iniciar y calcular
+            </button>
+
             <button id="btnRecalc" class="btn btn-sm btn-outline-primary" type="button" disabled>
               <i class="bi bi-arrow-repeat"></i> Recalcular
             </button>
           </div>
 
+          <div id="gpsHint" class="side-hint mt-2">
+            Toca <strong>Ver mi ubicación</strong> o <strong>Iniciar y calcular</strong> para permitir el GPS.
+          </div>
+
           {{-- ✅ Estado / lock --}}
-          <div class="small mt-2" id="lockBadgeWrap" style="display:none">
+          <div class="mt-2" id="lockBadgeWrap" style="display:none">
             <span class="badge-ok" id="lockBadge"><i class="bi bi-shield-check"></i> Orden bloqueado</span>
           </div>
         </div>
 
-        <div class="d-flex align-items-center"
-             style="gap:.5rem;background:#f3f6fb;border:1px dashed var(--line);border-radius:999px;padding:.4rem .8rem;font-weight:700">
+        <div class="kpi-pill">
           <i class="bi bi-stopwatch"></i> <span id="kpiTotal">—</span>
         </div>
       </div>
 
-      <div class="p-3 grid g3">
+      <div class="grid g3">
         <div class="card next" style="grid-column:1/-1">
           <div class="card-body d-flex justify-content-between align-items-center">
             <div>
@@ -323,7 +447,7 @@
         </div>
 
         <div class="routes-panel">
-          <div style="font-weight:800; margin-bottom:.35rem">Rutas</div>
+          <div style="font-weight:700; color:var(--ink-strong); margin-bottom:.4rem">Rutas</div>
           <div id="routesCards" class="routes-list">
             <div class="sk" style="height:46px;border-radius:12px"></div>
           </div>
@@ -332,8 +456,8 @@
           </div>
 
           <div class="d-flex gap-2 mt-2">
-            <a id="linkGmaps" href="#" target="_blank" class="btn btn-outline-primary disabled"><i class="bi bi-map"></i> Google Maps</a>
-            <a id="linkWaze" href="#" target="_blank" class="btn btn-outline-dark disabled"><i class="bi bi-sign-turn-right"></i> Waze</a>
+            <a id="linkGmaps" href="#" target="_blank" class="btn btn-sm btn-outline-primary disabled"><i class="bi bi-map"></i> Google Maps</a>
+            <a id="linkWaze" href="#" target="_blank" class="btn btn-sm btn-outline-dark disabled"><i class="bi bi-sign-turn-right"></i> Waze</a>
           </div>
 
           {{-- ✅ info de roundtrip (siempre) --}}
@@ -417,7 +541,9 @@
   dlog('boot', { planId, initialStopsCount: (initialStops||[]).length, URL_START, URL_COMPUTE, URL_RECOMPUTE });
 
   /* ===== Estado ===== */
-  let map, base, meMarker, mainLine, alt1Line, alt2Line, segLines = [];
+  let map, meMarker, mainLine, alt1Line, alt2Line, segLines = [];
+  let trafficLayer = null;
+  let stopMarkers = [];
   let currentPos = null, lastPayload = null, watcherId = null;
   let routeSteps = [], stepIdx = 0, didAutoZoom = false, followMode = true;
 
@@ -518,31 +644,71 @@
   /* ===== Mostrar/ocultar controles GPS ===== */
   function setLockUI(locked){
     serverLocked = !!locked;
+
     const wrap = document.getElementById('lockBadgeWrap');
     if (wrap) wrap.style.display = locked ? 'block' : 'none';
 
-    // si está locked, ocultamos "Iniciar" y dejamos "Recalcular"
     const controls = document.getElementById('gpsControls');
-    if (!controls) return;
+    if (controls) controls.style.display = 'flex';
 
-    // si ya está locked, no mostramos iniciar (pero recalc queda disponible si hay GPS)
     const btnStart = document.getElementById('btnStart');
     if (btnStart) btnStart.style.display = locked ? 'none' : 'inline-flex';
+
+    const btnLocate = document.getElementById('btnLocate');
+    if (btnLocate) btnLocate.style.display = 'inline-flex';
+
+    const hint = document.getElementById('gpsHint');
+    if (hint) {
+      hint.innerHTML = locked
+        ? 'GPS activo. Usa <strong>Recalcular</strong> para actualizar la ruta con tu ubicación actual.'
+        : 'Toca <strong>Ver mi ubicación</strong> o <strong>Iniciar y calcular</strong> para permitir el GPS.';
+    }
   }
 
   function showGpsControls(show){
     const el = document.getElementById('gpsControls');
     if (!el) return;
-    el.style.display = show ? 'flex' : 'none';
+
+    // En móvil/navegador el permiso de GPS solo aparece por acción del usuario.
+    // Por eso los controles deben mantenerse visibles.
+    el.style.display = show ? 'flex' : 'flex';
   }
 
-  /* ===== Mapa ===== */
-  const stopMarkers = [];
-  function addStopFlags(stops){
-    stopMarkers.forEach(m=>{ try{ map.removeLayer(m); }catch(e){} });
-    stopMarkers.length = 0;
+  /* ===== Mapa Google ===== */
+  function makeStopIcon(number, done = false) {
+    const color = done ? '#16a34a' : '#2563eb';
 
-    // ✅ Numeración usando sequence_index (1..N) si existe
+    return {
+      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 42 42">
+          <filter id="s" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="0" dy="6" stdDeviation="4" flood-color="#000000" flood-opacity=".18"/>
+          </filter>
+          <path filter="url(#s)" d="M21 4c8.284 0 15 6.716 15 15 0 10.5-15 19-15 19S6 29.5 6 19C6 10.716 12.716 4 21 4Z" fill="${color}"/>
+          <circle cx="21" cy="19" r="11" fill="#ffffff"/>
+          <text x="21" y="23" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="${color}">${number}</text>
+        </svg>
+      `),
+      scaledSize: new google.maps.Size(42, 42),
+      anchor: new google.maps.Point(21, 38),
+    };
+  }
+
+  function makeDriverIcon() {
+    return {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 9,
+      fillColor: '#60a5fa',
+      fillOpacity: .95,
+      strokeColor: '#1d4ed8',
+      strokeWeight: 3,
+    };
+  }
+
+  function addStopFlags(stops){
+    stopMarkers.forEach(m=>{ try{ m.setMap(null); }catch(e){} });
+    stopMarkers = [];
+
     const ordered = (stops||[]).slice().sort((a,b)=>
       (a.sequence_index??999999)-(b.sequence_index??999999) || (a.id-b.id)
     );
@@ -552,23 +718,66 @@
       if (!isValidLatLng(lat,lng)) return;
 
       const n = (s.sequence_index != null && Number.isFinite(Number(s.sequence_index)))
-        ? (Number(s.sequence_index)) // ya viene 1..N en el controller
-        : (idx+1);
+        ? Number(s.sequence_index)
+        : (idx + 1);
 
-      const html = `<div class="flagpin ${s.status==='done' ? 'done' : ''}">${n}</div>`;
-      const icon = L.divIcon({ html, className:'', iconAnchor:[10, 18] });
-      const m = L.marker([lat, lng], { icon }).addTo(map);
-      stopMarkers.push(m);
-      m.bindPopup((s.name||'Punto') + (s.status==='done' ? ' • hecho' : ''));
+      const marker = new google.maps.Marker({
+        map,
+        position: { lat, lng },
+        icon: makeStopIcon(n, s.status === 'done'),
+        title: (s.name || 'Punto') + (s.status === 'done' ? ' • hecho' : ''),
+      });
+
+      const info = new google.maps.InfoWindow({
+        content: `
+          <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;min-width:180px">
+            <strong>${(s.name || 'Punto')}</strong>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px">${lat.toFixed(5)}, ${lng.toFixed(5)}</div>
+            <div style="font-size:12px;margin-top:6px;color:${s.status === 'done' ? '#15803d' : '#2563eb'};font-weight:800">
+              ${s.status === 'done' ? 'Hecho' : 'Pendiente'}
+            </div>
+          </div>
+        `,
+      });
+
+      marker.addListener('click', () => info.open({ map, anchor: marker }));
+      stopMarkers.push(marker);
     });
   }
 
-  function initMap(){
-    map = L.map('map', { zoomSnap: 0.5 }).setView([20.6736,-103.344], 12);
-    base = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ attribution:'© OpenStreetMap' }).addTo(map);
+  function fitPositions(positions, padding = 72) {
+    if (!positions.length) return;
 
-    setTimeout(()=>{ try{ map.invalidateSize(true); }catch(e){} }, 200);
-    window.addEventListener('resize', ()=>{ try{ map.invalidateSize(true); }catch(e){} });
+    const bounds = new google.maps.LatLngBounds();
+
+    positions.forEach(p => {
+      const lat = toNum(p.lat), lng = toNum(p.lng);
+      if (isValidLatLng(lat, lng)) bounds.extend({ lat, lng });
+    });
+
+    if (!bounds.isEmpty()) map.fitBounds(bounds, padding);
+  }
+
+  function initMap(){
+    map = new google.maps.Map(document.getElementById('map'), {
+      center: { lat: 20.6736, lng: -103.344 },
+      zoom: 12,
+      mapTypeId: 'roadmap',
+      mapTypeControl: true,
+      mapTypeControlOptions: {
+        style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+        position: google.maps.ControlPosition.TOP_LEFT,
+        mapTypeIds: ['roadmap', 'satellite', 'terrain', 'hybrid'],
+      },
+      streetViewControl: true,
+      fullscreenControl: true,
+      zoomControl: true,
+      clickableIcons: true,
+      gestureHandling: 'greedy',
+    });
+
+    trafficLayer = new google.maps.TrafficLayer();
+    trafficLayer.setMap(map);
 
     const validStops = (initialStops||[])
       .map(s=>({ ...s, lat: toNum(s.lat), lng: toNum(s.lng) }))
@@ -576,47 +785,97 @@
 
     if (validStops.length){
       addStopFlags(validStops);
-      const grp = L.featureGroup(validStops.map(s => L.marker([s.lat, s.lng])));
-      map.fitBounds(grp.getBounds().pad(0.2));
+      fitPositions(validStops, 72);
     }
 
-    map.on('dragstart', ()=> followMode=false);
+    map.addListener('dragstart', ()=> followMode=false);
   }
 
   function clearRouteLayers(){
-    if (mainLine) { map.removeLayer(mainLine); mainLine=null; }
-    if (alt1Line){ map.removeLayer(alt1Line); alt1Line=null; }
-    if (alt2Line){ map.removeLayer(alt2Line); alt2Line=null; }
-    segLines.forEach(l=>map.removeLayer(l)); segLines=[];
+    if (mainLine) { mainLine.setMap(null); mainLine=null; }
+    if (alt1Line){ alt1Line.setMap(null); alt1Line=null; }
+    if (alt2Line){ alt2Line.setMap(null); alt2Line=null; }
+    segLines.forEach(l=>{ try{ l.setMap(null); }catch(e){} });
+    segLines=[];
+  }
+
+  function routeToPath(route){
+    if (!route) return [];
+
+    if (Array.isArray(route.coordinates) && route.coordinates.length) {
+      return route.coordinates
+        .map(p => Array.isArray(p)
+          ? { lat: Number(p[1]), lng: Number(p[0]) }
+          : { lat: Number(p.lat), lng: Number(p.lng) }
+        )
+        .filter(p => isValidLatLng(p.lat, p.lng));
+    }
+
+    if (route.polyline && window.google?.maps?.geometry?.encoding) {
+      return google.maps.geometry.encoding.decodePath(route.polyline)
+        .map(p => ({ lat: p.lat(), lng: p.lng() }));
+    }
+
+    const geo = route.geometry;
+    if (!geo) return [];
+
+    if (geo.type === 'LineString' && Array.isArray(geo.coordinates)) {
+      return geo.coordinates
+        .map(c => ({ lat: Number(c[1]), lng: Number(c[0]) }))
+        .filter(p => isValidLatLng(p.lat, p.lng));
+    }
+
+    if (geo.type === 'MultiLineString' && Array.isArray(geo.coordinates)) {
+      return geo.coordinates
+        .flat()
+        .map(c => ({ lat: Number(c[1]), lng: Number(c[0]) }))
+        .filter(p => isValidLatLng(p.lat, p.lng));
+    }
+
+    return [];
   }
 
   function drawGeo(route, color, weight=6, dashed=false){
-    if (!route) return null;
-    const geo = route.geometry;
-    if (!geo) return null;
-
-    const style = { color, weight, opacity:0.92 };
-    if (dashed) style.dashArray = '8 10';
+    const path = routeToPath(route);
+    if (!path.length) return null;
 
     try{
-      return L.geoJSON(geo, { style }).addTo(map);
+      return new google.maps.Polyline({
+        map,
+        path,
+        geodesic: true,
+        strokeColor: color,
+        strokeOpacity: .92,
+        strokeWeight: weight,
+        icons: dashed ? [{
+          icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 },
+          offset: '0',
+          repeat: '14px',
+        }] : undefined,
+      });
     }catch(e){
-      dwarn('drawGeo failed', { err: String(e), geoType: geo?.type });
-      sendClientLog('error', 'drawGeo failed', { err: String(e), geo });
+      dwarn('drawGeo failed', { err: String(e) });
+      sendClientLog('error', 'drawGeo failed', { err: String(e), route });
       return null;
     }
   }
 
   function fitAll(){
-    const layers=[];
-    if (mainLine) layers.push(mainLine);
-    if (meMarker) layers.push(meMarker);
-    if (!layers.length) return;
+    const positions=[];
 
-    try{
-      const grp=L.featureGroup(layers);
-      map.fitBounds(grp.getBounds().pad(0.18));
-    }catch(e){}
+    if (mainLine) {
+      const path = mainLine.getPath();
+      for (let i=0; i<path.getLength(); i++){
+        const p = path.getAt(i);
+        positions.push({ lat:p.lat(), lng:p.lng() });
+      }
+    }
+
+    if (currentPos && isValidLatLng(currentPos.lat, currentPos.lng)) {
+      positions.push(currentPos);
+    }
+
+    fitPositions(positions, 72);
   }
 
   /* ===== Render UI ===== */
@@ -766,8 +1025,15 @@
     if (R[0]) mainLine = drawGeo(R[0], '#2563eb', 6, false);
 
     if (currentPos && isValidLatLng(currentPos.lat, currentPos.lng)){
-      if (meMarker) map.removeLayer(meMarker);
-      meMarker = L.circleMarker([currentPos.lat, currentPos.lng], { radius:8, color:'#1d4ed8', fillColor:'#60a5fa', fillOpacity:.9 }).addTo(map);
+      if (meMarker) meMarker.setMap(null);
+
+      meMarker = new google.maps.Marker({
+        map,
+        position: { lat: currentPos.lat, lng: currentPos.lng },
+        icon: makeDriverIcon(),
+        title: 'Mi ubicación',
+        zIndex: 999,
+      });
     }
 
     if (Array.isArray(payload.ordered_stops) && payload.ordered_stops.length){
@@ -784,7 +1050,7 @@
     renderAdvice(payload.advice_md);
     renderKPIsDistance(payload);
 
-    setTimeout(()=>{ try{ map.invalidateSize(true); }catch(e){} }, 60);
+    setTimeout(()=>{ try{ google.maps.event.trigger(map, 'resize'); }catch(e){} }, 60);
   }
 
   /* ===== nav links ===== */
@@ -861,19 +1127,27 @@
           const d=2*R*Math.asin(Math.sqrt(x));
           if (d >= 30){
             didAutoZoom=true;
-            try{ map.flyTo([currentPos.lat,currentPos.lng],15,{duration:.6}); }catch{}
+            try{
+              map.panTo({ lat: currentPos.lat, lng: currentPos.lng });
+              map.setZoom(15);
+            }catch{}
           }
         }
         lastPos=currentPos;
 
         if (followMode && didAutoZoom){
-          map.panTo([currentPos.lat,currentPos.lng],{animate:true,duration:.3});
+          map.panTo({ lat: currentPos.lat, lng: currentPos.lng });
         }
 
-        if (meMarker) map.removeLayer(meMarker);
-        meMarker=L.circleMarker([currentPos.lat,currentPos.lng],{
-          radius:8, color:'#1d4ed8', fillColor:'#60a5fa', fillOpacity:.9
-        }).addTo(map);
+        if (meMarker) meMarker.setMap(null);
+
+        meMarker = new google.maps.Marker({
+          map,
+          position: { lat: currentPos.lat, lng: currentPos.lng },
+          icon: makeDriverIcon(),
+          title: 'Mi ubicación',
+          zIndex: 999,
+        });
 
         const now=Date.now();
         if (now-lastSent>15000){
@@ -943,6 +1217,47 @@
       await sendClientLog('error', 'requestGpsOnce failed', { err: String(err), msg });
       return null;
     }
+  }
+
+  function paintCurrentPosition(pos, zoom = 16){
+    if (!pos || !map || !window.google) return;
+
+    currentPos = {
+      lat: Number(pos.lat),
+      lng: Number(pos.lng)
+    };
+
+    if (!isValidLatLng(currentPos.lat, currentPos.lng)) return;
+
+    if (meMarker) {
+      meMarker.setMap(null);
+    }
+
+    meMarker = new google.maps.Marker({
+      map,
+      position: { lat: currentPos.lat, lng: currentPos.lng },
+      icon: makeDriverIcon(),
+      title: 'Mi ubicación',
+      zIndex: 999,
+    });
+
+    map.panTo({ lat: currentPos.lat, lng: currentPos.lng });
+    map.setZoom(zoom);
+    didAutoZoom = true;
+    updateNavLinks();
+  }
+
+  async function locateAndCalculate(){
+    const pos = await requestGpsOnce();
+    if (!pos) return null;
+
+    paintCurrentPosition(pos, 16);
+    await compute(pos);
+    startWatching();
+
+    document.getElementById('btnRecalc')?.removeAttribute('disabled');
+
+    return pos;
   }
 
   /* ===== API ===== */
@@ -1058,8 +1373,8 @@
               if (pos) await compute(pos);
             }
           } else {
-            showGpsControls(false);
-            showToast('Permiso de ubicación denegado.', false);
+            showGpsControls(true);
+            showToast('Permiso de ubicación denegado. Puedes activarlo desde el candado del navegador.', false);
             dbgChip('GPS denied', true);
           }
         };
@@ -1099,25 +1414,66 @@
     }
   });
 
-  // ✅ Iniciar ruta: bloquea orden 1 vez en backend
+  document.getElementById('btnLocate')?.addEventListener('click', async ()=>{
+    const btn = document.getElementById('btnLocate');
+    const old = btn?.innerHTML;
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="bi bi-crosshair"></i> Buscando...';
+    }
+
+    try {
+      const pos = await locateAndCalculate();
+      if (pos) {
+        showToast('Ubicación detectada. Ruta calculada.');
+        mapToast('Ubicación detectada');
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = old;
+      }
+    }
+  });
+
+  // ✅ Iniciar ruta: pide GPS, bloquea orden 1 vez en backend y empieza seguimiento
   document.getElementById('btnStart')?.addEventListener('click', async ()=>{
-    const pos = await requestGpsOnce();
-    if (!pos) return;
+    const btn = document.getElementById('btnStart');
+    const old = btn?.innerHTML;
 
-    const ok = await startRoute(pos);
-    if (!ok) return;
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Iniciando...';
+    }
 
-    await compute(pos);
-    startWatching();
-    mapToast('Ruta iniciada (orden fijo)');
+    try {
+      const pos = await requestGpsOnce();
+      if (!pos) return;
+
+      paintCurrentPosition(pos, 16);
+
+      const ok = await startRoute(pos);
+      if (!ok) return;
+
+      await compute(pos);
+      startWatching();
+
+      document.getElementById('btnRecalc')?.removeAttribute('disabled');
+
+      showToast('Ruta iniciada. Seguimiento activo.');
+      mapToast('Ruta iniciada (GPS activo)');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = old;
+      }
+    }
   });
 
   document.getElementById('btnRecalc')?.addEventListener('click', async ()=>{
     if (!currentPos){
-      const pos = await requestGpsOnce();
-      if (!pos) return;
-      await compute(pos);
-      startWatching();
+      await locateAndCalculate();
       return;
     }
     await recompute();
@@ -1150,9 +1506,23 @@
   // ✅ refresco suave
   setInterval(async ()=>{ if(currentPos){ await recompute(); } }, 60000);
 
-  // Init
-  initMap();
-  autoBoot();
+  // Init Google Maps. Se ejecuta cuando termina de cargar el SDK de Google.
+  window.initGoogleDriverMap = async function () {
+    try {
+      initMap();
+      await autoBoot();
+    } catch (e) {
+      dbgChip('No se pudo iniciar Google Maps: ' + String(e), true);
+      showToast('No se pudo cargar Google Maps. Revisa API key y APIs habilitadas.', false);
+      await sendClientLog('error', 'google maps init failed', { err: String(e) });
+    }
+  };
+</script>
+
+<script
+  async
+  defer
+  src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.browser_key') }}&libraries=geometry&v=weekly&callback=initGoogleDriverMap">
 </script>
 
 {{-- ============================

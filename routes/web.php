@@ -112,6 +112,7 @@ use App\Models\HomeBanner;
 use App\Http\Controllers\Admin\HomeBannerController;
 use App\Http\Controllers\Web\WebAssistantController;
 use App\Http\Controllers\Admin\WebAssistantAdvisorController;
+use App\Http\Controllers\Logistics\RouteGoogleController;
 
 Route::get('/admin/catalog/analytics', [\App\Http\Controllers\Admin\CatalogItemController::class, 'analytics'])
     ->name('admin.catalog.analytics');
@@ -2630,3 +2631,6 @@ Route::middleware(['auth'])
         Route::post('/conversations/{conversation}/close', [WebAssistantAdvisorController::class, 'close'])
             ->name('close');
     });
+
+    Route::post('/routes/google/estimate', [RouteGoogleController::class, 'estimate'])
+    ->name('routes.google.estimate');

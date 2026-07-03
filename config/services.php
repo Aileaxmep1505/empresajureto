@@ -368,5 +368,10 @@ return [
         'height' => env('ENVIA_PACKAGE_HEIGHT', 20),
     ],
 ],
+'google_maps' => [
+    'browser_key' => env('GOOGLE_MAPS_BROWSER_KEY'),
+    'server_key'  => env('GOOGLE_MAPS_SERVER_KEY'),
+    'country'     => env('GOOGLE_MAPS_COUNTRY', 'mx'),
+],
 
 ];

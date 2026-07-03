@@ -6,24 +6,29 @@ use App\Http\Controllers\Controller;
 use App\Models\RoutePlan;
 use App\Models\RouteStop;
 use App\Models\DriverPosition;
-use App\Services\OsrmClient;
+use App\Services\GoogleMapsClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class RouteSupervisorController extends Controller
 {
     public function __construct(
-        protected OsrmClient $osrm
+        protected GoogleMapsClient $maps
     ) {}
 
     private function canUserManage(): bool
     {
         $u = Auth::user();
-        if (!$u) return false;
+
+        if (!$u) {
+            return false;
+        }
 
         if (class_exists(\Spatie\Permission\Models\Role::class) && method_exists($u, 'hasRole')) {
             return !$u->hasRole('cliente_web');
         }
+
         return true;
     }
 
@@ -32,23 +37,34 @@ class RouteSupervisorController extends Controller
         abort_unless($this->canUserManage(), 403);
     }
 
-    /** Config presencia */
+    /**
+     * Config presencia.
+     */
     private function presenceConfig(): array
     {
         return [
-            'online_seconds' => 120,   // si no manda ubicación en 2 min => offline
-            'warn_seconds'   => 45,    // a los 45s ya lo marcas “tarde”
+            'online_seconds' => 120,
+            'warn_seconds'   => 45,
         ];
     }
 
     private function lastSeenAt(?DriverPosition $last): ?\Illuminate\Support\Carbon
     {
-        if (!$last) return null;
+        if (!$last) {
+            return null;
+        }
 
-        // Preferimos tiempo del servidor para “last seen”
-        if (!empty($last->received_at)) return \Illuminate\Support\Carbon::parse($last->received_at);
-        if (!empty($last->created_at))  return \Illuminate\Support\Carbon::parse($last->created_at);
-        if (!empty($last->captured_at)) return \Illuminate\Support\Carbon::parse($last->captured_at);
+        if (!empty($last->received_at)) {
+            return \Illuminate\Support\Carbon::parse($last->received_at);
+        }
+
+        if (!empty($last->created_at)) {
+            return \Illuminate\Support\Carbon::parse($last->created_at);
+        }
+
+        if (!empty($last->captured_at)) {
+            return \Illuminate\Support\Carbon::parse($last->captured_at);
+        }
 
         return null;
     }
@@ -80,31 +96,69 @@ class RouteSupervisorController extends Controller
         ];
     }
 
-    /** Snap-to-road: usa snaps guardados si existen; si no, intenta OSRM nearest */
+    private function hasModelAttribute(DriverPosition $position, string $attribute): bool
+    {
+        return array_key_exists($attribute, $position->getAttributes());
+    }
+
+    /**
+     * Snap-to-road con Google Roads API.
+     *
+     * Si ya existen snap_lat y snap_lng guardados, los usa.
+     * Si no existen, intenta Google Roads API.
+     * Si las columnas existen en la tabla, guarda el snap para no consumir API en cada poll.
+     */
     private function buildPositionPayload(?DriverPosition $last): ?array
     {
-        if (!$last) return null;
+        if (!$last) {
+            return null;
+        }
 
-        $lat = $last->lat !== null ? (float)$last->lat : null;
-        $lng = $last->lng !== null ? (float)$last->lng : null;
+        $lat = $last->lat !== null ? (float) $last->lat : null;
+        $lng = $last->lng !== null ? (float) $last->lng : null;
 
-        if ($lat === null || $lng === null) return null;
+        if ($lat === null || $lng === null) {
+            return null;
+        }
 
-        $snapLat = property_exists($last, 'snap_lat') ? ($last->snap_lat !== null ? (float)$last->snap_lat : null) : null;
-        $snapLng = property_exists($last, 'snap_lng') ? ($last->snap_lng !== null ? (float)$last->snap_lng : null) : null;
+        $hasSnapLat = $this->hasModelAttribute($last, 'snap_lat');
+        $hasSnapLng = $this->hasModelAttribute($last, 'snap_lng');
 
-        // Si no hay snap guardado, intentamos nearest (cuidado: esto corre en cada poll si no guardas snap)
-        if (($snapLat === null || $snapLng === null)) {
+        $snapLat = $hasSnapLat && $last->snap_lat !== null ? (float) $last->snap_lat : null;
+        $snapLng = $hasSnapLng && $last->snap_lng !== null ? (float) $last->snap_lng : null;
+
+        if ($snapLat === null || $snapLng === null) {
             try {
-                $near = $this->osrm->nearest(['lat'=>$lat,'lng'=>$lng], ['number' => 1]);
-                if (($near['code'] ?? '') === 'Ok' && !empty($near['waypoints'][0]['location'])) {
-                    // OSRM location viene como [lng, lat]
-                    $loc = $near['waypoints'][0]['location'];
-                    $snapLng = isset($loc[0]) ? (float)$loc[0] : null;
-                    $snapLat = isset($loc[1]) ? (float)$loc[1] : null;
+                [$googleSnapLat, $googleSnapLng, $placeId] = $this->maps->nearestRoad($lat, $lng);
+
+                if ($googleSnapLat !== null && $googleSnapLng !== null) {
+                    $snapLat = $googleSnapLat;
+                    $snapLng = $googleSnapLng;
+
+                    /**
+                     * Guarda el snap si tus columnas existen.
+                     * Esto evita llamar Roads API cada 5 segundos para la misma posición.
+                     */
+                    if ($hasSnapLat && $hasSnapLng) {
+                        $updates = [
+                            'snap_lat' => $snapLat,
+                            'snap_lng' => $snapLng,
+                        ];
+
+                        if ($this->hasModelAttribute($last, 'snap_place_id')) {
+                            $updates['snap_place_id'] = $placeId;
+                        }
+
+                        $last->forceFill($updates)->saveQuietly();
+                    }
                 }
             } catch (\Throwable $e) {
-                // silencioso: no rompas el poll
+                Log::warning('Google Roads nearestRoad falló en supervisor poll', [
+                    'driver_position_id' => $last->id ?? null,
+                    'lat' => $lat,
+                    'lng' => $lng,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
@@ -114,7 +168,6 @@ class RouteSupervisorController extends Controller
             'lat' => $lat,
             'lng' => $lng,
 
-            // opcional: punto “pegado a la calle”
             'snap_lat' => $snapLat,
             'snap_lng' => $snapLng,
 
@@ -122,11 +175,8 @@ class RouteSupervisorController extends Controller
             'speed' => $last->speed,
             'heading' => $last->heading,
             'captured_at' => optional($last->captured_at)->toIso8601String(),
-
-            // mejor para “último visto”
             'received_at' => $seen?->toIso8601String(),
 
-            // opcionales
             'app_state' => $last->app_state ?? null,
             'battery'   => $last->battery ?? null,
             'network'   => $last->network ?? null,
@@ -134,15 +184,21 @@ class RouteSupervisorController extends Controller
         ];
     }
 
-    /** VISTA HTML */
+    /**
+     * Vista HTML.
+     */
     public function show(RoutePlan $routePlan)
     {
         $this->canManage();
+
         $routePlan->load('driver');
+
         return view('supervisor.routes.show', compact('routePlan'));
     }
 
-    /** JSON Poll */
+    /**
+     * JSON Poll.
+     */
     public function poll(RoutePlan $routePlan, Request $r)
     {
         $this->canManage();
@@ -151,9 +207,19 @@ class RouteSupervisorController extends Controller
 
         $stops = RouteStop::where('route_plan_id', $routePlan->id)
             ->orderByRaw('COALESCE(sequence_index, 999999), id')
-            ->get(['id','name','lat','lng','sequence_index','status','done_at','eta_seconds']);
+            ->get([
+                'id',
+                'name',
+                'lat',
+                'lng',
+                'sequence_index',
+                'status',
+                'done_at',
+                'eta_seconds',
+            ]);
 
         $last = null;
+
         if ($routePlan->driver_id) {
             $last = DriverPosition::where('user_id', $routePlan->driver_id)
                 ->latest('captured_at')
