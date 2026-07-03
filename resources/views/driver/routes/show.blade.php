@@ -520,6 +520,166 @@
 
 
 
+
+
+    /* ===== Navegacion movil tipo Google Maps/Waze ===== */
+    #rp-driver-pro .mobile-guide-card,
+    #rp-driver-pro .mobile-map-actions,
+    #rp-driver-pro .mobile-center-btn{
+      display:none;
+    }
+
+    @media (max-width: 991.98px){
+      #rp-driver-pro .mobile-guide-card{
+        position:fixed;
+        left:16px;
+        right:16px;
+        top:calc(env(safe-area-inset-top) + 16px);
+        z-index:820;
+        display:flex;
+        align-items:center;
+        gap:16px;
+        min-height:94px;
+        padding:16px 18px;
+        border-radius:22px;
+        background:#006d6a;
+        color:#ffffff;
+        box-shadow:0 14px 34px rgba(0,0,0,.24);
+        backdrop-filter:blur(14px);
+        -webkit-backdrop-filter:blur(14px);
+      }
+
+      #rp-driver-pro .mobile-guide-icon{
+        width:54px;
+        min-width:54px;
+        height:54px;
+        display:grid;
+        place-items:center;
+        font-size:34px;
+        color:#ffffff;
+      }
+
+      #rp-driver-pro .mobile-guide-text{
+        min-width:0;
+        flex:1;
+      }
+
+      #rp-driver-pro .mobile-guide-small{
+        display:block;
+        font-size:17px;
+        line-height:1.1;
+        font-weight:600;
+        opacity:.9;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+
+      #rp-driver-pro .mobile-guide-main{
+        display:block;
+        margin-top:4px;
+        font-size:30px;
+        line-height:1.05;
+        font-weight:700;
+        letter-spacing:-.03em;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+
+      #rp-driver-pro .mobile-guide-compass{
+        width:54px;
+        min-width:54px;
+        height:54px;
+        border:0;
+        border-radius:999px;
+        background:#ffffff;
+        color:#007aff;
+        display:grid;
+        place-items:center;
+        font-size:28px;
+        box-shadow:0 8px 20px rgba(0,0,0,.18);
+      }
+
+      #rp-driver-pro .mobile-guide-compass:active,
+      #rp-driver-pro .mobile-circle-btn:active,
+      #rp-driver-pro .mobile-center-btn:active{
+        transform:scale(.96);
+      }
+
+      #rp-driver-pro .mobile-map-actions{
+        position:fixed;
+        right:18px;
+        top:calc(env(safe-area-inset-top) + 150px);
+        z-index:815;
+        display:grid;
+        gap:12px;
+      }
+
+      #rp-driver-pro .mobile-circle-btn{
+        width:56px;
+        height:56px;
+        border:0;
+        border-radius:999px;
+        background:#ffffff;
+        color:#111111;
+        display:grid;
+        place-items:center;
+        font-size:24px;
+        box-shadow:0 10px 24px rgba(0,0,0,.18);
+      }
+
+      #rp-driver-pro .mobile-circle-btn.is-active{
+        color:#007aff;
+        box-shadow:0 0 0 4px rgba(0,122,255,.12), 0 10px 24px rgba(0,0,0,.18);
+      }
+
+      #rp-driver-pro .mobile-center-btn{
+        position:fixed;
+        left:18px;
+        bottom:calc(104px + env(safe-area-inset-bottom));
+        z-index:815;
+        min-height:54px;
+        border:0;
+        border-radius:999px;
+        padding:0 20px;
+        background:#ffffff;
+        color:#00716f;
+        display:inline-flex;
+        align-items:center;
+        gap:10px;
+        font-size:18px;
+        font-weight:700;
+        box-shadow:0 10px 24px rgba(0,0,0,.18);
+      }
+
+      #rp-driver-pro .driver-drawer:not(.is-collapsed) ~ .mobile-center-btn,
+      #rp-driver-pro .driver-drawer:not(.is-collapsed) + .mobile-center-btn{
+        bottom:calc(58svh + 16px);
+      }
+
+      #rp-driver-pro .mobile-gps-status{
+        position:fixed;
+        left:50%;
+        top:calc(env(safe-area-inset-top) + 122px);
+        z-index:819;
+        transform:translateX(-50%);
+        display:none;
+        max-width:calc(100% - 32px);
+        padding:10px 14px;
+        border-radius:999px;
+        background:rgba(17,17,17,.84);
+        color:#ffffff;
+        font-size:13px;
+        font-weight:700;
+        box-shadow:0 10px 24px rgba(0,0,0,.18);
+      }
+
+      #rp-driver-pro .mobile-gps-status.is-visible{
+        display:block;
+      }
+    }
+
     /* ==========================================================
        MODO CELULAR RESTAURADO: mapa arriba + bottom sheet anterior
        Desktop se conserva igual.
@@ -894,6 +1054,35 @@
     <div class="col-lg-9">
       <div class="map-card">
         <div id="map" class="map"></div>
+
+        <div class="mobile-guide-card" id="mobileGuideCard">
+          <div class="mobile-guide-icon" id="mobileGuideIcon"><i class="bi bi-arrow-up"></i></div>
+          <div class="mobile-guide-text">
+            <span class="mobile-guide-small" id="mobileGuideSmall">Listo para navegar</span>
+            <span class="mobile-guide-main" id="mobileGuideMain">Inicia la ruta</span>
+          </div>
+          <button type="button" class="mobile-guide-compass" id="btnMobileFollow" aria-label="Seguir mi ubicación">
+            <i class="bi bi-stars"></i>
+          </button>
+        </div>
+
+        <div class="mobile-gps-status" id="mobileGpsStatus">Buscando señal GPS...</div>
+
+        <div class="mobile-map-actions" aria-label="Controles móviles del mapa">
+          <button type="button" class="mobile-circle-btn" id="btnMobileTraffic" aria-label="Tráfico">
+            <i class="bi bi-signpost-split"></i>
+          </button>
+          <button type="button" class="mobile-circle-btn" id="btnMobileSound" aria-label="Audio">
+            <i class="bi bi-volume-up-fill"></i>
+          </button>
+          <button type="button" class="mobile-circle-btn" id="btnMobileReport" aria-label="Reporte">
+            <i class="bi bi-exclamation-triangle"></i>
+          </button>
+        </div>
+
+        <button type="button" class="mobile-center-btn" id="btnMobileCenter">
+          <i class="bi bi-navigation-fill"></i> Centrar
+        </button>
 
         {{-- DEBUG chip --}}
         <div id="dbgChip" class="dbg">debug</div>
@@ -1365,6 +1554,10 @@
 
     window.map = map;
 
+    if (window.matchMedia('(max-width: 991.98px)').matches) {
+      try { map.setMapTypeId('hybrid'); } catch(e) {}
+    }
+
     setupTrafficControls();
     setupStreetViewExitButton();
 
@@ -1499,6 +1692,66 @@
     if (routes.length === 1) empty.style.display='block';
   }
 
+  function stripInstructionHtml(html){
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html || '';
+    return (tmp.textContent || tmp.innerText || '').trim();
+  }
+
+  function guideIconForInstruction(instruction){
+    const txt = String(instruction || '').toLowerCase();
+    if (txt.includes('izquierda')) return 'bi-arrow-90deg-left';
+    if (txt.includes('derecha')) return 'bi-arrow-90deg-right';
+    if (txt.includes('retorno') || txt.includes('u-turn') || txt.includes('vuelta en u')) return 'bi-arrow-counterclockwise';
+    if (txt.includes('salida') || txt.includes('incorp')) return 'bi-sign-turn-right-fill';
+    if (txt.includes('llegad') || txt.includes('destino')) return 'bi-geo-alt-fill';
+    return 'bi-arrow-up';
+  }
+
+  function updateMobileGuide(payload = lastPayload){
+    const card = document.getElementById('mobileGuideCard');
+    if (!card) return;
+
+    const small = document.getElementById('mobileGuideSmall');
+    const main = document.getElementById('mobileGuideMain');
+    const icon = document.getElementById('mobileGuideIcon');
+
+    const route = payload?.routes?.[0] || null;
+    const steps = Array.isArray(route?.steps) ? route.steps : routeSteps;
+    const nextStop = nextPendingStop(payload);
+    const firstStep = Array.isArray(steps) && steps.length ? steps[Math.min(stepIdx, steps.length - 1)] : null;
+
+    if (!route){
+      if (small) small.textContent = currentPos ? 'Ubicación lista' : 'Permite el GPS';
+      if (main) main.textContent = currentPos ? 'Calcula la ruta' : 'Inicia la ruta';
+      if (icon) icon.innerHTML = '<i class="bi bi-arrow-up"></i>';
+      return;
+    }
+
+    const rawInstruction = stripInstructionHtml(
+      firstStep?.instruction ||
+      firstStep?.html_instructions ||
+      firstStep?.navigationInstruction?.instructions ||
+      ''
+    );
+
+    const roadName = stripInstructionHtml(firstStep?.name || firstStep?.road || '');
+    const fallbackStop = stripInstructionHtml(nextStop?.name || 'Siguiente punto');
+
+    let smallText = rawInstruction || 'Continúa por la ruta';
+    let mainText = roadName ? ('hacia ' + roadName) : fallbackStop;
+
+    // Si la instrucción ya es corta y clara, dejamos la calle/punto como principal.
+    if (!roadName && rawInstruction.length > 0 && rawInstruction.length <= 34){
+      mainText = rawInstruction;
+      smallText = nextStop ? ('hacia ' + fallbackStop) : 'Sigue la ruta';
+    }
+
+    if (small) small.textContent = smallText;
+    if (main) main.textContent = mainText;
+    if (icon) icon.innerHTML = '<i class="bi ' + guideIconForInstruction(rawInstruction) + '"></i>';
+  }
+
   function renderStepsFromPayload(payload){
     const list=document.getElementById('steps'); list.innerHTML='';
     const stepsHint=document.getElementById('stepsHint');
@@ -1516,6 +1769,7 @@
     });
 
     mapToast('Empezamos • ' + (routeSteps[0]?.instruction || 'Sigue la ruta'));
+    updateMobileGuide(payload);
   }
 
   function renderTimeline(payload){
@@ -1595,6 +1849,7 @@
     }
 
     renderStepsFromPayload(payload);
+    updateMobileGuide(payload);
     updateNavLinks();
   }
 
@@ -1750,17 +2005,26 @@
         updateNavLinks();
       },
       async (err)=>{
+        if (err.code === 3){
+          // En móviles es común que watchPosition tarde. No detenemos la navegación ni asustamos al chofer.
+          showMobileGpsStatus('Seguimos buscando mejor señal GPS...', true);
+          clearTimeout(window.__gpsStatusTimer);
+          window.__gpsStatusTimer = setTimeout(()=>showMobileGpsStatus('', false), 4500);
+          dbgChip('GPS: buscando señal...', true);
+          await sendClientLog('warning', 'gps watch timeout, continuing', { code: err.code, message: err.message });
+          return;
+        }
+
         const msg =
           err.code===1 ? 'Permiso de ubicación denegado. Actívalo en tu navegador.' :
-          err.code===2 ? 'No se pudo obtener señal GPS.' :
-          err.code===3 ? 'El GPS tardó demasiado (timeout).' :
+          err.code===2 ? 'No se pudo obtener señal GPS. Revisa señal y datos móviles.' :
           (err.message || 'Error de GPS');
 
         showToast(msg, false);
         dbgChip('GPS: ' + msg, true);
         await sendClientLog('error', 'gps error', { code: err.code, message: err.message });
       },
-      { enableHighAccuracy:true, maximumAge:5000, timeout:20000 }
+      { enableHighAccuracy:true, maximumAge:10000, timeout:60000 }
     );
   }
 
@@ -1769,6 +2033,29 @@
       navigator.geolocation.clearWatch(watcherId);
       watcherId=null;
     }
+  }
+
+  function showMobileGpsStatus(text, show = true){
+    const el = document.getElementById('mobileGpsStatus');
+    if (!el) return;
+    el.textContent = text || 'Buscando señal GPS...';
+    el.classList.toggle('is-visible', !!show);
+  }
+
+  function getGeoPosition(options){
+    return new Promise((resolve, reject)=>{
+      navigator.geolocation.getCurrentPosition(
+        p=>resolve({
+          lat:p.coords.latitude,
+          lng:p.coords.longitude,
+          accuracy:p.coords.accuracy ?? null,
+          heading:p.coords.heading ?? null,
+          speed:p.coords.speed ?? null,
+        }),
+        err=>reject(err),
+        options
+      );
+    });
   }
 
   async function requestGpsOnce(){
@@ -1781,31 +2068,63 @@
       return null;
     }
 
-    try{
-      const pos = await new Promise((resolve, reject)=>{
-        navigator.geolocation.getCurrentPosition(
-          p=>resolve({lat:p.coords.latitude,lng:p.coords.longitude}),
-          err=>reject(err),
-          { enableHighAccuracy:true, timeout:12000, maximumAge:5000 }
-        );
-      });
+    showMobileGpsStatus('Buscando señal GPS...', true);
+    mapToast('Buscando señal GPS...');
 
-      currentPos = pos;
-      dbgChip('GPS listo: ' + pos.lat.toFixed(5) + ', ' + pos.lng.toFixed(5));
-      await saveDriverLocation(pos);
-      return pos;
-    }catch(err){
-      const msg =
-        err?.code===1 ? 'Permiso denegado. Actívalo desde el candado.' :
-        err?.code===2 ? 'No se pudo obtener señal GPS.' :
-        err?.code===3 ? 'El GPS tardó demasiado.' :
-        (err?.message || 'No se pudo obtener ubicación');
+    const attempts = [
+      {
+        label: 'ubicación reciente',
+        options: { enableHighAccuracy:false, timeout:8000, maximumAge:600000 }
+      },
+      {
+        label: 'alta precisión',
+        options: { enableHighAccuracy:true, timeout:45000, maximumAge:0 }
+      },
+      {
+        label: 'señal amplia',
+        options: { enableHighAccuracy:false, timeout:25000, maximumAge:0 }
+      },
+    ];
 
-      showToast(msg, false);
-      dbgChip('GPS error: ' + msg, true);
-      await sendClientLog('error', 'requestGpsOnce failed', { err: String(err), msg });
-      return null;
+    let lastError = null;
+
+    for (const attempt of attempts){
+      try{
+        showMobileGpsStatus('Buscando GPS: ' + attempt.label + '...', true);
+        const pos = await getGeoPosition(attempt.options);
+
+        currentPos = pos;
+        dbgChip('GPS listo: ' + pos.lat.toFixed(5) + ', ' + pos.lng.toFixed(5));
+        showMobileGpsStatus('', false);
+        await saveDriverLocation(pos);
+        return pos;
+      }catch(err){
+        lastError = err;
+
+        if (err?.code === 1){
+          const msg = 'Permiso denegado. Activa la ubicación desde el candado del navegador.';
+          showMobileGpsStatus('', false);
+          showToast(msg, false);
+          dbgChip('GPS error: ' + msg, true);
+          await sendClientLog('error', 'requestGpsOnce permission denied', { err: String(err), msg });
+          return null;
+        }
+
+        // Si solo fue timeout, no mostramos error todavía; probamos otra estrategia.
+        dbgChip('GPS intento falló: ' + attempt.label, true);
+      }
     }
+
+    const finalMsg = lastError?.code === 2
+      ? 'No se pudo obtener señal GPS. Sal a un lugar abierto y vuelve a intentar.'
+      : 'No se logró obtener GPS. Revisa permisos, datos móviles y que estés en un lugar abierto.';
+
+    showMobileGpsStatus('', false);
+    showToast(finalMsg, false);
+    mapToast('GPS sin señal. Intenta de nuevo en un lugar abierto.');
+    dbgChip('GPS error final: ' + finalMsg, true);
+    await sendClientLog('error', 'requestGpsOnce failed after retries', { err: String(lastError), msg: finalMsg });
+    return null;
   }
 
   function paintCurrentPosition(pos, zoom = 16){
@@ -2067,6 +2386,43 @@
     }
     await recompute();
     showToast('Ruta actualizada');
+  });
+
+
+  document.getElementById('btnMobileCenter')?.addEventListener('click', async ()=>{
+    followMode = true;
+    if (!currentPos){
+      const pos = await requestGpsOnce();
+      if (!pos) return;
+      paintCurrentPosition(pos, 17);
+      startWatching();
+      return;
+    }
+    paintCurrentPosition(currentPos, 17);
+    mapToast('Centrado en tu ubicación');
+  });
+
+  document.getElementById('btnMobileFollow')?.addEventListener('click', ()=>{
+    followMode = true;
+    if (currentPos) paintCurrentPosition(currentPos, 17);
+    mapToast('Seguimiento activado');
+  });
+
+  document.getElementById('btnMobileTraffic')?.addEventListener('click', (e)=>{
+    trafficEnabled = !trafficEnabled;
+    if (trafficLayer) trafficLayer.setMap(trafficEnabled ? map : null);
+    e.currentTarget.classList.toggle('is-active', trafficEnabled);
+    const toggle = document.getElementById('trafficToggle');
+    if (toggle) toggle.checked = trafficEnabled;
+  });
+
+  document.getElementById('btnMobileSound')?.addEventListener('click', (e)=>{
+    e.currentTarget.classList.toggle('is-active');
+    mapToast(e.currentTarget.classList.contains('is-active') ? 'Audio activado' : 'Audio silenciado');
+  });
+
+  document.getElementById('btnMobileReport')?.addEventListener('click', ()=>{
+    mapToast('Reporte rápido disponible próximamente');
   });
 
   // FAB marca el "siguiente" directamente

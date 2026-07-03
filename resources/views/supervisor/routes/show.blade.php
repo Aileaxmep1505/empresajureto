@@ -721,10 +721,7 @@
     setLive(false, 'Error API key');
   };
 </script>
-{{-- DEBUG TEMPORAL --}}
-<div style="display:none">
-    GOOGLE KEY: {{ config('services.google_maps.browser_key') }}
-</div>
+
 <script
   async
   defer
