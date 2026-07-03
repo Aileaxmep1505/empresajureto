@@ -1,7 +1,7 @@
 {{-- resources/views/routes/index.blade.php --}}
 @extends('layouts.app')
 @section('title','Rutas programadas')
-
+@section('content_class', 'content--flush')
 @section('content')
 @php
   use Illuminate\Support\Str;
@@ -11,365 +11,303 @@
 <div id="routes-index" class="ri-wrap">
   {{-- ================== ESTILOS ENCAPSULADOS ================== --}}
   <style>
+    /* Fuente corporativa */
+    @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
+
     /* =========================================================
-       ✅ FIX PARA TU layout.app (main#content.content)
-       - Quita el padding:18px del .content (que genera el espacio)
-       - Quita el fondo blanco del main para que se vea el fondo del blade
-       - Todo SOLO cuando existe #routes-index
+       FIX para layout.app (main#content.content)
        ========================================================= */
     body:has(#routes-index) main#content.content{
-      padding: 0 !important;          /* <- quita el hueco bajo el header */
+      padding: 0 !important;
       background: transparent !important;
       min-height: calc(100vh - var(--topbar-h)) !important;
     }
-
-    /* (Opcional) evita scroll horizontal por 100vw */
     body:has(#routes-index){ overflow-x:hidden; }
 
-    /* ✅ Rompe el contenedor y ocupa todo el viewport */
     #routes-index{
       width: 100vw;
       margin-left: calc(50% - 50vw);
       margin-right: calc(50% - 50vw);
     }
 
-    /* ✅ Usa fuente global (NO declaramos font-family aquí) */
-    #routes-index{
-      --ri-ink:#0f172a;
-      --ri-muted:#64748b;
-      --ri-line:#e8eef7;
-
-      --ri-bg:#f7f9fc;
-      --ri-card:#ffffff;
-
-      /* Pasteles profesionales / minimalistas */
-      --ri-primary:#b9ddff;     /* azul pastel */
-      --ri-mint:#bff3e7;        /* menta pastel */
-      --ri-lilac:#d9d4ff;       /* lila pastel */
-      --ri-amber:#ffe6b8;       /* ámbar pastel */
-      --ri-rose:#ffd1e1;        /* rosa pastel */
-
-      --ri-shadow:0 14px 34px rgba(2,8,23,.08);
-      --ri-shadow2:0 20px 48px rgba(2,8,23,.10);
-
-      color:var(--ri-ink);
-      background:linear-gradient(180deg,#fbfdff,var(--ri-bg));
-      padding:22px 14px;
-
-      /* ✅ Para el fondo animado */
-      position:relative;
-      overflow:hidden;
-      isolation:isolate;
-
-      /* ✅ altura completa del área bajo el topbar */
-      min-height: calc(100vh - var(--topbar-h));
-    }
-
     /* =========================
-       FONDO ANIMADO (dots)
+       VARIABLES BASE
        ========================= */
-    #routes-index .ri-bgfx{
-      position:absolute;
-      inset:-2px;
-      z-index:0;
-      pointer-events:none;
-      opacity:.95;
+    #routes-index{
+      --bg:#f4f5f7;
+      --card:#ffffff;
+      --input-bg:#f9fafb;
 
-      /* base suave */
-      background:
-        radial-gradient(1100px 700px at 20% 5%, rgba(59,130,246,.10), transparent 60%),
-        radial-gradient(900px 600px at 85% 12%, rgba(168,85,247,.08), transparent 58%),
-        radial-gradient(900px 700px at 50% 90%, rgba(16,185,129,.07), transparent 62%),
-        linear-gradient(180deg,#fbfdff,var(--ri-bg));
+      --ink-dark:#0f172a;
+      --ink:#334155;
+      --muted:#64748b;
+      --muted-light:#94a3b8;
+
+      --line:#e2e8f0;
+
+      --blue:#007aff;
+      --blue-soft:#eff6ff;
+
+      --success:#15803d;
+      --success-soft:#f0fdf4;
+
+      --danger:#ef4444;
+      --danger-soft:#fef2f2;
+
+      --warning:#c2410c;
+      --warning-soft:#fff7ed;
+
+      --shadow-card:0 4px 12px rgba(0,0,0,.02);
+      --shadow-hover:0 12px 24px rgba(15,23,42,.06);
+
+      font-family:'Quicksand', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      color:var(--ink);
+      background:var(--bg);
+      min-height: calc(100vh - var(--topbar-h));
+      padding:40px 24px 56px;
+      -webkit-font-smoothing:antialiased;
     }
-
-    /* Puntitos */
-    #routes-index .ri-bgfx::before{
-      content:'';
-      position:absolute; inset:0;
-      background-image:
-        radial-gradient(circle, rgba(37,99,235,.22) 1.2px, transparent 1.25px),
-        radial-gradient(circle, rgba(99,102,241,.16) 1.1px, transparent 1.15px),
-        radial-gradient(circle, rgba(15,23,42,.08) 1px, transparent 1.05px);
-      background-size:
-        26px 26px,
-        34px 34px,
-        22px 22px;
-      background-position:
-        0 0,
-        10px 6px,
-        4px 12px;
-
-      opacity:.9;
-      filter: blur(.15px);
-      animation: ri-dots-float 10s linear infinite;
-      transform: translateZ(0);
-    }
-
-    /* Grain sutil */
-    #routes-index .ri-bgfx::after{
-      content:'';
-      position:absolute; inset:0;
-      background-image:
-        radial-gradient(rgba(2,8,23,.035) 1px, transparent 1px);
-      background-size: 18px 18px;
-      opacity:.22;
-      mix-blend-mode:multiply;
-      animation: ri-grain 14s linear infinite;
-    }
-
-    @keyframes ri-dots-float{
-      0%   { background-position: 0 0, 10px 6px, 4px 12px; transform: translate3d(0,0,0) }
-      50%  { background-position: 120px 60px, 80px 120px, 140px 90px; transform: translate3d(0,-6px,0) }
-      100% { background-position: 240px 120px, 150px 240px, 280px 180px; transform: translate3d(0,0,0) }
-    }
-
-    @keyframes ri-grain{
-      0%{ transform:translate3d(0,0,0) }
-      25%{ transform:translate3d(-6px,4px,0) }
-      50%{ transform:translate3d(5px,-3px,0) }
-      75%{ transform:translate3d(-3px,-5px,0) }
-      100%{ transform:translate3d(0,0,0) }
-    }
-
-    /* ✅ Houdini ring particles si el browser lo soporta */
-    @supports (background: paint(ring-particles)) {
-      #routes-index .ri-bgfx{
-        --ring-radius: 160;
-        --ring-thickness: 850;
-        --particle-count: 70;
-        --particle-rows: 26;
-        --particle-size: 2;
-        --particle-color: rgba(25, 60, 140, .9);
-        --particle-min-alpha: 0.12;
-        --particle-max-alpha: 0.85;
-        --seed: 240;
-
-        background-image:
-          paint(ring-particles),
-          radial-gradient(1100px 700px at 20% 5%, rgba(59,130,246,.08), transparent 60%),
-          radial-gradient(900px 600px at 85% 12%, rgba(168,85,247,.07), transparent 58%),
-          linear-gradient(180deg,#fbfdff,var(--ri-bg));
-      }
-
-      @property --animation-tick { syntax: '<number>'; inherits: false; initial-value: 0; }
-      @property --ring-radius { syntax: '<number> | auto'; inherits: false; initial-value: auto; }
-
-      @keyframes ri-ripple { 0% { --animation-tick: 0; } 100% { --animation-tick: 1; } }
-      @keyframes ri-ring { 0% { --ring-radius: 140; } 100% { --ring-radius: 240; } }
-
-      #routes-index .ri-bgfx{
-        animation: ri-ripple 7.5s linear infinite, ri-ring 7.5s ease-in-out infinite alternate;
-      }
-
-      @media (prefers-reduced-motion: reduce){
-        #routes-index .ri-bgfx{ animation:none !important; }
-        #routes-index .ri-bgfx::before,
-        #routes-index .ri-bgfx::after{ animation:none !important; }
-      }
-    }
-
-    /* ✅ el contenido siempre arriba del fondo */
-    #routes-index .ri-container{ position:relative; z-index:1; }
 
     #routes-index a{ color:inherit; text-decoration:none }
-    #routes-index a:hover{ text-decoration:underline }
+    #routes-index a:hover{ color:var(--blue) }
     #routes-index .ri-container{ max-width:1200px; margin:0 auto }
 
-    /* Encabezado */
+    /* =========================
+       ENCABEZADO
+       ========================= */
     #routes-index .ri-titlebar{
-      display:flex; gap:12px; align-items:center; justify-content:space-between;
-      flex-wrap:wrap; margin-bottom:14px
+      display:flex; gap:16px; align-items:center; justify-content:space-between;
+      flex-wrap:wrap; margin-bottom:28px
     }
     #routes-index .ri-title{
-      font-weight:900; font-size:clamp(20px,2.6vw,30px);
-      letter-spacing:.2px
+      font-weight:700; font-size:clamp(22px,2.6vw,30px);
+      letter-spacing:-.02em; color:var(--ink-dark)
     }
-    #routes-index .ri-actions{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    #routes-index .ri-actions{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
 
-    /* Buscador */
+    /* =========================
+       BUSCADOR (input)
+       ========================= */
     #routes-index .ri-search{
       display:flex; align-items:center; gap:.55rem;
-      background:#fff; border:1px solid var(--ri-line);
-      border-radius:14px; padding:.45rem .6rem;
-      min-width:280px;
-      box-shadow:0 10px 26px rgba(2,8,23,.05)
+      background:var(--input-bg); border:1px solid var(--line);
+      border-radius:8px; padding:0 .8rem;
+      height:42px;
+      min-width:300px;
+      transition:border-color .18s ease, box-shadow .18s ease;
+    }
+    #routes-index .ri-search:focus-within{
+      border-color:var(--blue);
+      box-shadow:0 0 0 3px var(--blue-soft);
     }
     #routes-index .ri-search input{
-      border:0; outline:none; width:220px; font-size:.95rem;
-      color:var(--ri-ink); background:transparent
+      border:0; outline:none; width:230px; font-size:.95rem;
+      color:var(--ink); background:transparent;
+      font-family:inherit; font-weight:500; height:100%;
     }
-    #routes-index .ri-search .ri-icon{ color:var(--ri-muted); font-size:1rem }
+    #routes-index .ri-search input::placeholder{ color:var(--muted-light) }
+    #routes-index .ri-search .ri-icon{ color:var(--muted); font-size:1rem }
 
-    /* Botones */
+    /* =========================
+       BOTONES
+       ========================= */
     #routes-index .ri-btn{
       appearance:none;
-      border:1px solid var(--ri-line);
-      background:#fff;
-      color:var(--ri-ink);
-      padding:.56rem .86rem;
-      border-radius:14px;
-      font-weight:800;
+      font-family:inherit;
+      border:1px solid var(--line);
+      background:var(--card);
+      color:var(--ink);
+      padding:.56rem .9rem;
+      border-radius:8px;
+      font-weight:600;
+      font-size:.9rem;
       cursor:pointer;
       line-height:1;
       display:inline-flex; align-items:center; gap:.5rem;
-      transition:transform .14s ease, box-shadow .14s ease, background .14s ease, border-color .14s ease;
-      box-shadow:0 8px 22px rgba(2,8,23,.06)
+      transition:transform .12s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease, color .16s ease;
     }
-    #routes-index .ri-btn:hover{
-      transform:translateY(-1px);
-      box-shadow:var(--ri-shadow);
-      border-color:#d6e6ff;
-    }
-    #routes-index .ri-btn:active{ transform:translateY(0px) }
+    #routes-index .ri-btn:hover{ background:#f9fafb; text-decoration:none; transform:translateY(-1px) }
+    #routes-index .ri-btn:active{ transform:scale(.98) }
 
-    /* Variantes */
+    /* Primario: azul sólido, píldora */
     #routes-index .ri-btn--primary{
-      background:linear-gradient(180deg, #eaf4ff, #ffffff);
-      border-color:#d6e6ff;
-      box-shadow:0 10px 24px rgba(2,8,23,.07)
+      background:var(--blue);
+      border-color:var(--blue);
+      color:#fff;
+      border-radius:999px;
+      padding:.6rem 1.1rem;
+    }
+    #routes-index .ri-btn--primary:hover{
+      background:#0069e0; border-color:#0069e0; color:#fff;
+      transform:translateY(-1px);
+      box-shadow:0 8px 18px rgba(0,122,255,.22);
     }
     #routes-index .ri-btn--primary .ri-bullet{
-      width:8px;height:8px;border-radius:999px;background:var(--ri-primary); display:inline-block
+      width:7px;height:7px;border-radius:999px;background:#fff;opacity:.9; display:inline-block
     }
 
+    /* Outline azul (Supervisor) */
     #routes-index .ri-btn--super{
-      background:linear-gradient(180deg, #ecfffa, #ffffff);
-      border-color:#c9f1e8;
+      background:var(--card);
+      border-color:var(--blue);
+      color:var(--blue);
+    }
+    #routes-index .ri-btn--super:hover{
+      background:var(--blue-soft);
+      transform:translateY(-1px);
     }
 
+    /* Ghost (limpiar buscador) */
     #routes-index .ri-btn--soft{
-      background:#fff;
-      border-color:var(--ri-line);
-      box-shadow:none;
+      background:transparent;
+      border-color:transparent;
+      color:var(--muted);
     }
+    #routes-index .ri-btn--soft:hover{ background:#f9fafb; color:var(--ink) }
 
     #routes-index .ri-btn--mini{
-      padding:.28rem .48rem;
-      border-radius:12px;
-      box-shadow:none;
+      padding:.32rem .5rem;
+      border-radius:8px;
     }
 
-    /* Alertas */
+    /* =========================
+       ALERTA ÉXITO
+       ========================= */
     #routes-index .ri-alert{
-      background:#ecfffa;
-      border:1px solid #c9f1e8;
-      color:#0f4c3a;
-      padding:.65rem .8rem;
-      border-radius:14px;
-      margin-bottom:12px;
-      font-weight:800;
+      background:var(--success-soft);
+      border:1px solid #bbf7d0;
+      color:var(--success);
+      padding:.75rem .9rem;
+      border-radius:12px;
+      margin-bottom:22px;
+      font-weight:600;
       display:flex; align-items:center; gap:.5rem
     }
 
-    /* Chips */
+    /* =========================
+       CHIPS / BADGES (pastel + texto fuerte)
+       ========================= */
     #routes-index .ri-chip{
       display:inline-flex; align-items:center; gap:.4rem;
-      font-weight:900; font-size:.78rem;
-      border-radius:999px; padding:.22rem .62rem;
-      border:1px solid var(--ri-line);
-      background:#fff; color:#0f172a;
+      font-weight:600; font-size:.78rem;
+      border-radius:999px; padding:.28rem .66rem;
+      border:1px solid var(--line);
+      background:var(--card); color:var(--ink);
       white-space:nowrap;
     }
-    #routes-index .ri-dot{width:8px; height:8px; border-radius:50%}
+    #routes-index .ri-dot{width:7px; height:7px; border-radius:50%; background:currentColor; opacity:.65}
 
-    #routes-index .ri-chip.borrador   {background:#f8fafc}
-    #routes-index .ri-chip.programada {background:var(--ri-mint);  border-color:#a8ecd9}
-    #routes-index .ri-chip.en-curso   {background:var(--ri-amber); border-color:#ffd48a}
-    #routes-index .ri-chip.completada {background:#d7f9e1;         border-color:#a8f0bd}
-    #routes-index .ri-chip.cancelada  {background:var(--ri-rose);  border-color:#ffb7cf}
+    #routes-index .ri-chip.borrador   {background:#f1f5f9;             color:var(--muted);   border-color:#e2e8f0}
+    #routes-index .ri-chip.programada {background:var(--blue-soft);    color:var(--blue);    border-color:#dbeafe}
+    #routes-index .ri-chip.en-curso   {background:var(--warning-soft); color:var(--warning); border-color:#fed7aa}
+    #routes-index .ri-chip.completada {background:var(--success-soft); color:var(--success); border-color:#bbf7d0}
+    #routes-index .ri-chip.cancelada  {background:var(--danger-soft);  color:var(--danger);  border-color:#fecaca}
 
-    /* Progreso */
+    /* =========================
+       PROGRESO
+       ========================= */
     #routes-index .ri-prog{
-      height:8px; background:#eef2f7; border-radius:999px; overflow:hidden
+      height:7px; background:#eef1f5; border-radius:999px; overflow:hidden
     }
     #routes-index .ri-prog > span{
       display:block; height:100%;
-      background:linear-gradient(90deg,#d9ecff,#9cc9ff);
+      background:var(--blue);
+      border-radius:999px;
       width:0%;
     }
 
-    /* Tarjetas (móvil) */
-    #routes-index .ri-grid{display:grid; gap:12px}
+    /* =========================
+       TARJETAS (móvil)
+       ========================= */
+    #routes-index .ri-grid{display:grid; gap:16px}
     #routes-index .ri-card{
-      border:1px solid var(--ri-line);
-      background:rgba(255,255,255,.92);
-      backdrop-filter:saturate(1.1) blur(6px);
-      border-radius:18px;
-      padding:12px;
+      border:1px solid var(--line);
+      background:var(--card);
+      border-radius:16px;
+      padding:18px;
       transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-      box-shadow:0 12px 28px rgba(2,8,23,.06)
+      box-shadow:var(--shadow-card)
     }
     #routes-index .ri-card:hover{
       transform:translateY(-2px);
-      border-color:#d6e6ff;
-      box-shadow:var(--ri-shadow2);
+      box-shadow:var(--shadow-hover);
     }
-    #routes-index .ri-card .ri-title-sm{font-weight:900; font-size:1rem}
-    #routes-index .ri-meta{ color:var(--ri-muted); font-size:.9rem }
-    #routes-index .ri-tags{ display:flex; gap:8px; flex-wrap:wrap; margin:.45rem 0 .75rem }
+    #routes-index .ri-card .ri-title-sm{font-weight:700; font-size:1rem; color:var(--ink-dark)}
+    #routes-index .ri-meta{ color:var(--muted); font-size:.88rem; font-weight:500 }
+    #routes-index .ri-tags{ display:flex; gap:8px; flex-wrap:wrap; margin:.55rem 0 .85rem }
     #routes-index .ri-card-actions{ display:flex; gap:8px; flex-wrap:wrap }
 
-    /* Tabla (escritorio) */
+    /* =========================
+       TABLA (escritorio)
+       ========================= */
     #routes-index .ri-table-wrap{
-      border:1px solid var(--ri-line);
-      background:rgba(255,255,255,.92);
-      backdrop-filter:saturate(1.1) blur(6px);
-      border-radius:18px;
+      border:1px solid var(--line);
+      background:var(--card);
+      border-radius:16px;
       overflow:hidden;
-      box-shadow:0 14px 34px rgba(2,8,23,.07)
+      box-shadow:var(--shadow-card)
     }
     #routes-index table{ width:100%; border-collapse:separate; border-spacing:0 }
     #routes-index thead th{
-      background:linear-gradient(180deg,#fbfdff,#f6f9ff);
-      border-bottom:1px solid var(--ri-line);
-      color:#334155;
-      font-weight:900;
-      padding:10px 12px;
+      background:#fbfcfe;
+      border-bottom:1px solid var(--line);
+      color:var(--muted);
+      font-weight:600;
+      font-size:.82rem;
+      letter-spacing:.02em;
+      text-transform:uppercase;
+      padding:14px 16px;
       text-align:left;
       white-space:nowrap;
     }
     #routes-index tbody td{
-      padding:12px;
-      border-bottom:1px solid #f1f5f9;
-      vertical-align:middle
+      padding:16px;
+      border-bottom:1px solid var(--line);
+      vertical-align:middle;
+      font-weight:500;
     }
-    #routes-index tbody tr:hover{ background:#f8fbff }
+    #routes-index tbody tr:last-child td{ border-bottom:0 }
+    #routes-index tbody tr:hover{ background:#fbfcfe }
+    #routes-index tbody td .fw-semibold{ color:var(--ink-dark); font-weight:700 }
 
-    /* Vacío */
+    /* =========================
+       VACÍO
+       ========================= */
     #routes-index .ri-empty{
-      border:1px dashed var(--ri-line);
-      border-radius:18px;
-      background:linear-gradient(180deg,#f8fbff,transparent);
-      padding:26px;
+      border:1px dashed var(--line);
+      border-radius:16px;
+      background:var(--card);
+      padding:48px 26px;
       text-align:center;
-      color:var(--ri-muted)
+      color:var(--muted);
+      box-shadow:var(--shadow-card)
     }
+    #routes-index .ri-empty .h5{ color:var(--ink-dark) }
 
-    /* Responsive */
+    /* =========================
+       RESPONSIVE
+       ========================= */
     @media (min-width: 992px){
       #routes-index .ri-mobile{display:none!important}
       #routes-index .ri-desktop{display:block!important}
     }
     @media (max-width: 991.98px){
-      #routes-index{ padding:18px 12px }
+      #routes-index{ padding:28px 16px 40px }
       #routes-index .ri-desktop{display:none!important}
       #routes-index .ri-mobile{display:block!important}
       #routes-index .ri-grid{ grid-template-columns:1fr }
       #routes-index .ri-search{ min-width:unset; width:100% }
       #routes-index .ri-search input{ width:100% }
+      #routes-index .ri-card-actions .ri-btn{ flex:1 1 auto; justify-content:center }
     }
 
-    /* Animación */
+    /* Animación de entrada */
     #routes-index .ri-fade{ animation:ri-fade .28s ease both }
     @keyframes ri-fade{
       from{opacity:0; transform:translateY(4px)}
       to{opacity:1; transform:translateY(0)}
     }
   </style>
-
-  {{-- ✅ Fondo animado --}}
-  <div class="ri-bgfx" aria-hidden="true"></div>
 
   <div class="ri-container">
     {{-- Encabezado / acciones --}}
@@ -403,7 +341,7 @@
     {{-- Estado vacío --}}
     @if($plans->count() === 0)
       <div class="ri-empty ri-fade">
-        <div class="h5 mb-1" style="font-weight:900;">Aún no tienes rutas</div>
+        <div class="h5 mb-1" style="font-weight:700;">Aún no tienes rutas</div>
         <div class="mb-3">Crea la primera con “Nueva ruta”.</div>
         <a href="{{ route('routes.create') }}" class="ri-btn ri-btn--primary">
           <span class="ri-bullet"></span><i class="bi bi-plus-circle"></i> Crear ruta
@@ -483,17 +421,12 @@
                 <a href="{{ $supervisorUrl }}" class="ri-btn ri-btn--super" title="Supervisor (vista en tiempo real)">
                   <i class="bi bi-broadcast-pin"></i> Supervisor
                 </a>
-
-                <a href="{{ route('api.supervisor.routes.poll', $plan) }}" target="_blank" class="ri-btn ri-btn--soft"
-                   title="Endpoint de polling (JSON)">
-                  <i class="bi bi-activity"></i>
-                </a>
               </div>
             </div>
           @endforeach
         </div>
 
-        <div style="margin-top:12px">
+        <div style="margin-top:16px">
           {{ $plans->onEachSide(1)->links() }}
         </div>
       </div>
@@ -510,7 +443,7 @@
                 <th style="width:220px">Progreso</th>
                 <th>Estado</th>
                 <th>Fecha programada</th>
-                <th style="width:360px; text-align:right">Acciones</th>
+                <th style="width:300px; text-align:right">Acciones</th>
               </tr>
             </thead>
 
@@ -590,11 +523,6 @@
                     <a href="{{ $supervisorUrl }}" class="ri-btn ri-btn--super" title="Supervisor (vista en tiempo real)">
                       <i class="bi bi-broadcast-pin"></i> Supervisor
                     </a>
-
-                    <a href="{{ route('api.supervisor.routes.poll', $plan) }}" target="_blank" class="ri-btn ri-btn--soft"
-                       title="Endpoint de polling (JSON)">
-                      <i class="bi bi-activity"></i>
-                    </a>
                   </td>
                 </tr>
               @endforeach
@@ -602,7 +530,7 @@
           </table>
         </div>
 
-        <div style="margin-top:12px">
+        <div style="margin-top:16px">
           {{ $plans->onEachSide(1)->links() }}
         </div>
       </div>
@@ -614,16 +542,7 @@
 
   {{-- ================== JS ENCAPSULADO ================== --}}
   <script>
-    // ✅ Houdini ring-particles (opcional, solo si el browser lo soporta)
-    (function(){
-      try{
-        if ('paintWorklet' in CSS) {
-          CSS.paintWorklet.addModule('https://unpkg.com/css-houdini-ringparticles/dist/ringparticles.js');
-        }
-      }catch(e){}
-    })();
-
-    // ✅ Buscador + animación barras
+    // Buscador + animación de barras
     (function(){
       const root  = document.getElementById('routes-index');
       if(!root) return;

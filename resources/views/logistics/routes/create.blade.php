@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title','Nueva ruta')
-
+@section('content_class', 'content--flush')
 @section('content')
 @php
   $shipmentId      = (int) request('shipment_id', 0);
