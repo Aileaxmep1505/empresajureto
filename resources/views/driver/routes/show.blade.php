@@ -518,6 +518,241 @@
       #rp-driver-pro .exit-street-view-btn:active { transform: scale(.98); }
     }
 
+
+
+    /* ==========================================================
+       MODO CELULAR RESTAURADO: mapa arriba + bottom sheet anterior
+       Desktop se conserva igual.
+       ========================================================== */
+    @media (max-width: 991.98px){
+      #rp-driver-pro{
+        min-height:100dvh;
+        overflow:hidden;
+        background:#000;
+      }
+
+      #rp-driver-pro .row.g-0{
+        padding:0;
+        gap:0;
+        min-height:100dvh;
+        display:block;
+      }
+
+      #rp-driver-pro .col-lg-9{
+        max-width:100%;
+        width:100%;
+      }
+
+      #rp-driver-pro .map-card{
+        height:100dvh;
+        min-height:100dvh;
+        border:0;
+        border-radius:0;
+        padding:0;
+        box-shadow:none;
+        background:#eef1f5;
+      }
+
+      #rp-driver-pro .map-card .map{
+        border-radius:0;
+      }
+
+      #rp-driver-pro .driver-drawer{
+        position:fixed;
+        left:0;
+        right:0;
+        bottom:0;
+        z-index:900;
+        height:min(58svh, 560px);
+        max-width:none;
+        background:var(--card);
+        border:1px solid var(--line);
+        border-bottom:0;
+        border-radius:26px 26px 0 0;
+        box-shadow:0 -20px 48px rgba(0,0,0,.18);
+        overflow:auto;
+        -webkit-overflow-scrolling:touch;
+        padding:8px 14px calc(env(safe-area-inset-bottom) + 18px);
+        transition:transform .28s cubic-bezier(.2,.8,.2,1);
+        display:block !important;
+        transform:translateY(0);
+      }
+
+      #rp-driver-pro .driver-drawer.is-collapsed{
+        transform:translateY(calc(100% - 104px));
+      }
+
+      #rp-driver-pro .drawer-grip{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:6px 0 8px;
+        position:sticky;
+        top:0;
+        z-index:3;
+        background:var(--card);
+        border-radius:26px 26px 0 0;
+      }
+
+      #rp-driver-pro .drawer-grip button{
+        border:0;
+        background:transparent;
+        display:grid;
+        gap:5px;
+        place-items:center;
+        color:var(--muted);
+        font-weight:700;
+        width:100%;
+        padding:0;
+      }
+
+      #rp-driver-pro .drawer-grip .bar{
+        width:54px;
+        height:5px;
+        border-radius:999px;
+        background:#d7dce3;
+      }
+
+      #rp-driver-pro .drawer-grip .txt{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        font-size:.8rem;
+      }
+
+      #rp-driver-pro .toolbar{
+        position:relative;
+        top:auto;
+        border:0;
+        border-radius:18px;
+        box-shadow:none;
+        padding:8px 4px 12px;
+        margin-bottom:8px;
+        align-items:flex-start;
+      }
+
+      #rp-driver-pro .side-title{
+        font-size:1rem;
+      }
+
+      #rp-driver-pro .side-sub,
+      #rp-driver-pro .side-hint{
+        font-size:.78rem;
+      }
+
+      #rp-driver-pro .gps-actions{
+        display:grid;
+        grid-template-columns:1fr;
+        gap:8px;
+        margin-top:10px;
+      }
+
+      #rp-driver-pro .gps-actions .btn{
+        width:100%;
+        min-height:44px;
+        font-size:.9rem;
+      }
+
+      #rp-driver-pro .panel-actions{
+        align-items:flex-start;
+      }
+
+      #rp-driver-pro .btn-panel-hide{
+        display:none !important;
+      }
+
+      #rp-driver-pro .driver-panel-show-btn{
+        display:none !important;
+      }
+
+      #rp-driver-pro .kpi-pill{
+        min-height:38px;
+      }
+
+      #rp-driver-pro .side .grid{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+      }
+
+      #rp-driver-pro .side .grid > .card[style*="grid-column"]{
+        grid-column:1/-1 !important;
+      }
+
+      #rp-driver-pro .card,
+      #rp-driver-pro .tl-card{
+        border-radius:18px;
+      }
+
+      #rp-driver-pro .card-body{
+        padding:14px;
+      }
+
+      #rp-driver-pro .metric .value{
+        font-size:1.12rem;
+      }
+
+      #rp-driver-pro .timeline:before{
+        left:13px;
+      }
+
+      #rp-driver-pro .tl-item{
+        gap:10px;
+        padding:8px 0;
+      }
+
+      #rp-driver-pro .tl-title{
+        font-size:.9rem;
+      }
+
+      #rp-driver-pro .tl-meta{
+        grid-template-columns:1fr;
+      }
+
+      #rp-driver-pro .steps{
+        max-height:190px;
+        overflow:auto;
+      }
+
+      #rp-driver-pro .btn-fab{
+        left:16px;
+        right:16px;
+        bottom:calc(env(safe-area-inset-bottom) + 18px);
+        width:auto;
+        z-index:950;
+        justify-content:center;
+        min-height:56px;
+        border-radius:22px;
+        font-size:1rem;
+      }
+
+      #rp-driver-pro .toastx{
+        top:calc(env(safe-area-inset-top) + 18px);
+        bottom:auto;
+        left:50%;
+        width:calc(100% - 32px);
+        text-align:center;
+        border-radius:18px;
+        padding:1rem;
+      }
+
+      #rp-driver-pro.is-panel-hidden .side{
+        display:block !important;
+      }
+
+      #rp-driver-pro.is-panel-hidden .map-card{
+        height:100dvh;
+        min-height:100dvh;
+      }
+    }
+
+    @media (min-width: 992px){
+      #rp-driver-pro .drawer-grip{
+        display:none !important;
+      }
+    }
+
   </style>
 
   <script>
@@ -533,7 +768,13 @@
 
   <div class="row g-0">
     {{-- IZQUIERDA --}}
-    <div class="col-lg-3 side">
+    <div class="col-lg-3 side driver-drawer is-collapsed" id="driverDrawer">
+      <div class="drawer-grip">
+        <button type="button" id="btnToggleDrawer" aria-expanded="false">
+          <span class="bar"></span>
+          <span class="txt"><i class="bi bi-chevron-up" id="drawerIcon"></i> Ver detalles de la ruta</span>
+        </button>
+      </div>
       <div class="toolbar d-flex align-items-center justify-content-between">
         <div>
           <div class="side-title">{{ $routePlan->name ?? ('Ruta #'.$routePlan->id) }}</div>
@@ -826,6 +1067,10 @@
   }
 
   function hideRoutePanel(){
+    if (window.matchMedia('(max-width: 991.98px)').matches) {
+      setMobileDrawer(false);
+      return;
+    }
     rootEl?.classList.add('is-panel-hidden');
     document.body.classList.remove('driver-panel-open');
     document.getElementById('btnShowRoutePanel')?.classList.add('is-visible');
@@ -833,6 +1078,10 @@
   }
 
   function showRoutePanel(){
+    if (window.matchMedia('(max-width: 991.98px)').matches) {
+      setMobileDrawer(true);
+      return;
+    }
     rootEl?.classList.remove('is-panel-hidden');
     document.body.classList.add('driver-panel-open');
     document.getElementById('btnShowRoutePanel')?.classList.remove('is-visible');
@@ -1841,7 +2090,70 @@
     }
   });
 
-  document.getElementById('btnHideRoutePanel')?.addEventListener('click', hideRoutePanel);
+
+
+  /* ===== Mobile drawer anterior: solo en celular se contrae/expande hacia arriba ===== */
+  const mobileDrawer = document.getElementById('driverDrawer');
+  const btnToggleDrawer = document.getElementById('btnToggleDrawer');
+  const drawerIcon = document.getElementById('drawerIcon');
+
+  function isMobileRouteView(){
+    return window.matchMedia('(max-width: 991.98px)').matches;
+  }
+
+  function setMobileDrawer(open){
+    if (!mobileDrawer) return;
+    if (!isMobileRouteView()) return;
+
+    mobileDrawer.classList.toggle('is-collapsed', !open);
+    btnToggleDrawer?.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (drawerIcon) {
+      drawerIcon.className = open ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
+    }
+    refreshGoogleMapLayout();
+  }
+
+  btnToggleDrawer?.addEventListener('click', () => {
+    if (!isMobileRouteView()) return;
+    setMobileDrawer(mobileDrawer?.classList.contains('is-collapsed'));
+  });
+
+  let drawerTouchStartY = 0;
+  let drawerTouchEndY = 0;
+
+  mobileDrawer?.addEventListener('touchstart', (event) => {
+    if (!isMobileRouteView()) return;
+    drawerTouchStartY = event.changedTouches[0].clientY;
+  }, { passive:true });
+
+  mobileDrawer?.addEventListener('touchend', (event) => {
+    if (!isMobileRouteView()) return;
+    drawerTouchEndY = event.changedTouches[0].clientY;
+    const diff = drawerTouchEndY - drawerTouchStartY;
+
+    if (Math.abs(diff) < 42) return;
+
+    if (diff < 0) {
+      setMobileDrawer(true);
+    } else {
+      setMobileDrawer(false);
+    }
+  }, { passive:true });
+
+  window.addEventListener('resize', () => {
+    if (!mobileDrawer) return;
+    if (isMobileRouteView()) {
+      mobileDrawer.classList.add('is-collapsed');
+    } else {
+      mobileDrawer.classList.remove('is-collapsed');
+      rootEl?.classList.remove('is-panel-hidden');
+      document.getElementById('btnShowRoutePanel')?.classList.remove('is-visible');
+      document.body.classList.add('driver-panel-open');
+    }
+    refreshGoogleMapLayout();
+  });
+
+    document.getElementById('btnHideRoutePanel')?.addEventListener('click', hideRoutePanel);
   document.getElementById('btnShowRoutePanel')?.addEventListener('click', showRoutePanel);
 
   window.addEventListener('beforeunload', stopWatching);
