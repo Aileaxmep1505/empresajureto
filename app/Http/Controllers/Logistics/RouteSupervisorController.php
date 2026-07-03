@@ -6,17 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\RoutePlan;
 use App\Models\RouteStop;
 use App\Models\DriverPosition;
-use App\Services\GoogleMapsClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class RouteSupervisorController extends Controller
 {
-    public function __construct(
-        protected GoogleMapsClient $maps
-    ) {}
-
     private function canUserManage(): bool
     {
         $u = Auth::user();
@@ -37,14 +32,12 @@ class RouteSupervisorController extends Controller
         abort_unless($this->canUserManage(), 403);
     }
 
-    /**
-     * Config presencia.
-     */
     private function presenceConfig(): array
     {
         return [
             'online_seconds' => 120,
-            'warn_seconds'   => 45,
+            'warn_seconds' => 45,
+            'fresh_position_minutes' => 5,
         ];
     }
 
@@ -58,12 +51,12 @@ class RouteSupervisorController extends Controller
             return \Illuminate\Support\Carbon::parse($last->received_at);
         }
 
-        if (!empty($last->created_at)) {
-            return \Illuminate\Support\Carbon::parse($last->created_at);
-        }
-
         if (!empty($last->captured_at)) {
             return \Illuminate\Support\Carbon::parse($last->captured_at);
+        }
+
+        if (!empty($last->created_at)) {
+            return \Illuminate\Support\Carbon::parse($last->created_at);
         }
 
         return null;
@@ -81,6 +74,7 @@ class RouteSupervisorController extends Controller
                 'stale_seconds' => null,
                 'warn' => false,
                 'disconnected_at' => null,
+                'message' => 'Sin ubicación reciente',
             ];
         }
 
@@ -93,21 +87,10 @@ class RouteSupervisorController extends Controller
             'stale_seconds' => $age,
             'warn' => $age >= $cfg['warn_seconds'],
             'disconnected_at' => $online ? null : $seen->toIso8601String(),
+            'message' => $online ? 'Chofer en vivo' : 'Ubicación vencida',
         ];
     }
 
-    private function hasModelAttribute(DriverPosition $position, string $attribute): bool
-    {
-        return array_key_exists($attribute, $position->getAttributes());
-    }
-
-    /**
-     * Snap-to-road con Google Roads API.
-     *
-     * Si ya existen snap_lat y snap_lng guardados, los usa.
-     * Si no existen, intenta Google Roads API.
-     * Si las columnas existen en la tabla, guarda el snap para no consumir API en cada poll.
-     */
     private function buildPositionPayload(?DriverPosition $last): ?array
     {
         if (!$last) {
@@ -121,72 +104,68 @@ class RouteSupervisorController extends Controller
             return null;
         }
 
-        $hasSnapLat = $this->hasModelAttribute($last, 'snap_lat');
-        $hasSnapLng = $this->hasModelAttribute($last, 'snap_lng');
-
-        $snapLat = $hasSnapLat && $last->snap_lat !== null ? (float) $last->snap_lat : null;
-        $snapLng = $hasSnapLng && $last->snap_lng !== null ? (float) $last->snap_lng : null;
-
-        if ($snapLat === null || $snapLng === null) {
-            try {
-                [$googleSnapLat, $googleSnapLng, $placeId] = $this->maps->nearestRoad($lat, $lng);
-
-                if ($googleSnapLat !== null && $googleSnapLng !== null) {
-                    $snapLat = $googleSnapLat;
-                    $snapLng = $googleSnapLng;
-
-                    /**
-                     * Guarda el snap si tus columnas existen.
-                     * Esto evita llamar Roads API cada 5 segundos para la misma posición.
-                     */
-                    if ($hasSnapLat && $hasSnapLng) {
-                        $updates = [
-                            'snap_lat' => $snapLat,
-                            'snap_lng' => $snapLng,
-                        ];
-
-                        if ($this->hasModelAttribute($last, 'snap_place_id')) {
-                            $updates['snap_place_id'] = $placeId;
-                        }
-
-                        $last->forceFill($updates)->saveQuietly();
-                    }
-                }
-            } catch (\Throwable $e) {
-                Log::warning('Google Roads nearestRoad falló en supervisor poll', [
-                    'driver_position_id' => $last->id ?? null,
-                    'lat' => $lat,
-                    'lng' => $lng,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        if (abs($lat) < 0.000001 && abs($lng) < 0.000001) {
+            return null;
         }
 
         $seen = $this->lastSeenAt($last);
 
         return [
+            'id' => $last->id,
+
+            // Para supervisor usamos GPS real, no snap.
             'lat' => $lat,
             'lng' => $lng,
 
-            'snap_lat' => $snapLat,
-            'snap_lng' => $snapLng,
+            // Los dejamos informativos, pero el Blade debe pintar lat/lng.
+            'snap_lat' => $last->snap_lat !== null ? (float) $last->snap_lat : null,
+            'snap_lng' => $last->snap_lng !== null ? (float) $last->snap_lng : null,
+            'snap_place_id' => $last->snap_place_id ?? null,
 
             'accuracy' => $last->accuracy,
             'speed' => $last->speed,
             'heading' => $last->heading,
+
             'captured_at' => optional($last->captured_at)->toIso8601String(),
-            'received_at' => $seen?->toIso8601String(),
+            'received_at' => optional($last->received_at)->toIso8601String(),
+            'seen_at' => $seen?->toIso8601String(),
 
             'app_state' => $last->app_state ?? null,
-            'battery'   => $last->battery ?? null,
-            'network'   => $last->network ?? null,
+            'battery' => $last->battery ?? null,
+            'network' => $last->network ?? null,
             'is_mocked' => $last->is_mocked ?? null,
         ];
     }
 
-    /**
-     * Vista HTML.
-     */
+    private function latestFreshDriverPosition(?int $driverId): ?DriverPosition
+    {
+        if (!$driverId) {
+            return null;
+        }
+
+        $cutoff = now()->subMinutes($this->presenceConfig()['fresh_position_minutes']);
+
+        return DriverPosition::where('user_id', $driverId)
+            ->where(function ($q) use ($cutoff) {
+                $q->where('received_at', '>=', $cutoff)
+                    ->orWhere('captured_at', '>=', $cutoff)
+                    ->orWhere('created_at', '>=', $cutoff);
+            })
+            ->orderByRaw('COALESCE(received_at, captured_at, created_at) DESC')
+            ->first();
+    }
+
+    private function latestAnyDriverPosition(?int $driverId): ?DriverPosition
+    {
+        if (!$driverId) {
+            return null;
+        }
+
+        return DriverPosition::where('user_id', $driverId)
+            ->orderByRaw('COALESCE(received_at, captured_at, created_at) DESC')
+            ->first();
+    }
+
     public function show(RoutePlan $routePlan)
     {
         $this->canManage();
@@ -196,9 +175,6 @@ class RouteSupervisorController extends Controller
         return view('supervisor.routes.show', compact('routePlan'));
     }
 
-    /**
-     * JSON Poll.
-     */
     public function poll(RoutePlan $routePlan, Request $r)
     {
         $this->canManage();
@@ -218,22 +194,29 @@ class RouteSupervisorController extends Controller
                 'eta_seconds',
             ]);
 
-        $last = null;
+        $freshLast = $this->latestFreshDriverPosition($routePlan->driver_id);
+        $anyLast = $this->latestAnyDriverPosition($routePlan->driver_id);
 
-        if ($routePlan->driver_id) {
-            $last = DriverPosition::where('user_id', $routePlan->driver_id)
-                ->latest('captured_at')
-                ->first();
-        }
-
-        $pos = $this->buildPositionPayload($last);
-        $presence = $this->presencePayload($last);
+        $pos = $this->buildPositionPayload($freshLast);
+        $presence = $this->presencePayload($freshLast);
 
         $done = (int) $stops->where('status', 'done')->count();
         $total = (int) $stops->count();
         $pending = max(0, $total - $done);
 
+        Log::info('supervisor.route.poll', [
+            'route_plan_id' => $routePlan->id,
+            'driver_id' => $routePlan->driver_id,
+            'fresh_position_id' => $freshLast?->id,
+            'fresh_seen_at' => $this->lastSeenAt($freshLast)?->toDateTimeString(),
+            'any_position_id' => $anyLast?->id,
+            'any_seen_at' => $this->lastSeenAt($anyLast)?->toDateTimeString(),
+            'has_live_position' => $pos !== null,
+        ]);
+
         return response()->json([
+            'ok' => true,
+
             'plan' => [
                 'id' => $routePlan->id,
                 'name' => $routePlan->name,
@@ -251,6 +234,14 @@ class RouteSupervisorController extends Controller
                 'name' => $routePlan->driver?->name,
                 'presence' => $presence,
                 'last_position' => $pos,
+
+                // Esto es solo para depurar en Network.
+                'debug_last_saved' => [
+                    'id' => $anyLast?->id,
+                    'seen_at' => $this->lastSeenAt($anyLast)?->toIso8601String(),
+                    'lat' => $anyLast?->lat !== null ? (float) $anyLast->lat : null,
+                    'lng' => $anyLast?->lng !== null ? (float) $anyLast->lng : null,
+                ],
             ],
 
             'stops' => $stops,
