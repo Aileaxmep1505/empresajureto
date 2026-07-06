@@ -1782,4 +1782,297 @@ class RoutePlanController extends Controller
             'waze_next' => $waze,
         ];
     }
+    public function edit(RoutePlan $routePlan)
+    {
+        $this->canManage();
+
+        $routePlan->load([
+            'driver',
+            'stops' => function ($query) {
+                $query->orderByRaw('COALESCE(sequence_index, 999999), id');
+            },
+        ]);
+
+        $orderCol = Schema::hasColumn('users', 'name')
+            ? 'name'
+            : (Schema::hasColumn('users', 'email') ? 'email' : 'id');
+
+        $drivers = User::query()
+            ->when(
+                class_exists(\Spatie\Permission\Models\Role::class),
+                fn ($query) => $query->whereDoesntHave('roles', fn ($role) => $role->where('name', 'cliente_web'))
+            )
+            ->orderBy($orderCol)
+            ->get();
+
+        /*
+         * Mismo listado de proveedores que usa la vista de crear ruta.
+         * La vista edit.blade.php necesita $providers para pintar el panel.
+         */
+        $providers = collect();
+
+        if (Schema::hasTable('providers')) {
+            $cols = Schema::getColumnListing('providers');
+
+            $latCols = ['lat', 'latitude', 'latitud', 'latitud_gps'];
+            $lngCols = ['lng', 'lon', 'long', 'longitude', 'longitud', 'longitud_gps'];
+
+            $pLat = collect($latCols)->first(fn ($col) => in_array($col, $cols, true));
+            $pLng = collect($lngCols)->first(fn ($col) => in_array($col, $cols, true));
+
+            $select = ['id'];
+
+            $select[] = in_array('empresa', $cols, true)
+                ? DB::raw("`empresa` as `empresa`")
+                : DB::raw("NULL as `empresa`");
+
+            $select[] = in_array('nombre', $cols, true)
+                ? DB::raw("`nombre` as `nombre`")
+                : DB::raw("NULL as `nombre`");
+
+            foreach (['email', 'telefono', 'rfc', 'tipo_persona', 'calle', 'colonia', 'ciudad', 'estado', 'cp'] as $col) {
+                $select[] = in_array($col, $cols, true)
+                    ? DB::raw("`{$col}` as `{$col}`")
+                    : DB::raw("NULL as `{$col}`");
+            }
+
+            $select[] = $pLat
+                ? DB::raw("NULLIF(`{$pLat}`, 0) as `lat`")
+                : DB::raw("NULL as `lat`");
+
+            $select[] = $pLng
+                ? DB::raw("NULLIF(`{$pLng}`, 0) as `lng`")
+                : DB::raw("NULL as `lng`");
+
+            $addrParts = [];
+
+            foreach (['calle', 'colonia', 'ciudad', 'estado', 'cp'] as $col) {
+                if (in_array($col, $cols, true)) {
+                    $addrParts[] = "NULLIF(TRIM(`{$col}`),'')";
+                }
+            }
+
+            $select[] = !empty($addrParts)
+                ? DB::raw("CONCAT_WS(', ', " . implode(', ', $addrParts) . ") as `address`")
+                : DB::raw("'' as `address`");
+
+            $query = DB::table('providers')->select($select);
+
+            if (in_array('estatus', $cols, true)) {
+                $query->where(function ($where) {
+                    $where->where('estatus', 1)
+                        ->orWhere('estatus', '1')
+                        ->orWhere('estatus', true);
+                });
+            }
+
+            if ($pLat && $pLng) {
+                $query->orderByRaw("(NULLIF(`{$pLat}`,0) is not null and NULLIF(`{$pLng}`,0) is not null) desc");
+            }
+
+            if (in_array('empresa', $cols, true) && in_array('nombre', $cols, true)) {
+                $query->orderByRaw("COALESCE(NULLIF(TRIM(`empresa`), ''), NULLIF(TRIM(`nombre`), ''), CONCAT('Proveedor #', id)) ASC");
+            } elseif (in_array('empresa', $cols, true)) {
+                $query->orderByRaw("COALESCE(NULLIF(TRIM(`empresa`), ''), CONCAT('Proveedor #', id)) ASC");
+            } elseif (in_array('nombre', $cols, true)) {
+                $query->orderByRaw("COALESCE(NULLIF(TRIM(`nombre`), ''), CONCAT('Proveedor #', id)) ASC");
+            } else {
+                $query->orderBy('id');
+            }
+
+            $providers = $query->get();
+        }
+
+        return view('logistics.routes.edit', compact('routePlan', 'drivers', 'providers'));
+    }
+
+    public function update(Request $request, RoutePlan $routePlan)
+    {
+        $this->canManage();
+
+        $stopsInput = $request->input('stops');
+
+        if (is_string($stopsInput)) {
+            $decoded = json_decode($stopsInput, true);
+
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $request->merge(['stops' => $decoded]);
+            }
+        }
+
+        $data = $request->validate([
+            'driver_id' => ['required', 'exists:users,id'],
+            'name' => ['nullable', 'string', 'max:180'],
+
+            'stops' => ['required', 'array', 'min:1'],
+            'stops.*.id' => ['nullable', 'integer'],
+            'stops.*.name' => ['nullable', 'string', 'max:180'],
+            'stops.*.provider_id' => ['nullable'],
+
+            'stops.*.address' => ['nullable', 'string', 'max:700'],
+            'stops.*.calle' => ['nullable', 'string', 'max:250'],
+            'stops.*.colonia' => ['nullable', 'string', 'max:250'],
+            'stops.*.ciudad' => ['nullable', 'string', 'max:250'],
+            'stops.*.estado' => ['nullable', 'string', 'max:250'],
+            'stops.*.cp' => ['nullable', 'string', 'max:20'],
+
+            'stops.*.lat' => ['nullable'],
+            'stops.*.lng' => ['nullable'],
+        ]);
+
+        $resolvedStops = [];
+        $errors = [];
+
+        foreach ($data['stops'] as $index => $stop) {
+            $stopId = !empty($stop['id']) ? (int) $stop['id'] : null;
+
+            /*
+             * Usa la misma lógica de create:
+             * 1) Si viene lat/lng válidos, los respeta.
+             * 2) Si viene provider_id, toma coordenadas/dirección del proveedor.
+             * 3) Si no hay coordenadas, geocodifica con Google Maps.
+             */
+            [$lat, $lng, $addressUsed, $providerIdUsed] = $this->resolveStopLatLng($stop);
+
+            if (!$this->validLatLng($lat, $lng)) {
+                $label = trim((string) ($stop['name'] ?? ''));
+                $label = $label !== '' ? $label : ('Punto #' . ($index + 1));
+
+                $errors[] = "No se pudo obtener coordenadas válidas para {$label}.";
+
+                Log::warning('routes.update.stop_without_coords', [
+                    'route_plan_id' => $routePlan->id,
+                    'index' => $index + 1,
+                    'stop' => $stop,
+                    'address_used' => $addressUsed,
+                ]);
+
+                continue;
+            }
+
+            $resolvedStops[] = [
+                'id' => $stopId,
+                'name' => trim((string) ($stop['name'] ?? '')) ?: ('Punto ' . ($index + 1)),
+                'lat' => (float) $lat,
+                'lng' => (float) $lng,
+                'address' => $addressUsed ?: $this->buildAddressFromStop($stop),
+                'calle' => $stop['calle'] ?? null,
+                'colonia' => $stop['colonia'] ?? null,
+                'ciudad' => $stop['ciudad'] ?? null,
+                'estado' => $stop['estado'] ?? null,
+                'cp' => $stop['cp'] ?? null,
+                'provider_id' => $providerIdUsed,
+            ];
+        }
+
+        if (empty($resolvedStops)) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'stops' => 'No se pudo actualizar: ninguna parada tiene coordenadas válidas.',
+                ]);
+        }
+
+        if (!empty($errors)) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'stops' => implode("\n", $errors),
+                ]);
+        }
+
+        return DB::transaction(function () use ($routePlan, $data, $resolvedStops) {
+            $routePlan->update([
+                'driver_id' => $data['driver_id'],
+                'name' => $data['name'] ?? null,
+
+                /*
+                 * Si agregas, editas o eliminas paradas, se desbloquea la secuencia
+                 * para que Google Maps vuelva a recalcular desde la vista del chofer.
+                 */
+                'sequence_locked' => false,
+                'start_lat' => null,
+                'start_lng' => null,
+                'started_at' => null,
+                'status' => 'scheduled',
+            ]);
+
+            $submittedIds = collect($resolvedStops)
+                ->pluck('id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+
+            /*
+             * Elimina paradas que ya no vienen en el formulario.
+             */
+            $deleteQuery = $routePlan->stops();
+
+            if (!empty($submittedIds)) {
+                $deleteQuery->whereNotIn('id', $submittedIds);
+            }
+
+            $deleteQuery->delete();
+
+            foreach ($resolvedStops as $index => $stopData) {
+                $payload = [
+                    'route_plan_id' => $routePlan->id,
+                    'name' => $stopData['name'],
+                    'lat' => $stopData['lat'],
+                    'lng' => $stopData['lng'],
+                    'sequence_index' => null,
+                    'eta_seconds' => null,
+                    'status' => 'pending',
+                    'done_at' => null,
+                ];
+
+                if (Schema::hasColumn('route_stops', 'provider_id')) {
+                    $payload['provider_id'] = $stopData['provider_id'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'address')) {
+                    $payload['address'] = $stopData['address'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'calle')) {
+                    $payload['calle'] = $stopData['calle'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'colonia')) {
+                    $payload['colonia'] = $stopData['colonia'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'ciudad')) {
+                    $payload['ciudad'] = $stopData['ciudad'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'estado')) {
+                    $payload['estado'] = $stopData['estado'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'cp')) {
+                    $payload['cp'] = $stopData['cp'];
+                }
+
+                if (!empty($stopData['id'])) {
+                    $existingStop = RouteStop::where('route_plan_id', $routePlan->id)
+                        ->where('id', (int) $stopData['id'])
+                        ->first();
+
+                    if ($existingStop) {
+                        $existingStop->update($payload);
+                        continue;
+                    }
+                }
+
+                RouteStop::create($payload);
+            }
+
+            return redirect()
+                ->route('routes.show', $routePlan)
+                ->with('ok', 'Ruta actualizada. La secuencia se recalculará con Google Maps.');
+        });
+    }
+
 }

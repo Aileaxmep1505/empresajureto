@@ -2644,3 +2644,8 @@ Route::middleware(['auth'])
     ->name('routes.google.estimate');
 
     use App\Http\Controllers\Logistics\DriverLocationController;
+Route::get('/routes/{routePlan}/edit', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'edit'])
+    ->name('routes.edit');
+
+Route::put('/routes/{routePlan}', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'update'])
+    ->name('routes.update');
