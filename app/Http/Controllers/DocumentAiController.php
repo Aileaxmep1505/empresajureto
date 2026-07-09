@@ -101,7 +101,7 @@ class DocumentAiController extends Controller
 
         // 2) El navegador ya recibió la respuesta; seguimos procesando en segundo plano.
         @ignore_user_abort(true);
-        @set_time_limit(1200);
+        @set_time_limit(1800);
 
         try {
             Log::info('DocumentAiController@start - ejecutando python (background)', [
@@ -112,23 +112,44 @@ class DocumentAiController extends Controller
                 'progress' => $progressPath,
             ]);
 
-            $process = new Process([
-                $pythonBin,
-                $pythonScript,
-                '--file',
-                $fullPdfPath,
-                '--run-id',
-                (string) $run->id,
-                '--pages-per-chunk',
-                (string) $pagesPerChunk,
-                '--filename',
-                $run->filename,
-                '--progress-file',
-                $progressPath,
+            // Raíz del proyecto python-ai: .../python-ai/app/services/script.py -> .../python-ai
+            // dirname($pythonScript, 3) sube tres niveles (script -> services -> app -> python-ai).
+            $pythonRoot = dirname($pythonScript, 3);
+
+            // Entorno heredado + variables que el Python necesita.
+            // AI_PROGRESS_FILE es CLAVE: progress.py lee de esta variable de entorno,
+            // no del argumento --progress-file. Sin esto, la barra nunca avanza.
+            $childEnv = array_merge($_ENV, $_SERVER, [
+                'AI_PROGRESS_FILE' => $progressPath,
+                'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
+                'HOME' => getenv('HOME') ?: dirname($pythonBin, 2),
+                'LANG' => getenv('LANG') ?: 'en_US.UTF-8',
+                'LC_ALL' => getenv('LC_ALL') ?: 'en_US.UTF-8',
+                'PYTHONUNBUFFERED' => '1',
+                'PYTHONIOENCODING' => 'utf-8',
             ]);
 
-            $process->setTimeout(1200);
-            $process->setIdleTimeout(1200);
+            $process = new Process(
+                [
+                    $pythonBin,
+                    $pythonScript,
+                    '--file',
+                    $fullPdfPath,
+                    '--run-id',
+                    (string) $run->id,
+                    '--pages-per-chunk',
+                    (string) $pagesPerChunk,
+                    '--filename',
+                    $run->filename,
+                    '--progress-file',
+                    $progressPath,
+                ],
+                is_dir($pythonRoot) ? $pythonRoot : null,
+                $childEnv
+            );
+
+            $process->setTimeout(1800);
+            $process->setIdleTimeout(1800);
             $process->run();
 
             $stdout = trim($process->getOutput());
@@ -139,7 +160,7 @@ class DocumentAiController extends Controller
                 'successful' => $process->isSuccessful(),
                 'exit_code' => $process->getExitCode(),
                 'stdout_length' => strlen($stdout),
-                'stderr' => $stderr,
+                'stderr' => mb_substr($stderr, 0, 4000),
             ]);
 
             if (!$process->isSuccessful()) {
