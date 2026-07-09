@@ -489,6 +489,14 @@
     let latestRunPayload = null;
     let isCreatingProposal = false;
 
+    // Tolerancia a fallos de red durante el polling.
+    // Un análisis grande puede tardar minutos; un fetch que falle NO debe matar el proceso.
+    let pollErrorCount = 0;
+    const MAX_POLL_ERRORS = 40;   // ~2 min de reintentos seguidos antes de rendirse
+    const POLL_INTERVAL_MS = 2000;
+    const POLL_RETRY_MS = 3000;
+    const FETCH_TIMEOUT_MS = 30000;
+
     function showErrorCard(card, title, message, showRetry = true) {
         card.className = 'status-card show error';
         card.innerHTML = `
@@ -516,6 +524,17 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+    // Fetch con timeout propio para que un poll colgado no se quede eterno.
+    async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            return await fetch(url, { ...options, signal: controller.signal });
+        } finally {
+            clearTimeout(id);
+        }
     }
 
     async function safeJson(response) {
@@ -578,6 +597,7 @@
         currentRunId = null;
         latestRunPayload = null;
         isCreatingProposal = false;
+        pollErrorCount = 0;
         fileInput.value = '';
         selectFileBtn.classList.remove('disabled');
         hideCard(uploadStatusCard);
@@ -614,6 +634,7 @@
         currentRunId = null;
         latestRunPayload = null;
         isCreatingProposal = false;
+        pollErrorCount = 0;
         selectFileBtn.classList.add('disabled');
         goToProcessingView();
         setProgress(8, 'Subiendo...', 'Subiendo documento al servidor...');
@@ -624,14 +645,14 @@
             formData.append('licitacion_pdf_id', '1');
             formData.append('pages_per_chunk', '5');
 
-            const response = await fetch(window.documentAiStartUrl, {
+            const response = await fetchWithTimeout(window.documentAiStartUrl, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': window.csrfToken,
                     'Accept': 'application/json'
                 },
                 body: formData
-            });
+            }, 120000);
 
             const data = await safeJson(response);
 
@@ -657,7 +678,7 @@
         if (!currentRunId || isCreatingProposal) { return; }
 
         try {
-            const response = await fetch(`${window.documentAiShowDebugBase}/${currentRunId}`, {
+            const response = await fetchWithTimeout(`${window.documentAiShowDebugBase}/${currentRunId}`, {
                 method: 'GET',
                 headers: { 'Accept': 'application/json' }
             });
@@ -665,11 +686,12 @@
             const data = await safeJson(response);
 
             if (!response.ok || !data.ok) {
-                let msg = data.message || 'No se pudo consultar el estado del análisis.';
-                if (data.raw_text) { msg += ' | Respuesta: ' + String(data.raw_text).slice(0, 500); }
-                throw new Error(msg);
+                // Error "de servidor" (500, 503, JSON malo): reintentamos sin matar el proceso.
+                throw new Error(data.message || 'No se pudo consultar el estado del análisis.');
             }
 
+            // Poll exitoso: reseteamos el contador de errores.
+            pollErrorCount = 0;
             latestRunPayload = data;
 
             const run = data.run || {};
@@ -687,7 +709,7 @@
                 } else {
                     setProgress(10, 'En cola', 'Preparando análisis...');
                 }
-                pollingTimer = setTimeout(pollRun, 1500);
+                pollingTimer = setTimeout(pollRun, POLL_INTERVAL_MS);
                 return;
             }
 
@@ -719,13 +741,31 @@
             }
 
             setProgress(45, 'Procesando...', `Estado actual: ${String(status).toUpperCase()}`);
-            pollingTimer = setTimeout(pollRun, 1500);
+            pollingTimer = setTimeout(pollRun, POLL_INTERVAL_MS);
         } catch (error) {
+            // ── TOLERANCIA A FALLOS ──
+            // Un fetch fallido (red caída, timeout, servidor ocupado) NO debe matar el proceso.
+            // El análisis sigue corriendo en el servidor; solo reintentamos consultarlo.
+            pollErrorCount++;
+
+            if (pollErrorCount <= MAX_POLL_ERRORS) {
+                // Mantenemos la barra donde iba y avisamos discretamente que seguimos intentando.
+                setProgress(
+                    Math.max(12, Number(percentLabel.innerText.replace('%', '')) || 12),
+                    aiActionStatus.innerText || 'Procesando...',
+                    'Reconectando con el servidor... (' + pollErrorCount + ')'
+                );
+                pollingTimer = setTimeout(pollRun, POLL_RETRY_MS);
+                return;
+            }
+
+            // Solo tras MUCHOS fallos seguidos nos rendimos.
             stopTimer();
             clearPolling();
-            setProgress(100, 'Error', 'No se pudo consultar el análisis.');
+            setProgress(100, 'Error', 'Se perdió la conexión con el servidor.');
             showErrorCard(processingStatusCard, 'Error consultando el análisis',
-                error.message || 'Ocurrió un error consultando el estado del documento.', true);
+                (error && error.message) ? error.message : 'Se perdió la conexión durante la consulta del análisis. Si el documento era grande, es posible que ya haya terminado; recarga la página o intenta de nuevo.',
+                true);
         }
     }
 
@@ -749,7 +789,7 @@
                 porcentaje_impuesto: 16
             };
 
-            const response = await fetch(window.storeProposalUrl, {
+            const response = await fetchWithTimeout(window.storeProposalUrl, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': window.csrfToken,
@@ -757,7 +797,7 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(payload)
-            });
+            }, 120000);
 
             const data = await safeJson(response);
 
