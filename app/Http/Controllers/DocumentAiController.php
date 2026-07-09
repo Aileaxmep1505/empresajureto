@@ -44,7 +44,6 @@ class DocumentAiController extends Controller
         $pythonBin = config('services.python_ai.bin');
         $pythonScript = config('services.python_ai.script');
 
-        // Validaciones ANTES de responder (para avisar si está mal configurado).
         $configError = null;
 
         if (!$pythonBin || !file_exists($pythonBin)) {
@@ -99,7 +98,7 @@ class DocumentAiController extends Controller
             fastcgi_finish_request();
         }
 
-        // 2) El navegador ya recibió la respuesta; seguimos procesando en segundo plano.
+        // 2) El navegador ya recibió respuesta; procesamos en segundo plano.
         @ignore_user_abort(true);
         @set_time_limit(1800);
 
@@ -112,13 +111,11 @@ class DocumentAiController extends Controller
                 'progress' => $progressPath,
             ]);
 
-            // Raíz del proyecto python-ai: .../python-ai/app/services/script.py -> .../python-ai
-            // dirname($pythonScript, 3) sube tres niveles (script -> services -> app -> python-ai).
-            $pythonRoot = dirname($pythonScript, 3);
+            // main.py está en .../python-ai/app/main.py -> raíz python-ai = 2 niveles arriba.
+            $pythonRoot = dirname($pythonScript, 2);
 
             // Entorno heredado + variables que el Python necesita.
-            // AI_PROGRESS_FILE es CLAVE: progress.py lee de esta variable de entorno,
-            // no del argumento --progress-file. Sin esto, la barra nunca avanza.
+            // AI_PROGRESS_FILE es CLAVE: progress.py lee de esta variable de entorno.
             $childEnv = array_merge($_ENV, $_SERVER, [
                 'AI_PROGRESS_FILE' => $progressPath,
                 'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
