@@ -466,44 +466,15 @@
       return $value !== '' ? $value : null;
     };
 
-    $commentsText = $eventClean(data_get($sd, 'eventos.comentarios')) ?: 'Tras la evaluación de los plazos de ejecución y vigencias de la licitación, se concluye un dictamen NULO debido a que actualmente no existen reglas de tolerancia operativa configuradas en el perfil de la empresa para realizar el cruce de viabilidad. Se identificaron diversos plazos operativos, como los 40 días naturales para la entrega de bienes, 60 días naturales de vigencia del contrato y plazos administrativos ajustados como los 2 días hábiles para la entrega de documentación tras el fallo. Al carecer de parámetros internos, el impacto práctico recae enteramente en la capacidad de las áreas operativas para confirmar si estos tiempos son manejables. Se recomienda revisar manualmente estos plazos con las áreas de operaciones y finanzas para tomar una decisión final sobre la participación.';
+    $commentsText = $eventClean(data_get($sd, 'eventos.comentarios'));
 
-    $vigenciasRows = collect(data_get($sd, 'eventos.vigencias', []));
-    if ($vigenciasRows->isEmpty()) {
-      $vigenciasRows = collect([
-        ['label' => 'Vigencia del contrato', 'risk' => 'MEDIO', 'value' => '60 días naturales a partir del día siguiente a la notificación del fallo'],
-        ['label' => 'Vigencia de precios', 'risk' => 'NULO', 'value' => 'Hasta el cumplimiento total del contrato'],
-        ['label' => 'Garantía para responder de defectos y vicios ocultos', 'risk' => 'NULO', 'value' => '12 meses'],
-        ['label' => 'Vigencia de las proposiciones (técnica y económica)', 'risk' => 'NULO', 'value' => '90 días naturales a partir de la presentación de la misma'],
-        ['label' => 'Opinión de cumplimiento de obligaciones fiscales en materia de seguridad social', 'risk' => 'NULO', 'value' => 'No mayor a 30 días'],
-        ['label' => 'Opinión del cumplimiento de obligaciones fiscales (SAT)', 'risk' => 'NULO', 'value' => 'Vigente (Resolución Miscelánea Fiscal para 2026)'],
-        ['label' => 'Vigencia de la contratación (ejercicio fiscal)', 'risk' => 'NULO', 'value' => 'Ejercicio fiscal 2026'],
-      ]);
-    }
+    $vigenciasRows = collect(data_get($sd, 'eventos.vigencias', []))
+      ->filter(fn ($row) => is_array($row))
+      ->values();
 
-    $plazosRows = collect(data_get($sd, 'eventos.plazos_ejecucion', []));
-    if ($plazosRows->isEmpty()) {
-      $plazosRows = collect([
-        ['label' => 'Entrega de bienes', 'risk' => 'NULO', 'value' => '40 días naturales naturales - A partir del día siguiente a la notificación del fallo'],
-        ['label' => 'Pago por los bienes entregados', 'risk' => 'NULO', 'value' => '17 días hábiles hábiles - A partir de la entrega de la documentación soporte completa y correcta (CFDI)'],
-        ['label' => 'Presentación de Fianza de Cumplimiento', 'risk' => 'NULO', 'value' => '10 días naturales naturales - Siguientes a la firma del contrato'],
-        ['label' => 'Notificación de monto de Pena Convencional por parte de CAPUFE', 'risk' => 'NULO', 'value' => '15 días hábiles hábiles - Posterior al atraso en el cumplimiento de la obligación de que se trate'],
-        ['label' => 'Sustitución de bienes defectuosos o que no cumplan especificaciones', 'risk' => 'NULO', 'value' => '3 días hábiles hábiles - A partir de la notificación del incumplimiento'],
-        ['label' => 'Devolución de comprobantes fiscales con errores', 'risk' => 'NULO', 'value' => '3 días hábiles hábiles - Siguientes al de su recepción'],
-        ['label' => 'Cancelación y reexpedición de CFDI por trámite de pago', 'risk' => 'NULO', 'value' => '24 horas no especificado - A partir de la obligación de notificar la cancelación'],
-        ['label' => 'Entrega de documentación para formalización de contrato', 'risk' => 'NULO', 'value' => '2 días hábiles hábiles - A partir de la emisión del fallo'],
-        ['label' => 'Suspensión de entrega de bienes (causal de rescisión)', 'risk' => 'NULO', 'value' => 'mayor a 3 días naturales naturales - Periodo de suspensión injustificada'],
-        ['label' => 'Plazo para exponer defensa ante procedimiento de rescisión', 'risk' => 'NULO', 'value' => '5 días hábiles hábiles - A partir de la notificación por escrito del incumplimiento'],
-        ['label' => 'Determinación de rescisión del contrato por la convocante', 'risk' => 'NULO', 'value' => '10 días hábiles hábiles - Transcurrido el término para la exposición de pruebas del proveedor'],
-      ]);
-    }
-
-    $allRows = $vigenciasRows->merge($plazosRows);
-    $detectedEvents = $allRows->count();
-    $highRisk = $allRows->filter(fn($r) => strtoupper((string)($r['risk'] ?? '')) === 'ALTO')->count();
-    $mediumRisk = $allRows->filter(fn($r) => strtoupper((string)($r['risk'] ?? '')) === 'MEDIO')->count();
-    $lowRisk = $allRows->filter(fn($r) => in_array(strtoupper((string)($r['risk'] ?? 'NULO')), ['BAJO', 'NULO', 'BAJO/NULO'], true))->count();
-    $generalRisk = $highRisk > 0 ? 'ALTO' : ($mediumRisk > 0 ? 'MEDIO' : 'NULO');
+    $plazosRows = collect(data_get($sd, 'eventos.plazos_ejecucion', []))
+      ->filter(fn ($row) => is_array($row))
+      ->values();
   @endphp
 
   <div class="pjd-events-shell">

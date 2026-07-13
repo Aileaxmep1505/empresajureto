@@ -261,6 +261,11 @@ class ProjectBoardController extends Controller
             try {
                 $result = $processor->process($project, $paths);
 
+                $this->persistProcessorDocuments(
+                    $project->fresh('documents'),
+                    $result['documents'] ?? []
+                );
+
                 $project->structured_data = $result['structured_data'] ?? null;
                 $project->checklist       = data_get($result, 'structured_data.checklist_sugerido', []); // legacy / respaldo
                 $project->status          = 'ready';
@@ -409,6 +414,80 @@ class ProjectBoardController extends Controller
             'project' => $project,
             'documentLibrary' => $documentLibrary,
         ]);
+    }
+
+    /**
+     * Guarda en cada ProjectDocument el texto real extraído por Azure/Python.
+     */
+    private function persistProcessorDocuments(Project $project, array $processorDocuments): void
+    {
+        if (empty($processorDocuments)) {
+            return;
+        }
+
+        $documents = $project->documents()->get()->keyBy(
+            fn (ProjectDocument $document) => mb_strtolower(trim((string) $document->filename))
+        );
+
+        foreach ($processorDocuments as $payload) {
+            if (!is_array($payload)) {
+                continue;
+            }
+
+            $filename = trim((string) ($payload['file'] ?? $payload['filename'] ?? ''));
+            if ($filename === '') {
+                continue;
+            }
+
+            /** @var ProjectDocument|null $document */
+            $document = $documents->get(mb_strtolower($filename));
+            if (!$document) {
+                continue;
+            }
+
+            $status = (string) ($payload['status'] ?? 'ok');
+
+            $document->extracted_text = $payload['extracted_text']
+                ?? $payload['text']
+                ?? $document->extracted_text;
+
+            $raw = $payload['extracted_raw'] ?? [];
+            if (!is_array($raw)) {
+                $raw = ['raw' => $raw];
+            }
+
+            $raw['text_length'] = $payload['text_length'] ?? mb_strlen((string) $document->extracted_text);
+            $raw['raw_preview'] = $payload['raw_preview'] ?? null;
+            $raw['processor_status'] = $status;
+            $raw['processor_error'] = $payload['error'] ?? null;
+
+            $document->extracted_raw = $raw;
+            $document->status = $status === 'ok' ? 'procesado' : ($status === 'empty' ? 'sin_contenido' : 'error');
+            $document->processed_at = now();
+            $document->save();
+        }
+    }
+
+    /**
+     * Une el texto extraído de todos los documentos, conservando fuente y páginas.
+     */
+    private function projectGroundedDocumentText(Project $project, int $maxCharacters = 140000): string
+    {
+        $project->loadMissing('documents');
+
+        $parts = [];
+
+        foreach ($project->documents as $document) {
+            $text = trim((string) $document->extracted_text);
+
+            if ($text === '') {
+                continue;
+            }
+
+            $parts[] = "--- DOCUMENTO: {$document->filename} ---\n{$text}";
+        }
+
+        return mb_substr(implode("\n\n", $parts), 0, $maxCharacters);
     }
 
     private function humanFileSize(?int $bytes): string
@@ -658,57 +737,108 @@ class ProjectBoardController extends Controller
      * ============================================================ */
     public function chat(Request $request, Project $project, OpenAiStructurerService $ai)
     {
-        $request->validate(['message' => 'required|string|max:4000']);
+        abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
+
+        $data = $request->validate([
+            'message' => ['required', 'string', 'max:4000'],
+        ]);
+
+        $project->loadMissing('documents');
+
+        $documentText = $this->projectGroundedDocumentText($project);
+
+        if ($documentText === '') {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Los documentos todavía no tienen texto extraído. Ejecuta el reanálisis del proyecto.',
+            ], 422);
+        }
 
         ProjectChatMessage::create([
             'project_id' => $project->id,
-            'user_id'    => Auth::id(),
-            'role'       => 'user',
-            'content'    => $request->message,
+            'user_id' => Auth::id(),
+            'role' => 'user',
+            'content' => $data['message'],
         ]);
 
         $history = ProjectChatMessage::where('project_id', $project->id)
-            ->orderBy('id', 'desc')->take(12)->get()->reverse()->values();
+            ->orderByDesc('id')
+            ->take(12)
+            ->get()
+            ->reverse()
+            ->values();
 
-        $systemContext = "Eres un asistente experto en licitaciones públicas mexicanas. "
-            . "Estás analizando el proyecto: \"{$project->name}\".\n\n"
-            . "Datos estructurados del proyecto (JSON):\n"
-            . json_encode($project->structured_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n\n"
-            . "FORMATO DE RESPUESTA (obligatorio):\n"
-            . "1. Responde de forma profesional y clara, como un consultor. Usa prosa redactada en parrafos cortos.\n"
-            . "2. Por defecto NO uses tablas. Para explicar procedimientos, consecuencias, recomendaciones o respuestas a preguntas, usa parrafos y, si ayuda, listas con vinetas '- ' o listas numeradas '1.'.\n"
-            . "3. Usa una TABLA en formato Markdown SOLO cuando el usuario pida explicitamente comparar o listar varios elementos por las mismas columnas (por ejemplo: comparar partidas, listar fechas con sus datos, o un cuadro de varios requisitos). Si la respuesta es una explicacion, NUNCA la pongas en tabla.\n"
-            . "4. Puedes resaltar conceptos clave con **negritas** y usar subtitulos con '## '.\n"
-            . "5. NO uses emojis ni iconos. NO uses caracteres decorativos. Manten un tono formal y limpio.\n"
-            . "6. Se conciso y directo, sin relleno. Cita datos concretos del documento cuando existan.";
+        $structured = json_encode(
+            $project->structured_data ?? [],
+            JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT
+        );
 
-        $messages = [['role' => 'system', 'content' => $systemContext]];
-        foreach ($history as $m) {
-            $messages[] = ['role' => $m->role, 'content' => $m->content];
+        $systemContext = <<<PROMPT
+Eres SAM, un asistente experto en licitaciones públicas mexicanas.
+
+REGLAS OBLIGATORIAS:
+1. Responde EXCLUSIVAMENTE con base en los DOCUMENTOS DEL PROYECTO incluidos abajo.
+2. Los datos estructurados son un índice auxiliar; cuando exista conflicto, manda el texto literal del documento.
+3. No uses conocimiento general para completar datos faltantes.
+4. No inventes números, fechas, requisitos, cantidades, marcas, instituciones, sanciones ni condiciones.
+5. Si la respuesta no aparece en los documentos, responde exactamente:
+   "No encontré esa información en los documentos cargados en este proyecto."
+6. Cuando encuentres la respuesta, menciona al final:
+   Fuente: nombre_exacto_del_archivo, página X.
+7. Usa párrafos breves. Solo usa tablas cuando el usuario pida comparar o listar varios elementos.
+8. No uses emojis ni caracteres decorativos.
+
+PROYECTO:
+{$project->name}
+
+DATOS ESTRUCTURADOS:
+{$structured}
+
+DOCUMENTOS DEL PROYECTO:
+{$documentText}
+PROMPT;
+
+        $messages = [
+            ['role' => 'system', 'content' => $systemContext],
+        ];
+
+        foreach ($history as $message) {
+            $messages[] = [
+                'role' => $message->role,
+                'content' => $message->content,
+            ];
         }
 
         try {
-            $reply = $ai->chatRaw($messages);
+            $reply = trim((string) $ai->chatRaw($messages));
         } catch (\Throwable $e) {
-            Log::error('Chat error', ['err' => $e->getMessage()]);
+            Log::error('Project grounded chat failed', [
+                'project_id' => $project->id,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
-                'ok'      => false,
-                'message' => 'Lo siento, hubo un error al procesar tu pregunta: ' . $e->getMessage(),
+                'ok' => false,
+                'message' => 'No se pudo procesar la pregunta en este momento.',
             ], 500);
+        }
+
+        if ($reply === '') {
+            $reply = 'No encontré esa información en los documentos cargados en este proyecto.';
         }
 
         $assistant = ProjectChatMessage::create([
             'project_id' => $project->id,
-            'user_id'    => Auth::id(),
-            'role'       => 'assistant',
-            'content'    => $reply,
+            'user_id' => Auth::id(),
+            'role' => 'assistant',
+            'content' => $reply,
         ]);
 
         return response()->json([
             'ok' => true,
             'assistant_message' => [
                 'content' => $assistant->content,
-                'time'    => $assistant->created_at->format('H:i'),
+                'time' => $assistant->created_at->format('H:i'),
             ],
         ]);
     }
@@ -1056,6 +1186,12 @@ class ProjectBoardController extends Controller
             }
 
             $result = $processor->process($project, $paths);
+
+            $this->persistProcessorDocuments(
+                $project->fresh('documents'),
+                $result['documents'] ?? []
+            );
+
             $newChecklist = data_get($result, 'structured_data.checklist_sugerido', []);
 
             if (!empty($result['structured_data'])) {
@@ -2701,6 +2837,12 @@ PROMPT;
 
                 $processor = app(PythonProjectProcessor::class);
                 $result = $processor->process($project, $documentPaths);
+
+                app(self::class)->persistProcessorDocuments(
+                    $project->fresh('documents'),
+                    $result['documents'] ?? []
+                );
+
                 $structured = $result['structured_data'] ?? [];
 
                 if (is_array($structured) && !empty($structured)) {

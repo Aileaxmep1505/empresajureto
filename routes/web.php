@@ -2649,3 +2649,25 @@ Route::get('/routes/{routePlan}/edit', [\App\Http\Controllers\Logistics\RoutePla
 
 Route::put('/routes/{routePlan}', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'update'])
     ->name('routes.update');
+
+    use App\Http\Controllers\SettingsController;
+
+
+
+
+
+Route::middleware('auth')->prefix('configuracion')->name('settings.')->group(function () {
+    Route::get('/', [SettingsController::class, 'show'])->name('profile');
+    Route::put('/perfil', [SettingsController::class, 'updateProfile'])->name('profile.update');
+    Route::put('/password', [SettingsController::class, 'updatePassword'])->name('password.update');
+    Route::put('/seguridad', [SettingsController::class, 'updateSecurity'])->name('security.update');
+    Route::put('/identidad', [SettingsController::class, 'updateIdentity'])->name('identity.update');
+    Route::put('/fianzas', [SettingsController::class, 'updateBondSettings'])->name('bond.update');
+    Route::post('/documentos/{section}/{key}', [SettingsController::class, 'uploadDocument'])->name('documents.upload');
+    Route::delete('/documentos/{document}', [SettingsController::class, 'destroyDocument'])->name('documents.destroy');
+    Route::post('/documentos-adicionales', [SettingsController::class, 'storeAdditionalDocument'])->name('additional-documents.store');
+    Route::post('/certificaciones', [SettingsController::class, 'storeCertification'])->name('certifications.store');
+    Route::delete('/certificaciones/{certification}', [SettingsController::class, 'destroyCertification'])->name('certifications.destroy');
+    Route::post('/representantes', [SettingsController::class, 'storeRepresentative'])->name('representatives.store');
+    Route::delete('/representantes/{representative}', [SettingsController::class, 'destroyRepresentative'])->name('representatives.destroy');
+});
