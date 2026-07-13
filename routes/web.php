@@ -56,10 +56,10 @@ use App\Http\Controllers\ManualInvoiceController;
 use App\Http\Controllers\Mobile\CatalogAiIntakePublicController;
 use App\Http\Controllers\CronController;
 use App\Http\Controllers\CompanyController;
-// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹ NUEVOS CONTROLADORES ADMIN LICITACIONES (PDF + PROPUESTAS)
+// ðŸ”¹ NUEVOS CONTROLADORES ADMIN LICITACIONES (PDF + PROPUESTAS)
 use App\Http\Controllers\Admin\LicitacionPdfController;
 use App\Http\Controllers\Admin\LicitacionPropuestaController;
-// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹ MODELOS
+// ðŸ”¹ MODELOS
 use App\Models\LicitacionPdf;
 use App\Http\Controllers\DebugOpenAiController;
 use App\Http\Controllers\Admin\AdminOrderController;
@@ -110,6 +110,9 @@ use App\Http\Controllers\InventoryAssignmentController;
 use App\Http\Controllers\Admin\HomeProductSectionController;
 use App\Models\HomeBanner;
 use App\Http\Controllers\Admin\HomeBannerController;
+use App\Http\Controllers\Web\WebAssistantController;
+use App\Http\Controllers\Admin\WebAssistantAdvisorController;
+use App\Http\Controllers\Logistics\RouteGoogleController;
 
 Route::get('/admin/catalog/analytics', [\App\Http\Controllers\Admin\CatalogItemController::class, 'analytics'])
     ->name('admin.catalog.analytics');
@@ -139,16 +142,24 @@ Route::middleware('guest')->group(function () {
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
-/* VerificaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n por cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo (OTP) */
+/* VerificaciÃ³n por cÃ³digo (OTP) */
 Route::middleware('auth')->group(function () {
     Route::get('/email/verify-code',   [AuthController::class, 'verifyNotice'])->name('verification.code.show');
     Route::post('/email/verify-code',  [AuthController::class, 'verifyCode'])->middleware('throttle:10,1')->name('verification.code.verify');
     Route::post('/email/resend-code',  [AuthController::class, 'resendVerificationCode'])->middleware('throttle:3,1')->name('verification.code.resend');
 });
 
+
+Route::middleware(['auth'])->group(function () {
+    Route::post('/api/driver/location/save', [RoutePlanController::class, 'saveDriverLocation'])
+        ->name('api.driver.location.save');
+
+    Route::get('/api/driver/location/last', [RoutePlanController::class, 'getDriverLocation'])
+        ->name('api.driver.location.last');
+});
 /*
 |--------------------------------------------------------------------------
-| WEB PÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡BLICA
+| WEB PÃšBLICA
 |--------------------------------------------------------------------------
 */
 Route::get('/', [HomeController::class, 'index'])->name('web.home');
@@ -159,17 +170,17 @@ Route::get('/ventas/{id}', [ShopController::class, 'show'])->name('web.ventas.sh
 Route::get('/contacto', [ContactController::class, 'show'])->name('web.contacto');
 Route::post('/contacto', [ContactController::class, 'send'])->name('web.contacto.send');
 
-/* CatÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡logo pÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºblico */
+/* CatÃ¡logo pÃºblico */
 Route::prefix('catalogo')->name('web.catalog.')->group(function () {
     Route::get('/',                   [CatalogController::class, 'index'])->name('index');
     Route::get('/{catalogItem:slug}', [CatalogController::class, 'show'])->name('show');
 });
 
-/* BÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºsqueda */
+/* BÃºsqueda */
 Route::get('/buscar',         [SearchController::class, 'index'])->name('search.index');
 Route::get('/buscar/suggest', [SearchController::class, 'suggest'])->name('search.suggest');
 
-/* PÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ginas estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ticas */
+/* PÃ¡ginas estÃ¡ticas */
 Route::get('/sobre-nosotros', [HomeController::class, 'about'])->name('about');
 Route::view('/terminos-y-condiciones',           'web.politicas.terminos')->name('policy.terms');
 Route::view('/aviso-de-privacidad',              'web.politicas.privacidad')->name('policy.privacy');
@@ -191,7 +202,7 @@ Route::get('/garantias-y-devoluciones', function () {
 Route::get('/servicios', [ServicioController::class, 'index'])->name('web.servicios');
 Route::get('/ofertas', fn() => view('web.ofertas'))->name('web.ofertas');
 
-/* Media pÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºblico (storage/app/public) */
+/* Media pÃºblico (storage/app/public) */
 Route::get('/media/{path}', [MediaController::class, 'show'])->where('path', '.*')->name('media.show');
 
 /*
@@ -222,11 +233,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/checkout/cp',        [CheckoutController::class, 'cpLookup'])->middleware('throttle:20,1')->name('checkout.cp');
     Route::get('/checkout/cp-lookup', [CheckoutController::class, 'cpLookup'])->middleware('throttle:20,1')->name('checkout.cp.lookup');
 
-    /* DirecciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n (AJAX) */
+    /* DirecciÃ³n (AJAX) */
     Route::post('/checkout/address',         [CheckoutController::class, 'addressStore'])->name('checkout.address.store');
     Route::post('/checkout/address/select',  [CheckoutController::class, 'addressSelect'])->name('checkout.address.select');
 
-    /* Paso 2: FacturaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n (modal 2 pasos) */
+    /* Paso 2: FacturaciÃ³n (modal 2 pasos) */
     Route::get('/checkout/invoice',            [CheckoutController::class, 'invoice'])->name('checkout.invoice');
     Route::post('/checkout/invoice/validate',  [CheckoutController::class, 'invoiceValidateRFC'])->name('checkout.invoice.validate');
     Route::post('/checkout/invoice/store',     [CheckoutController::class, 'invoiceStore'])->name('checkout.invoice.store');
@@ -234,7 +245,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/checkout/invoice/delete',  [CheckoutController::class, 'invoiceDelete'])->name('checkout.invoice.delete');
     Route::post('/checkout/invoice/skip',      [CheckoutController::class, 'invoiceSkip'])->name('checkout.invoice.skip');
 
-    /* Paso 3: EnvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o */
+    /* Paso 3: EnvÃ­o */
     Route::get('/checkout/shipping',          [CheckoutController::class, 'shipping'])->name('checkout.shipping');
     Route::post('/checkout/shipping/select',  [CheckoutController::class, 'shippingSelect'])->name('checkout.shipping.select');
 
@@ -246,22 +257,24 @@ Route::middleware('auth')->group(function () {
 Route::post('/checkout/item/{item}', [CheckoutController::class, 'checkoutItem'])
     ->whereNumber('item')->name('checkout.item');
 Route::post('/checkout/cart', [CheckoutController::class, 'checkoutCart'])->name('checkout.cart');
+/* PayPal Checkout */
 Route::post('/checkout/paypal/create', [CheckoutController::class, 'paypalCreate'])->name('checkout.paypal.create');
 Route::get('/checkout/paypal/success', [CheckoutController::class, 'paypalSuccess'])->name('checkout.paypal.success');
 Route::get('/checkout/paypal/cancel', [CheckoutController::class, 'paypalCancel'])->name('checkout.paypal.cancel');
+
 
 /* Resultados de Stripe */
 Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
 Route::get('/checkout/cancel',  [CheckoutController::class, 'cancel'])->name('checkout.cancel');
 
-/* Descargas/reenvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o de CFDI desde la pÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡gina de ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©xito */
+/* Descargas/reenvÃ­o de CFDI desde la pÃ¡gina de Ã©xito */
 Route::get('/checkout/invoices/{id}/pdf',    [CheckoutController::class, 'invoicePdf'])->name('checkout.invoice.pdf');
 Route::get('/checkout/invoices/{id}/xml',    [CheckoutController::class, 'invoiceXml'])->name('checkout.invoice.xml');
 Route::post('/checkout/invoices/{id}/email', [CheckoutController::class, 'invoiceResendEmail'])->name('checkout.invoice.email');
 
 /*
 |--------------------------------------------------------------------------
-| ENVÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂOS (cotizador externo al checkout)
+| ENVÃOS (cotizador externo al checkout)
 |--------------------------------------------------------------------------
 */
 /* Alias estilo carrito */
@@ -276,7 +289,7 @@ Route::middleware(['web','auth'])->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂREA DE CLIENTE (auth)
+| ÃREA DE CLIENTE (auth)
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth')->group(function () {
@@ -324,9 +337,14 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     /*
     |--------------------------------------------------------------------------
-    | CategorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as de productos web
+    | CategorÃ­as de productos web
     |--------------------------------------------------------------------------
-    | Rutas manuales para evitar choques con las rutas JSON.
+    | Vistas admin + API JSON para el selector dinÃ¡mico del catÃ¡logo.
+    |
+    | IMPORTANTE:
+    | - Las rutas JSON usan /category-products-json para NO chocar con edit/update.
+    | - La ruta show-json apunta a showJson(), no a show().
+    | - Reorder queda aquÃ­ dentro para evitar rutas sueltas duplicadas al final.
     */
     Route::get('/category-products', [CategoryProductController::class, 'index'])
         ->name('category-products.index');
@@ -349,9 +367,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::delete('/category-products/{categoryProduct}', [CategoryProductController::class, 'destroy'])
         ->name('category-products.destroy');
 
+    Route::post('/category-products/reorder', [CategoryProductController::class, 'reorder'])
+        ->name('category-products.reorder');
+
     /*
     |--------------------------------------------------------------------------
-    | API JSON de categorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as para selectores dinÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡micos
+    | API JSON de categorÃ­as para selectores dinÃ¡micos
     |--------------------------------------------------------------------------
     */
     Route::get('/category-products-json/roots', [CategoryProductController::class, 'roots'])
@@ -360,7 +381,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/category-products-json/{category}/children', [CategoryProductController::class, 'children'])
         ->name('category-products.children');
 
-    Route::get('/category-products-json/{category}', [CategoryProductController::class, 'show'])
+    Route::get('/category-products-json/{category}', [CategoryProductController::class, 'showJson'])
         ->name('category-products.show-json');
 
 });
@@ -392,7 +413,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/ayuda/t/{ticket}',          [HelpCenterController::class,'show'])->name('help.show');
     Route::post('/ayuda/t/{ticket}/message', [HelpCenterController::class,'message'])->middleware('throttle:30,1')->name('help.message');
     Route::post('/ayuda/t/{ticket}/escalar', [HelpCenterController::class,'escalar'])->middleware('throttle:6,1')->name('help.escalar');
-    Route::delete('/ayuda/t/{ticket}', [HelpCenterController::class,'destroy'])->name('help.destroy');
 });
 
 Route::prefix('panel/ayuda')->name('admin.help.')
@@ -484,7 +504,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'
 
     /*
     |--------------------------------------------------------------------------
-    | LICITACIONES ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ PDFs de requisiciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
+    | LICITACIONES â€“ PDFs de requisiciÃ³n
     |--------------------------------------------------------------------------
     | URL base:   /admin/licitacion-pdfs
     | Nombres:    admin.licitacion-pdfs.index, admin.licitacion-pdfs.show, etc.
@@ -493,7 +513,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'
         ->parameters(['licitacion-pdfs' => 'licitacionPdf'])
         ->names('admin.licitacion-pdfs');
 
-    // AcciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n extra: recortar rango de pÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ginas (usada en el blade)
+    // AcciÃ³n extra: recortar rango de pÃ¡ginas (usada en el blade)
     Route::post('licitacion-pdfs/{licitacionPdf}/split', [LicitacionPdfController::class, 'split'])
         ->name('admin.licitacion-pdfs.split');
 
@@ -504,8 +524,8 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'
         ->whereIn('format', ['pdf', 'word', 'excel'])
         ->name('admin.licitacion-pdfs.splits.download');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹ NUEVA RUTA: desde el recorte de PDF hacia la vista "Nueva propuesta econÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³mica"
-// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹ RUTA: desde el recorte de PDF hacia la vista "Nueva propuesta econÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³mica"
+    // ðŸ”¹ NUEVA RUTA: desde el recorte de PDF hacia la vista "Nueva propuesta econÃ³mica"
+// ðŸ”¹ RUTA: desde el recorte de PDF hacia la vista "Nueva propuesta econÃ³mica"
 Route::get('licitacion-pdfs/{licitacionPdf}/propuesta', function (LicitacionPdf $licitacionPdf) {
     $params = [];
 
@@ -517,7 +537,7 @@ Route::get('licitacion-pdfs/{licitacionPdf}/propuesta', function (LicitacionPdf 
         $params['requisicion_id'] = $licitacionPdf->requisicion_id;
     }
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¹Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â° Muy importante: mandamos el PDF original que tiene los splits
+    // ðŸ‘‰ Muy importante: mandamos el PDF original que tiene los splits
     $params['licitacion_pdf_id'] = $licitacionPdf->id;
 
     return redirect()->route('admin.licitacion-propuestas.create', $params);
@@ -525,7 +545,7 @@ Route::get('licitacion-pdfs/{licitacionPdf}/propuesta', function (LicitacionPdf 
 
     /*
     |--------------------------------------------------------------------------
-    | LICITACIONES ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ Propuestas econÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³micas comparativas
+    | LICITACIONES â€“ Propuestas econÃ³micas comparativas
     |--------------------------------------------------------------------------
     | URL base:   /admin/licitacion-propuestas
     | Nombres:    admin.licitacion-propuestas.index, etc.
@@ -537,7 +557,7 @@ Route::get('licitacion-pdfs/{licitacionPdf}/propuesta', function (LicitacionPdf 
 
 /*
 |--------------------------------------------------------------------------
-| DIAGNÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“STICO / DEBUG
+| DIAGNÃ“STICO / DEBUG
 |--------------------------------------------------------------------------
 */
 Route::get('/diag/http', function () {
@@ -566,15 +586,19 @@ Route::get('/debug/skydropx/quote',    [SkydropxDebugController::class, 'quote']
 | WEBHOOKS
 |--------------------------------------------------------------------------
 */
-Route::post('/webhooks/stripe', [StripeWebhookController::class,'handle'])->name('webhooks.stripe');
+Route::get('/stripe/webhook/test', [StripeWebhookController::class, 'test'])
+    ->name('stripe.webhook.test');
 
-/* CategorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as web */
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])
+    ->name('stripe.webhook');
+
+/* CategorÃ­as web */
 Route::get('/categoria/{category:slug}', [CategoryController::class, 'show'])
     ->name('web.categorias.show');
 
 /*
 |--------------------------------------------------------------------------
-| ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂREA DE CLIENTE (prefijo /mi-cuenta)
+| ÃREA DE CLIENTE (prefijo /mi-cuenta)
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth'])->prefix('mi-cuenta')->name('customer.')->group(function () {
@@ -588,18 +612,18 @@ Route::middleware(['auth'])->prefix('mi-cuenta')->name('customer.')->group(funct
 
 /*
 |--------------------------------------------------------------------------
-| LOGÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂSTICA / RUTAS
+| LOGÃSTICA / RUTAS
 |--------------------------------------------------------------------------
 */
 /*
 |--------------------------------------------------------------------------
-| LOGÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂSTICA / RUTAS (CHOFER + SUPERVISOR) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ TODO EN web.php (SIN DUPLICADOS)
+| LOGÃSTICA / RUTAS (CHOFER + SUPERVISOR) âœ… TODO EN web.php (SIN DUPLICADOS)
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth'])->group(function () {
 
     /* =========================
-     |  SUPERVISOR / LOGÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂSTICA (panel)
+     |  SUPERVISOR / LOGÃSTICA (panel)
      ========================= */
     Route::get('/logi/routes',              [\App\Http\Controllers\Logistics\RoutePlanController::class, 'index'])->name('routes.index');
     Route::get('/logi/routes/create',       [\App\Http\Controllers\Logistics\RoutePlanController::class, 'create'])->name('routes.create');
@@ -616,7 +640,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('driver.routes.show');
 
     /* =========================
-     |  API internas (pero en web.php) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ESTAS SON LAS QUE USA TU BLADE
+     |  API internas (pero en web.php) â€” ESTAS SON LAS QUE USA TU BLADE
      |  OJO: no repitas nombres (name) en otro lado.
      ========================= */
     Route::post('/api/routes/{routePlan}/start', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'start'])
@@ -628,13 +652,13 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/api/routes/{routePlan}/recompute', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'recompute'])
         ->name('api.routes.recompute');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Debe coincidir con tu Blade:
+    // âœ… Debe coincidir con tu Blade:
     // URL_DONE_BASE = /api/routes/{routePlan}/stops  y luego  /{stop}/done
     Route::post('/api/routes/{routePlan}/stops/{stop}/done', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'markStopDone'])
         ->name('api.routes.stops.done');
 
     /* =========================
-     |  GPS (ubicaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n chofer)
+     |  GPS (ubicaciÃ³n chofer)
      ========================= */
     Route::post('/api/driver/location', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'saveDriverLocation'])
         ->name('api.driver.location.save');
@@ -642,7 +666,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/driver/location/last', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'getDriverLocation'])
         ->name('api.driver.location.last');
 
-    // (opcional) si tienes endpoint ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œgetÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â
+    // (opcional) si tienes endpoint â€œgetâ€
     Route::get('/api/driver/location', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'getDriverLocation'])
         ->name('api.driver.location.get');
 
@@ -653,22 +677,22 @@ Route::middleware(['auth'])->group(function () {
         ->name('api.routes.live');
 
     /**
-     * ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ VISTA (HTML Blade)
+     * âœ… VISTA (HTML Blade)
      * OJO: NO le pongas "api." al name porque es una vista, no un endpoint JSON.
-     * AsÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ cuando entres a /supervisor/routes/{id} ya NO verÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s el JSON.
+     * AsÃ­ cuando entres a /supervisor/routes/{id} ya NO verÃ¡s el JSON.
      */
     Route::get('/supervisor/routes/{routePlan}', [\App\Http\Controllers\Logistics\RouteSupervisorController::class, 'show'])
         ->name('supervisor.routes.show');
 
     /**
-     * ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ ENDPOINT JSON (POLL)
-     * Este sÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ es JSON para tu fetch.
+     * âœ… ENDPOINT JSON (POLL)
+     * Este sÃ­ es JSON para tu fetch.
      */
     Route::get('/supervisor/routes/{routePlan}/poll', [\App\Http\Controllers\Logistics\RouteSupervisorController::class, 'poll'])
         ->name('api.supervisor.routes.poll');
 
     /* =========================
-     |  CLIENT LOG (para tu DEBUG en JS) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ en web.php tambiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©n
+     |  CLIENT LOG (para tu DEBUG en JS) âœ… en web.php tambiÃ©n
      ========================= */
     Route::post('/api/client-log', function (\Illuminate\Http\Request $r) {
         $data = $r->validate([
@@ -716,7 +740,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('tickets.executive');
 
     // =========================
-    // Mis tickets (asignados a mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­)
+    // Mis tickets (asignados a mÃ­)
     // =========================
     Route::get('/my-tickets', [MyAssignmentsController::class,'index'])
         ->name('tickets.my');
@@ -728,19 +752,19 @@ Route::middleware(['auth'])->group(function () {
     Route::get   ('/tickets/create',     [TicketController::class,'create'])->name('tickets.create');
     Route::post  ('/tickets',            [TicketController::class,'store'])->name('tickets.store');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Vista detalle (solo lectura)
+    // âœ… Vista detalle (solo lectura)
     Route::get   ('/tickets/{ticket}',   [TicketController::class,'show'])->name('tickets.show')->whereNumber('ticket');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Vista de trabajo para el asignado (workflow/timer)
+    // âœ… Vista de trabajo para el asignado (workflow/timer)
     Route::get   ('/tickets/{ticket}/work', [TicketController::class,'work'])
         ->name('tickets.work')
         ->whereNumber('ticket');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Update (para cambiar status/priority/area/etc desde forms)
+    // âœ… Update (para cambiar status/priority/area/etc desde forms)
     Route::put   ('/tickets/{ticket}',   [TicketController::class,'update'])->name('tickets.update')->whereNumber('ticket');
 
     // =========================
-    // Acciones rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡pidas
+    // Acciones rÃ¡pidas
     // =========================
     Route::post('/tickets/{ticket}/complete', [TicketController::class,'complete'])
         ->name('tickets.complete')
@@ -787,12 +811,12 @@ Route::middleware(['auth'])
         // Lista principal
         Route::get('/', [MailboxController::class, 'index'])->name('index');
 
-        // Listar carpeta especÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­fica
+        // Listar carpeta especÃ­fica
         Route::get('/folder/{folder}', [MailboxController::class, 'folder'])
             ->where('folder', '.*')
             ->name('folder');
 
-        // Ver mensaje en pÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡gina independiente
+        // Ver mensaje en pÃ¡gina independiente
         Route::get('/show/{folder}/{uid}', [MailboxController::class, 'show'])
             ->where('folder', '.*')
             ->whereNumber('uid')
@@ -819,7 +843,7 @@ Route::middleware(['auth'])
             ->whereNumber('uid')
             ->name('forward');
 
-        // Acciones: importante / leÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­do
+        // Acciones: importante / leÃ­do
         Route::post('/toggle-flag/{folder}/{uid}', [MailboxController::class, 'toggleFlag'])
             ->where('folder', '.*')
             ->whereNumber('uid')
@@ -835,7 +859,7 @@ Route::middleware(['auth'])
         Route::get('/api/counts',   [MailboxController::class, 'apiCounts'])->name('api.counts');
         Route::get('/api/wait',     [MailboxController::class, 'apiWait'])->name('api.wait');
 
-        // Acciones rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡pidas por mensaje
+        // Acciones rÃ¡pidas por mensaje
         Route::post('/move/{folder}/{uid}',   [MailboxController::class, 'move'])
             ->where('folder','.*')->whereNumber('uid')->name('move');
 
@@ -917,7 +941,7 @@ Route::middleware(['web','auth'])->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| WIZARD LICITACIONES (clÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡sico)
+| WIZARD LICITACIONES (clÃ¡sico)
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth'])->group(function () {
@@ -962,7 +986,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/licitaciones/{licitacion}/step-9',  [LicitacionWizardController::class, 'editStep9'])->name('licitaciones.edit.step9');
     Route::post('/licitaciones/{licitacion}/step-9', [LicitacionWizardController::class, 'updateStep9'])->name('licitaciones.update.step9');
 
-    // PREGUNTAS DE LICITACIÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“N (Paso 4 lÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³gico)
+    // PREGUNTAS DE LICITACIÃ“N (Paso 4 lÃ³gico)
     Route::get ('/licitaciones/{licitacion}/preguntas',            [LicitacionPreguntaController::class, 'index'])->name('licitaciones.preguntas.index');
     Route::post('/licitaciones/{licitacion}/preguntas',            [LicitacionPreguntaController::class, 'store'])->name('licitaciones.preguntas.store');
     Route::get ('/licitaciones/{licitacion}/preguntas/export-pdf', [LicitacionExportController::class, 'exportPreguntasPdf'])->name('licitaciones.preguntas.exportPdf');
@@ -978,7 +1002,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/licitaciones/{licitacion}/checklist-compras',       [LicitacionChecklistController::class, 'storeCompras'])->name('licitaciones.checklist.compras.store');
     Route::patch('/licitaciones/{licitacion}/checklist-compras/{item}', [LicitacionChecklistController::class, 'updateCompras'])->name('licitaciones.checklist.compras.update');
 
-    // Paso 11: checklist facturaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
+    // Paso 11: checklist facturaciÃ³n
     Route::get('/licitaciones/{licitacion}/checklist-facturacion',  [LicitacionChecklistController::class, 'editFacturacion'])->name('licitaciones.checklist.facturacion.edit');
     Route::post('/licitaciones/{licitacion}/checklist-facturacion', [LicitacionChecklistController::class, 'storeFacturacion'])->name('licitaciones.checklist.facturacion.store');
 
@@ -1021,7 +1045,7 @@ Route::middleware(['auth'])
 
 /*
 |--------------------------------------------------------------------------
-| PÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡BLICO CELULAR (sin auth) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ captura AI
+| PÃšBLICO CELULAR (sin auth) â€“ captura AI
 |--------------------------------------------------------------------------
 */
 Route::get('/i/{token}',         [CatalogAiIntakePublicController::class, 'capture'])->name('intake.mobile');
@@ -1030,7 +1054,7 @@ Route::get('/i/{token}/status',  [CatalogAiIntakePublicController::class, 'statu
 
 /*
 |--------------------------------------------------------------------------
-| ADMIN ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ IA para captura de catÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡logo
+| ADMIN â€“ IA para captura de catÃ¡logo
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth','role:admin'])
@@ -1038,7 +1062,7 @@ Route::middleware(['auth','role:admin'])
     ->name('admin.')
     ->group(function () {
 
-        // IA para captura de factura/remisiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
+        // IA para captura de factura/remisiÃ³n
         Route::post('/catalog/ai/start', [CatalogItemController::class, 'aiStart'])
             ->name('catalog.ai.start');
 
@@ -1048,7 +1072,7 @@ Route::middleware(['auth','role:admin'])
 
 /*
 |--------------------------------------------------------------------------
-| PRODUCTOS ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ CLAVE SAT masivo
+| PRODUCTOS â€“ CLAVE SAT masivo
 |--------------------------------------------------------------------------
 */
 Route::post('/products/bulk-clave-sat',       [ProductController::class, 'bulkClaveSat'])->name('products.bulk-clave-sat');
@@ -1078,7 +1102,7 @@ Route::middleware(['web', 'auth'])->prefix('admin')->group(function () {
     Route::delete('/manual-invoices/{manualInvoice}', [ManualInvoiceController::class, 'destroy'])
         ->name('manual_invoices.destroy');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Prefactura (PDF BORRADOR generado por Facturapi)
+    // âœ… Prefactura (PDF BORRADOR generado por Facturapi)
     Route::get('/manual-invoices/{manualInvoice}/draft-pdf', [ManualInvoiceController::class, 'downloadDraftPdf'])
         ->name('manual_invoices.downloadDraftPdf');
 
@@ -1099,7 +1123,7 @@ Route::middleware(['web', 'auth'])->prefix('admin')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| IA desde upload de catÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡logo
+| IA desde upload de catÃ¡logo
 |--------------------------------------------------------------------------
 */
 Route::post('/admin/catalog/ai-from-upload', [CatalogItemController::class, 'aiFromUpload'])
@@ -1114,7 +1138,7 @@ Route::get('/cron/agenda-run', function (Request $request) {
     if (! $request->hasValidSignature()) {
         return response()->json([
             'ok' => false,
-            'message' => 'Firma no vÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lida.',
+            'message' => 'Firma no vÃ¡lida.',
         ], 401);
     }
 
@@ -1149,7 +1173,7 @@ Route::get('/cron/agenda-url-test', function () {
     );
 });
 
-// (repetido tickets.work fuera del grupo grande, lo dejo tal como lo tenÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as)
+// (repetido tickets.work fuera del grupo grande, lo dejo tal como lo tenÃ­as)
 Route::get('/tickets/{ticket}/work', [TicketController::class, 'work'])
     ->name('tickets.work');
 
@@ -1163,7 +1187,7 @@ Route::get('/products/export/pdf',   [ProductController::class, 'exportPdf'])->n
 Route::get('/products/export/excel', [ProductController::class, 'exportExcel'])->name('products.export.excel');
 
 
-// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¹Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¡ agrega debajo:
+// ðŸ‘‡ agrega debajo:
 Route::post('licitacion-propuestas/{licitacionPropuesta}/splits/{splitIndex}/process', 
     [LicitacionPropuestaController::class, 'processSplit'])
     ->name('admin.licitacion-propuestas.splits.process');
@@ -1199,7 +1223,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 });
 // routes/web.php
 Route::middleware(['auth'])->group(function () {
-  Route::get('/mi-cuenta/pedidos/{order}', [CustomerAreaController::class, 'show'])
+  Route::get('/mi-cuenta/pedidos/{order}', [\App\Http\Controllers\Customer\CustomerOrdersController::class, 'show'])
     ->name('customer.orders.show');
 });
 Route::middleware(['auth'])
@@ -1207,49 +1231,49 @@ Route::middleware(['auth'])
     ->name('admin.')
     ->group(function () {
 
-        // ... aquÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ seguramente ya tienes otras rutas ...
+        // ... aquÃ­ seguramente ya tienes otras rutas ...
 
         // Propuestas (resource o lo que tengas)
         // Route::resource('licitacion-propuestas', LicitacionPropuestaController::class);
 
-        // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â½ Descarga PDF
+        // ðŸ”½ Descarga PDF
         Route::get(
             'licitacion-propuestas/{licitacionPropuesta}/export/pdf',
             [LicitacionPropuestaController::class, 'exportPdf']
         )->name('licitacion-propuestas.export.pdf');
 
-        // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â½ Descarga Word
+        // ðŸ”½ Descarga Word
         Route::get(
             'licitacion-propuestas/{licitacionPropuesta}/export/word',
             [LicitacionPropuestaController::class, 'exportWord']
         )->name('licitacion-propuestas.export.word');
         // ================= RUTAS NUEVAS PARA RENGLONES (ITEMS) =================
 
-// Crear renglÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n (botÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n "Agregar renglÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n" -> modal NUEVO)
+// Crear renglÃ³n (botÃ³n "Agregar renglÃ³n" -> modal NUEVO)
 Route::post(
     'licitacion-propuestas/{licitacionPropuesta}/items',
     [\App\Http\Controllers\Admin\LicitacionPropuestaController::class, 'storeItem']
 )->name('licitacion-propuestas.items.store');
 
-// Actualizar renglÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n (modal "Editar renglÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n", manda _method=PUT)
+// Actualizar renglÃ³n (modal "Editar renglÃ³n", manda _method=PUT)
 Route::put(
     'licitacion-propuesta-items/{item}',
     [\App\Http\Controllers\Admin\LicitacionPropuestaController::class, 'updateItem']
 )->name('licitacion-propuesta-items.update');
 
-// Eliminar renglÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n (botÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n "Eliminar")
+// Eliminar renglÃ³n (botÃ³n "Eliminar")
 Route::delete(
     'licitacion-propuesta-items/{item}',
     [\App\Http\Controllers\Admin\LicitacionPropuestaController::class, 'destroyItem']
 )->name('licitacion-propuesta-items.destroy');
 
-// AJAX: actualizar % de utilidad por renglÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n
+// AJAX: actualizar % de utilidad por renglÃ³n
 Route::post(
     'licitacion-propuesta-items/{item}/update-utility',
     [\App\Http\Controllers\Admin\LicitacionPropuestaController::class, 'updateItemUtilityAjax']
 )->name('licitacion-propuesta-items.update-utility');
 
-// AJAX: aplicar producto al renglÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n (picker / sugerencias)
+// AJAX: aplicar producto al renglÃ³n (picker / sugerencias)
 Route::post(
     'licitacion-propuesta-items/{item}/apply-product',
     [\App\Http\Controllers\Admin\LicitacionPropuestaController::class, 'applyProductAjax']
@@ -1267,7 +1291,7 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     Route::post('licitacion-pdfs/{licitacionPdf}/ai/notes/pdf', [LicitacionPdfAiController::class, 'notesPdf'])
         ->name('admin.licitacion-pdfs.ai.notes.pdf');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ viewer con highlight
+    // âœ… viewer con highlight
     Route::get('licitacion-pdfs/{licitacionPdf}/ai/viewer', [LicitacionPdfAiController::class, 'viewer'])
         ->name('admin.licitacion-pdfs.ai.viewer');
 });
@@ -1288,22 +1312,22 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
     Route::get('/search', fn () => view('admin.wms.search'))->name('search.view');
 
     /* =========================
-     |  API: BUSCAR + LLEVAME + SCANNER (ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ SOLO UNA VEZ)
+     |  API: BUSCAR + LLEVAME + SCANNER (âœ… SOLO UNA VEZ)
      ========================= */
     Route::get('/search/products', [WmsSearchController::class, 'products'])->name('search.products');
     Route::get('/nav', [WmsSearchController::class, 'nav'])->name('nav');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Escaneo ubicaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n (acepta raw/id/code)
+    // âœ… Escaneo ubicaciÃ³n (acepta raw/id/code)
     Route::get('/locations/scan', [WmsSearchController::class, 'locationScan'])->name('locations.scan');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Escaneo producto (acepta raw/id/sku/gtin)
+    // âœ… Escaneo producto (acepta raw/id/sku/gtin)
     Route::get('/products/scan', [WmsSearchController::class, 'productScan'])->name('products.scan');
 
     /* =========================
      |  PICKING
      ========================= */
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Alias para compatibilidad con el home.blade.php (DEBE IR ANTES de /pick/{wave})
+    // âœ… Alias para compatibilidad con el home.blade.php (DEBE IR ANTES de /pick/{wave})
     Route::get('/pick/entry', function () {
         $warehouseId = (int) (\App\Models\Warehouse::query()->value('id') ?? 1);
         $waves = \App\Models\PickWave::query()->orderByDesc('id')->limit(25)->get();
@@ -1323,10 +1347,10 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
     })->whereNumber('wave')->name('pick.show');
 
     /* =========================
-     |  QR: PÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂGINA + IMPRESIÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“N
+     |  QR: PÃGINA + IMPRESIÃ“N
      ========================= */
 
-    // PÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡gina HTML por QR (UbicaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n)
+    // PÃ¡gina HTML por QR (UbicaciÃ³n)
     Route::get('/locations/{location}/page', function (\App\Models\Location $location) {
         $rows = \App\Models\Inventory::where('location_id', $location->id)
             ->with('item:id,name,sku,price,meli_gtin')
@@ -1386,7 +1410,7 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
     Route::get('locations/data', [WmsController::class, 'locationsIndex'])->name('locations.data');
     Route::post('locations', [WmsController::class, 'locationsStore'])->name('locations.store');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â OJO: aquÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ YA NO repetimos locations/scan (ya estÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ arriba con WmsSearchController)
+    // âš ï¸ OJO: aquÃ­ YA NO repetimos locations/scan (ya estÃ¡ arriba con WmsSearchController)
     Route::put('locations/{location}', [WmsController::class, 'locationsUpdate'])->name('locations.update');
     Route::delete('locations/{location}', [WmsController::class, 'locationsDestroy'])->name('locations.destroy');
     Route::get('locations/{location}', [WmsController::class, 'locationShow'])->name('locations.show');
@@ -1465,15 +1489,15 @@ Route::middleware(['auth'])->group(function () {
     // Store
     Route::post('/companies', [CompanyController::class, 'store'])->name('companies.store');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Evita el 404 si alguien cae a /companies
-    //    y ademÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s si por cualquier motivo terminas ahÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­, te manda a /part-contable
+    // âœ… Evita el 404 si alguien cae a /companies
+    //    y ademÃ¡s si por cualquier motivo terminas ahÃ­, te manda a /part-contable
     Route::get('/companies', fn () => redirect('/part-contable'))->name('companies.index');
 });
 
 Route::get('/products/ajax-table', [ProductController::class, 'ajaxTable'])
   ->name('products.ajax-table');
 
-// Ficha pÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºblica por slug
+// Ficha pÃºblica por slug
 Route::get('/p/{catalogItem:slug}', [CatalogPublicController::class, 'preview'])
     ->name('catalog.preview');
 
@@ -1481,11 +1505,11 @@ Route::get('/p/{catalogItem:slug}', [CatalogPublicController::class, 'preview'])
 Route::get('/p/{catalogItem:slug}/qr', [CatalogPublicController::class, 'qr'])
     ->name('catalog.qr');
 
-// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ PDF etiqueta 2x2" con QR
+// âœ… PDF etiqueta 2x2" con QR
 Route::get('/p/{catalogItem}/qr-label', [CatalogPublicController::class, 'qrLabel'])
     ->name('catalog.qr.label');
 
-// NUEVAS: cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo de barras + etiqueta 2x1"
+// NUEVAS: cÃ³digo de barras + etiqueta 2x1"
 Route::get('/p/{catalogItem}/barcode',        [CatalogPublicController::class, 'barcode'])->name('catalog.barcode');
 Route::get('/p/{catalogItem}/barcode-label',  [CatalogPublicController::class, 'barcodeLabel'])->name('catalog.barcode.label');
 Route::middleware([
@@ -1498,7 +1522,7 @@ Route::middleware([
     ->name('admin.')
     ->group(function () {
 
-        // ...tus demÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s rutas...
+        // ...tus demÃ¡s rutas...
 
         Route::patch('catalog/{catalogItem}/stock', [CatalogItemController::class, 'updateStock'])
             ->name('catalog.stock.update');
@@ -1541,12 +1565,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/documentacion-altas', [AltaDocsController::class, 'index'])
             ->name('alta.docs.index');
 
-        // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â´ ESTA ES LA QUE TE FALTABA
+        // ðŸ”´ ESTA ES LA QUE TE FALTABA
         Route::post('/documentacion-altas', [AltaDocsController::class, 'store'])
             ->name('alta.docs.store');
 
 
-// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ NUEVA: preview inline (para iframe/img/video)
+// âœ… NUEVA: preview inline (para iframe/img/video)
 Route::get('/secure/alta-docs/{doc}/preview', [AltaDocsController::class, 'preview'])
   ->name('alta.docs.preview');
   Route::get('/documentacion-altas/{doc}/descargar', [AltaDocsController::class, 'download'])
@@ -1555,25 +1579,25 @@ Route::get('/secure/alta-docs/{doc}/preview', [AltaDocsController::class, 'previ
         // Eliminar
         Route::delete('/documentacion-altas/{doc}', [AltaDocsController::class, 'destroy'])
             ->name('alta.docs.destroy');
-            // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Preview inline (para iframe/img/video en la vista show)
+            // âœ… Preview inline (para iframe/img/video en la vista show)
 Route::get('/secure/alta-docs/{doc}/preview', [AltaDocsController::class, 'preview'])
   ->name('alta.docs.preview');
     });
 
-    // 4) Cerrar sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de NIP
+    // 4) Cerrar sesiÃ³n de NIP
     Route::post('/documentacion-altas/logout', [AltaDocsController::class, 'logoutPin'])
         ->name('secure.alta-docs.logout');
     
-// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ NUEVA: preview inline (para iframe/img/video)
+// âœ… NUEVA: preview inline (para iframe/img/video)
 Route::get('/secure/alta-docs/{doc}/preview', [AltaDocsController::class, 'preview'])
   ->name('alta.docs.preview');
 });
 
-// Vista pÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºblica de la ficha (sin auth)
+// Vista pÃºblica de la ficha (sin auth)
 Route::get('/ficha/{token}', [\App\Http\Controllers\TechSheetController::class, 'publicShow'])
     ->name('tech-sheets.public');
 
-// QR PNG de la ficha pÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºblica
+// QR PNG de la ficha pÃºblica
 Route::get('/ficha/{token}/qr', [\App\Http\Controllers\TechSheetController::class, 'qr'])
     ->name('tech-sheets.qr');
 
@@ -1584,8 +1608,9 @@ Route::get('/ficha/{token}/qr', [\App\Http\Controllers\TechSheetController::clas
 
     // ...tus rutas admin existentes...
 
-    Route::get('/orders/export', [OrderController::class, 'export'])
-      ->name('orders.export');
+    // Route desactivada: OrderController no existe.
+    // Route::get('/orders/export', [OrderController::class, 'export'])
+    //   ->name('orders.export');
   });
 
   Route::get('tech-sheets/{sheet}/edit', [TechSheetController::class, 'edit'])
@@ -1622,7 +1647,7 @@ Route::middleware(['auth'])->group(function () {
   // VISTAS (Blade) + JSON (mismo endpoint, depende de Accept header)
   Route::resource('vehicles', VehicleController::class);
 
-  // NÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³mina (endpoints JSON + puedes hacer vista si quieres)
+  // NÃ³mina (endpoints JSON + puedes hacer vista si quieres)
   Route::get('payroll/periods', [PayrollController::class, 'periods']);
   Route::post('payroll/periods', [PayrollController::class, 'createPeriod']);
   Route::get('payroll/periods/{period}', [PayrollController::class, 'periodDetail']);
@@ -1636,7 +1661,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(function () {
   
 
-  // docs por vehÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­culo
+  // docs por vehÃ­culo
   Route::post('vehicles/{vehicle}/documents', [VehicleController::class, 'uploadDocuments'])->name('vehicles.documents.store');
   Route::delete('vehicles/{vehicle}/documents/{doc}', [VehicleController::class, 'deleteDocument'])->name('vehicles.documents.destroy');
 });
@@ -1681,7 +1706,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/panel/perfil', [ProfileController::class, 'show'])
         ->name('profile.show');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ ruta que te falta
+    // âœ… ruta que te falta
     Route::put('/panel/perfil/pin', [ProfileController::class, 'updatePin'])
         ->name('profile.pin.update');
 });
@@ -1700,7 +1725,7 @@ Route::get ('/catalog/{catalogItem}/amazon/view',    [CatalogItemController::cla
 Route::post('/publications/ai/extract', [PublicationController::class, 'aiExtractFromUpload'])
     ->name('publications.ai.extract');
 Route::get('/publications/reporte-pdf', [PublicationController::class, 'reportPdf'])->name('publications.report.pdf');
-// IA: opcional guardar resultado (despuÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©s de analizar)
+// IA: opcional guardar resultado (despuÃ©s de analizar)
 Route::post('/publications/ai/save', [PublicationController::class, 'aiSaveExtracted'])
     ->name('publications.ai.save');
     
@@ -1714,7 +1739,7 @@ Route::post('/parte-contable/{company:slug}/lock-pin', [PartContableController::
   ->name('partcontable.lock.pin');
 
 Route::middleware(['auth'])->group(function () {
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ BitÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡cora global (todas las empresas)
+    // âœ… BitÃ¡cora global (todas las empresas)
     Route::get('/partcontable/actividad', [PartContableController::class, 'activityAll'])
         ->name('partcontable.activity.all');
 });
@@ -1747,11 +1772,11 @@ Route::get('/tickets/{ticket}/reporte-pdf', [TicketController::class, 'reportPdf
      });   
 Route::middleware(['auth'])->group(function () {
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Aprobar por revisiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n (calificaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n)
+    // âœ… Aprobar por revisiÃ³n (calificaciÃ³n)
     Route::post('/tickets/{ticket}/review/approve', [TicketReviewController::class, 'approve'])
         ->name('tickets.reviewApprove');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Reabrir por revisiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n (motivo + evidencias)
+    // âœ… Reabrir por revisiÃ³n (motivo + evidencias)
     Route::post('/tickets/{ticket}/review/force-reopen', [TicketReviewController::class, 'forceReopen'])
         ->name('tickets.forceReopen');
 
@@ -1759,11 +1784,11 @@ Route::middleware(['auth'])->group(function () {
 
 Route::middleware(['auth'])->group(function () {
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ PREVIEW IA para CREATE (NO hay ticket aÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºn)
+    // âœ… PREVIEW IA para CREATE (NO hay ticket aÃºn)
     Route::post('tickets/checklist/preview-ai', [TicketChecklistController::class, 'previewAi'])
         ->name('tickets.checklist.preview');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Rutas normales (con ticket ya creado)
+    // âœ… Rutas normales (con ticket ya creado)
     Route::prefix('tickets/{ticket}')->group(function () {
         Route::post('checklist/ai-generate', [TicketChecklistController::class, 'generateAi'])->name('tickets.checklist.ai');
         Route::post('checklist/opt-out',     [TicketChecklistController::class, 'optOut'])->name('tickets.checklist.optout');
@@ -1786,7 +1811,7 @@ Route::get('/partcontable/activity/all', [ActivityController::class, 'all'])
 
     Route::middleware(['auth'])->group(function () {
 
-    // Vault por usuario (dueÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±o)
+    // Vault por usuario (dueÃ±o)
     Route::get('/confidential/vault/{owner}', [ConfidentialDocsController::class, 'showVault'])
         ->name('confidential.vault');
 
@@ -1796,7 +1821,7 @@ Route::get('/partcontable/activity/all', [ActivityController::class, 'all'])
 
     Route::post('/confidential/vault/{owner}/lock', [ConfidentialDocsController::class, 'lockPin'])
         ->name('confidential.vault.lock');
-  // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ CREATE
+  // âœ… CREATE
     Route::get('/confidential/{owner}/create', [ConfidentialDocsController::class, 'create'])
         ->name('confidential.documents.create');
 
@@ -1921,13 +1946,13 @@ Route::patch('/admin/wms/shipping/{shipment}/reopen', [\App\Http\Controllers\Adm
 
 Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(function () {
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Dashboard (RENOMBRADO)
+    // âœ… Dashboard (RENOMBRADO)
     Route::get('dashboard', [CuentasDashboardController::class, 'index'])->name('dashboard');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Alertas
+    // âœ… Alertas
     Route::get('alerts', [AlertsController::class, 'index'])->name('alerts');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ CxC (Cuentas por cobrar)
+    // âœ… CxC (Cuentas por cobrar)
     Route::get('receivables', [ReceivableController::class, 'index'])->name('receivables.index');
     Route::get('receivables/create', [ReceivableController::class, 'create'])->name('receivables.create');
     Route::post('receivables', [ReceivableController::class, 'store'])->name('receivables.store');
@@ -1936,7 +1961,7 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     Route::put('receivables/{receivable}', [ReceivableController::class, 'update'])->name('receivables.update');
     Route::delete('receivables/{receivable}', [ReceivableController::class, 'destroy'])->name('receivables.destroy');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ CxP (Cuentas por pagar)
+    // âœ… CxP (Cuentas por pagar)
     Route::get('payables', [PayableController::class, 'index'])->name('payables.index');
     Route::get('payables/create', [PayableController::class, 'create'])->name('payables.create');
     Route::post('payables', [PayableController::class, 'store'])->name('payables.store');
@@ -1945,7 +1970,7 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     Route::put('payables/{payable}', [PayableController::class, 'update'])->name('payables.update');
     Route::delete('payables/{payable}', [PayableController::class, 'destroy'])->name('payables.destroy');
 
-    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Movimientos (abonos/pagos)
+    // âœ… Movimientos (abonos/pagos)
     Route::post('movements', [MovementController::class, 'store'])->name('movements.store');
     Route::delete('movements/{movement}', [MovementController::class, 'destroy'])->name('movements.destroy');
 });
@@ -1997,7 +2022,7 @@ Route::middleware(['auth'])->prefix('admin/wms/receptions')->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| Rutas pÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºblicas para QR / firma mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³vil
+| Rutas pÃºblicas para QR / firma mÃ³vil
 |--------------------------------------------------------------------------
 */
 Route::get('/reception-sign/{token}', [WmsReceptionController::class, 'mobileSignature'])
@@ -2143,7 +2168,7 @@ Route::get('/admin/wms/shipping/{shipment}/pdf', [\App\Http\Controllers\Admin\Wm
 
 use App\Http\Controllers\Admin\WmsVirtualPickupBoardController;
 
-// MantÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©n tus rutas existentes de picking. Solo agrega estas si no existen.
+// MantÃ©n tus rutas existentes de picking. Solo agrega estas si no existen.
 Route::get('/admin/wms/virtual-pickups', [WmsVirtualPickupBoardController::class, 'index'])
     ->name('admin.wms.virtual-pickups.index');
 
@@ -2175,11 +2200,11 @@ Route::middleware(['auth', FinancialAccess::class])
 
 use App\Http\Controllers\PropuestaComercialExtrasController;
 
-// MUESTRAS (anÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lisis de almacÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©n)
+// MUESTRAS (anÃ¡lisis de almacÃ©n)
 Route::get('/propuesta-comercial-items/{item}/ajax/samples', [PropuestaComercialExtrasController::class, 'itemSamples'])
     ->name('propuesta-comercial-items.ajax.samples');
 
-// FICHAS TÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â°CNICAS
+// FICHAS TÃ‰CNICAS
 Route::get('/propuesta-comercial-items/{item}/ajax/tech-sheets', [PropuestaComercialExtrasController::class, 'techSheetsList'])
     ->name('propuesta-comercial-items.ajax.tech-sheets');
 
@@ -2195,7 +2220,7 @@ Route::post('/propuesta-comercial-fichas/{sheet}/update', [PropuestaComercialExt
 use App\Http\Controllers\AdjudicacionController;
 use App\Http\Controllers\RemisionController;
 
-// ===== ACTA DE FALLO (ligado a la cotizaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n) =====
+// ===== ACTA DE FALLO (ligado a la cotizaciÃ³n) =====
 Route::get('/propuestas-comerciales/{propuestaComercial}/fallo', [PropuestaFalloController::class, 'show'])
     ->name('propuestas-comerciales.fallo.show');
 Route::post('/propuestas-comerciales/{propuestaComercial}/fallo/acta', [PropuestaFalloController::class, 'uploadActa'])
@@ -2245,20 +2270,20 @@ Route::middleware(['auth'])->prefix('internal-assets')->name('assets.')->group(f
     // Tablero (board)
     Route::get('/board', [InventoryController::class, 'board'])->name('board');
 
-    // CRUD de artÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­culos
+    // CRUD de artÃ­culos
     Route::get('/create', [InventoryController::class, 'create'])->name('create');
     Route::post('/', [InventoryController::class, 'store'])->name('store');
     Route::get('/{item}/edit', [InventoryController::class, 'edit'])->name('edit');
     Route::put('/{item}', [InventoryController::class, 'update'])->name('update');
     Route::delete('/{item}', [InventoryController::class, 'destroy'])->name('destroy');
 
-    // AsignaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡pida (mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©todo assign del InventoryController)
+    // AsignaciÃ³n rÃ¡pida (mÃ©todo assign del InventoryController)
     Route::post('/assign', [InventoryController::class, 'assign'])->name('assign');
 
     // PDF de resguardo por usuario
     Route::get('/user/{userId}/pdf', [InventoryController::class, 'userPdf'])->name('user.pdf');
 
-    // CategorÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as
+    // CategorÃ­as
     Route::post('/categories', [InventoryCategoryController::class, 'store'])->name('categories.store');
 
     // Asignaciones (InventoryAssignmentController)
@@ -2267,7 +2292,7 @@ Route::middleware(['auth'])->prefix('internal-assets')->name('assets.')->group(f
         Route::post('/', [InventoryAssignmentController::class, 'store'])->name('store');
         Route::get('/{assignment}/pdf', [InventoryAssignmentController::class, 'pdf'])->name('pdf');
         Route::post('/{assignment}/return', [InventoryAssignmentController::class, 'returnAsset'])->name('return');
-        Route::get('/{assignment}/sign-status', [InventoryAssignmentController::class, 'signStatus'])->name('sign-status'); // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ polling en tiempo real
+        Route::get('/{assignment}/sign-status', [InventoryAssignmentController::class, 'signStatus'])->name('sign-status'); // âœ… polling en tiempo real
     });
 
     Route::post('/save', [InventoryController::class, 'save'])->name('save');
@@ -2275,7 +2300,7 @@ Route::middleware(['auth'])->prefix('internal-assets')->name('assets.')->group(f
 
 });
 
-// ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Firma pÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºblica por token (SIN login) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â el responsable firma desde su celular
+// âœ… Firma pÃºblica por token (SIN login) â€” el responsable firma desde su celular
 Route::prefix('firmar')->name('assignments.public.')->group(function () {
     Route::get('/{token}',  [InventoryAssignmentController::class, 'signShow'])->name('show');
     Route::post('/{token}', [InventoryAssignmentController::class, 'signStore'])->name('store');
@@ -2341,11 +2366,11 @@ Route::get('propuestas-comerciales/{propuestaComercial}/adjudicacion', [Adjudica
 Route::post('propuestas-comerciales/{propuestaComercial}/adjudicacion/guardar-partida', [AdjudicacionController::class, 'guardarPartida'])
     ->name('propuestas-comerciales.adjudicacion.guardar-partida');
 
-// AnÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lisis de una partida perdida (diferencia + texto)
+// AnÃ¡lisis de una partida perdida (diferencia + texto)
 Route::post('propuestas-comerciales/{propuestaComercial}/adjudicacion/analizar-perdida', [AdjudicacionController::class, 'analizarPerdida'])
     ->name('propuestas-comerciales.adjudicacion.analizar-perdida');
 
-// PDF formal del anÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡lisis
+// PDF formal del anÃ¡lisis
 Route::post('propuestas-comerciales/{propuestaComercial}/adjudicacion/analisis-pdf', [AdjudicacionController::class, 'analisisPdf'])
     ->name('propuestas-comerciales.adjudicacion.analisis-pdf');
 
@@ -2584,5 +2609,71 @@ Route::get('/propuestas-comerciales/{propuestaComercial}/cliente/word', [Propues
 
 
 
-Route::post('admin/category-products/reorder', [CategoryProductController::class, 'reorder'])
-    ->name('admin.category-products.reorder');
+Route::prefix('asistente-jureto')->name('web.assistant.')->group(function () {
+    Route::post('/chat', [WebAssistantController::class, 'chat'])
+        ->name('chat');
+
+    Route::get('/conversations', [WebAssistantController::class, 'conversations'])
+        ->name('conversations');
+
+    Route::post('/conversations', [WebAssistantController::class, 'createConversation'])
+        ->name('conversations.store');
+
+    Route::get('/conversations/{conversation}', [WebAssistantController::class, 'show'])
+        ->name('conversations.show');
+
+    Route::delete('/conversations/{conversation}', [WebAssistantController::class, 'destroy'])
+        ->name('conversations.destroy');
+});
+
+Route::middleware(['auth'])
+    ->prefix('admin/web-assistant')
+    ->name('admin.web-assistant.')
+    ->group(function () {
+        Route::get('/', [WebAssistantAdvisorController::class, 'index'])
+            ->name('index');
+
+        Route::get('/conversations/{conversation}', [WebAssistantAdvisorController::class, 'show'])
+            ->name('show');
+
+        Route::post('/conversations/{conversation}/take', [WebAssistantAdvisorController::class, 'take'])
+            ->name('take');
+
+        Route::post('/conversations/{conversation}/reply', [WebAssistantAdvisorController::class, 'reply'])
+            ->name('reply');
+
+        Route::post('/conversations/{conversation}/close', [WebAssistantAdvisorController::class, 'close'])
+            ->name('close');
+    });
+
+    Route::post('/routes/google/estimate', [RouteGoogleController::class, 'estimate'])
+    ->name('routes.google.estimate');
+
+    use App\Http\Controllers\Logistics\DriverLocationController;
+Route::get('/routes/{routePlan}/edit', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'edit'])
+    ->name('routes.edit');
+
+Route::put('/routes/{routePlan}', [\App\Http\Controllers\Logistics\RoutePlanController::class, 'update'])
+    ->name('routes.update');
+
+    use App\Http\Controllers\SettingsController;
+
+
+
+
+
+Route::middleware('auth')->prefix('configuracion')->name('settings.')->group(function () {
+    Route::get('/', [SettingsController::class, 'show'])->name('profile');
+    Route::put('/perfil', [SettingsController::class, 'updateProfile'])->name('profile.update');
+    Route::put('/password', [SettingsController::class, 'updatePassword'])->name('password.update');
+    Route::put('/seguridad', [SettingsController::class, 'updateSecurity'])->name('security.update');
+    Route::put('/identidad', [SettingsController::class, 'updateIdentity'])->name('identity.update');
+    Route::put('/fianzas', [SettingsController::class, 'updateBondSettings'])->name('bond.update');
+    Route::post('/documentos/{section}/{key}', [SettingsController::class, 'uploadDocument'])->name('documents.upload');
+    Route::delete('/documentos/{document}', [SettingsController::class, 'destroyDocument'])->name('documents.destroy');
+    Route::post('/documentos-adicionales', [SettingsController::class, 'storeAdditionalDocument'])->name('additional-documents.store');
+    Route::post('/certificaciones', [SettingsController::class, 'storeCertification'])->name('certifications.store');
+    Route::delete('/certificaciones/{certification}', [SettingsController::class, 'destroyCertification'])->name('certifications.destroy');
+    Route::post('/representantes', [SettingsController::class, 'storeRepresentative'])->name('representatives.store');
+    Route::delete('/representantes/{representative}', [SettingsController::class, 'destroyRepresentative'])->name('representatives.destroy');
+});

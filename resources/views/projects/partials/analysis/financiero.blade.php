@@ -526,164 +526,10 @@
 
 <div class="pjd-pane" data-pane="financiero">
   @php
-    $finSections = [
-      [
-        'title' => 'Capacidad Financiera',
-        'icons' => ['yellow'],
-        'items' => [
-          [
-            'question' => '¿La licitación exige acreditar capital contable mínimo?',
-            'risk' => 'NULO',
-            'answer' => 'El documento no lo menciona',
-            'justificacion' => 'No se exige capital contable mínimo, por lo que no aplica ninguna de las clasificaciones de riesgo.',
-            'citas' => ['NULO_CRUDO_OMISION (Pág. N/A)'],
-            'fuente' => '-',
-          ],
-          [
-            'question' => '¿La licitación exige ingresos, facturación anual o ventas mínimas?',
-            'risk' => 'NULO',
-            'answer' => 'Sí, se exige presentar la Declaración Fiscal Anual (2025) demostrando que los ingresos sean equivalentes a por lo menos el 20% de su propuesta de participación. (Valor: 20 porcentaje)',
-            'justificacion' => 'El requisito impacta la viabilidad financiera solo si la declaración anual no acredita el umbral solicitado frente al monto final de la propuesta.',
-            'citas' => ['Declaración Fiscal Anual 2025 y comprobante de pago de ISR. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-          [
-            'question' => '¿Se solicitan estados financieros, declaraciones anuales o documentación contable?',
-            'risk' => 'NULO',
-            'answer' => 'Sí, se solicitan: Declaración Fiscal Anual 2025, última declaración fiscal provisional (mayo 2026), con sus comprobantes de pago de ISR, así como las opiniones de cumplimiento positivo vigentes de SAT (32-D), IMSS e INFONAVIT. (Valor: true)',
-            'justificacion' => 'La documentación contable y fiscal debe estar completa, vigente y consistente para evitar observaciones durante la revisión legal-financiera.',
-            'citas' => ['Opiniones de cumplimiento SAT, IMSS e INFONAVIT en sentido positivo. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-        ],
-      ],
-      [
-        'title' => 'Condiciones Pago',
-        'icons' => ['yellow'],
-        'items' => [
-          [
-            'question' => '¿Cuál es la forma y plazo de pago establecidos por la convocante?',
-            'risk' => 'NULO',
-            'answer' => 'Transferencia electrónica dentro de los 17 días hábiles posteriores a la entrega del comprobante fiscal digital (CFDI en PDF y XML), previa entrega y aceptación de los bienes a entera satisfacción. El pago queda condicionado al pago previo de penas convencionales aplicables. (Valor: 17 días hábiles)',
-            'justificacion' => 'El plazo de pago debe cruzarse con capital de trabajo, entrega de bienes, emisión correcta de CFDI y recuperación financiera.',
-            'citas' => ['Pago por los bienes entregados: 17 días hábiles a partir de la entrega de la documentación soporte completa y correcta. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-          [
-            'question' => '¿La licitación permite anticipo y en qué porcentaje o condiciones?',
-            'risk' => 'NULO',
-            'answer' => 'No se otorgará anticipo para la entrega de los bienes. (Valor: 0 porcentaje)',
-            'justificacion' => 'Al no existir anticipo, la propuesta debe considerar capital de trabajo suficiente para comprar, entregar y esperar el pago.',
-            'citas' => ['No se otorga anticipo. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-          [
-            'question' => '¿Se permite, restringe o menciona factoraje, cesión de derechos de cobro o cadenas productivas?',
-            'risk' => 'NULO',
-            'answer' => 'Sí, se permite la cesión de derechos de cobro mediante factoraje o descuento electrónico a través del programa de Cadenas Productivas de Nacional Financiera (NAFIN), previa autorización y conformidad por escrito de la convocante (Unidad Regional Saltillo de CAPUFE). (Valor: true)',
-            'justificacion' => 'Puede ser una alternativa para liquidez, siempre que exista autorización formal y el trámite no retrase el cobro.',
-            'citas' => ['Cesión de derechos de cobro mediante cadenas productivas NAFIN. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-        ],
-      ],
-      [
-        'title' => 'Garantías Fianzas',
-        'icons' => ['red'],
-        'items' => [
-          [
-            'question' => '¿Se solicita garantía de cumplimiento?',
-            'risk' => 'ALTO',
-            'answer' => 'Se solicita garantía de cumplimiento mediante fianza indivisible por el 10% del monto total del contrato sin IVA, o carta de crédito irrevocable Stand By equivalente.',
-            'justificacion' => 'Impacta directamente flujo y costo financiero. Debe validarse disponibilidad de línea de fianza y costo antes de ofertar.',
-            'citas' => ['Garantía de cumplimiento: 10% del monto total del contrato sin IVA. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-          [
-            'question' => '¿Se solicita garantía por defectos y vicios ocultos?',
-            'risk' => 'NULO',
-            'answer' => 'Se contempla garantía por defectos, vicios ocultos o calidad mediante póliza por el 10% del importe total del contrato, con vigencia de 12 meses.',
-            'justificacion' => 'Debe considerarse en el costo total de participación y seguimiento post-entrega.',
-            'citas' => ['Garantía para responder por defectos y vicios ocultos: 12 meses. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-          [
-            'question' => '¿Existe posibilidad de exención de garantía?',
-            'risk' => 'BAJO',
-            'answer' => 'Existe posibilidad de exención si el proveedor entrega los bienes a entera satisfacción dentro de los 10 días naturales posteriores a la firma del contrato.',
-            'justificacion' => 'La exención depende de capacidad logística real para entregar en plazo corto.',
-            'citas' => ['Entrega de bienes dentro de los 10 días naturales posteriores a la firma del contrato. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-        ],
-      ],
-      [
-        'title' => 'Penas Deductivas',
-        'icons' => ['yellow'],
-        'items' => [
-          [
-            'question' => '¿Se contemplan penas convencionales por atraso?',
-            'risk' => 'NULO',
-            'answer' => 'Se contempla notificación de monto de pena convencional por parte de CAPUFE dentro de 15 días hábiles posteriores al atraso en el cumplimiento de la obligación.',
-            'justificacion' => 'El riesgo se concentra en entregas tardías, documentación incompleta o fallas en sustitución de bienes.',
-            'citas' => ['Notificación de monto de pena convencional por parte de CAPUFE: 15 días hábiles. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-          [
-            'question' => '¿Cuál es el plazo para sustituir bienes defectuosos?',
-            'risk' => 'NULO',
-            'answer' => 'Se identifica un plazo de 3 días hábiles para sustitución de bienes defectuosos o que no cumplan especificaciones, a partir de la notificación del incumplimiento.',
-            'justificacion' => 'Debe validarse inventario disponible para reposición inmediata.',
-            'citas' => ['Sustitución de bienes defectuosos: 3 días hábiles a partir de la notificación. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-          [
-            'question' => '¿Existe causal de rescisión por suspensión de entregas?',
-            'risk' => 'BAJO',
-            'answer' => 'La suspensión injustificada de entrega de bienes mayor a 3 días naturales puede operar como causal de rescisión.',
-            'justificacion' => 'Depende de control logístico y confirmación de abasto.',
-            'citas' => ['Suspensión de entrega de bienes mayor a 3 días naturales. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-        ],
-      ],
-      [
-        'title' => 'Seguros',
-        'icons' => ['yellow'],
-        'items' => [
-          [
-            'question' => '¿Se exige póliza de responsabilidad civil?',
-            'risk' => 'NULO',
-            'answer' => 'No se identifica obligación expresa de contratar una póliza de responsabilidad civil para la adquisición de bienes.',
-            'justificacion' => 'No representa costo directo adicional, salvo que se solicite en aclaraciones o documentos complementarios.',
-            'citas' => ['No se requiere póliza de responsabilidad civil. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-        ],
-      ],
-      [
-        'title' => 'Precios Moneda',
-        'icons' => ['green'],
-        'items' => [
-          [
-            'question' => '¿En qué moneda se debe cotizar y pagar?',
-            'risk' => 'NULO',
-            'answer' => 'La referencia de pago corresponde a moneda nacional / pesos mexicanos.',
-            'justificacion' => 'No se identifica exposición cambiaria directa si se compra en MXN. Si el proveedor compra insumos importados, debe cubrir riesgo de tipo de cambio en su margen.',
-            'citas' => ['Pago en moneda nacional. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-          [
-            'question' => '¿Los precios deben incluir IVA?',
-            'risk' => 'BAJO',
-            'answer' => 'La propuesta económica debe revisar cuidadosamente si los importes se presentan antes de IVA o con IVA conforme al formato económico aplicable.',
-            'justificacion' => 'Un error de IVA puede distorsionar el precio ofertado o causar inconsistencias en la evaluación.',
-            'citas' => ['Revisar formato económico aplicable para IVA. (Pág. N/A)'],
-            'fuente' => 'N17_BASES.docx',
-          ],
-        ],
-      ],
-    ];
+    $finSections = collect(data_get($sd, 'financiero.secciones', []))
+      ->filter(fn ($section) => is_array($section))
+      ->values()
+      ->all()
 
     $finItems = collect($finSections)->flatMap(fn($section) => $section['items'])->values();
     $finAlto = $finItems->where('risk', 'ALTO')->count();
@@ -811,7 +657,11 @@
             </div>
           </div>
         </div>
-      @endforeach
+      @empty
+        <div class="pjd-fin-empty">
+          La IA todavía no ha generado información financiera para los documentos de este proyecto.
+        </div>
+      @endforelse
     </div>
   </div>
 </div>

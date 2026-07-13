@@ -1,7 +1,6 @@
 {{-- resources/views/projects/partials/control-sidebar.blade.php --}}
 @once
 <style>
-  /* Importamos una fuente gruesa y geométrica solo para el logo */
   @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@800;900&display=swap');
 
   :root {
@@ -12,7 +11,6 @@
     --cc-sidebar-ink: #374151;
     --cc-sidebar-ink-muted: #6b7280;
     --cc-sidebar-blue: #007aff;
-    --cc-sidebar-blue-soft: #e6f0ff;
     --cc-sidebar-orange: #f97316;
     --cc-sidebar-hover: #f3f4f6;
     --cc-sidebar-ease: cubic-bezier(0.23, 1, 0.32, 1);
@@ -106,8 +104,18 @@
   }
 
   .cc-side-nav__toggle:active { transform: scale(.97); }
-  .cc-side-nav__toggle:hover { background: var(--cc-sidebar-hover); color: var(--cc-sidebar-ink); }
-  .cc-side-nav__toggle svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+  .cc-side-nav__toggle:hover {
+    background: var(--cc-sidebar-hover);
+    color: var(--cc-sidebar-ink);
+  }
+
+  .cc-side-nav__toggle svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
   .icon-expand { display: none; }
   .icon-collapse { display: block; }
 
@@ -151,7 +159,9 @@
   .cc-side-nav__link:active,
   .cc-folder__header:active,
   .cc-tree__link:active,
-  .cc-fav__link:active { transform: scale(.98); }
+  .cc-fav__link:active {
+    transform: scale(.98);
+  }
 
   .cc-side-nav__link svg,
   .cc-folder__header svg:first-child,
@@ -187,30 +197,38 @@
     transition: opacity 200ms var(--cc-sidebar-ease);
   }
 
-  .cc-folder__header { color: var(--cc-sidebar-ink); font-weight: 700; text-align: left; }
-  .cc-folder__header svg:first-child { color: var(--cc-sidebar-orange); }
-  
-  /* Animación del chevron (flecha) del folder */
-  .cc-folder__chevron { 
-    width: 14px; 
-    height: 14px; 
-    margin-left: auto; 
-    color: var(--cc-sidebar-ink-muted); 
-    transition: transform 200ms var(--cc-sidebar-ease);
-  }
-  .cc-folder.is-closed .cc-folder__chevron {
-    transform: rotate(-90deg); /* La flecha apunta a la derecha cuando se cierra */
+  .cc-folder__header {
+    color: var(--cc-sidebar-ink);
+    font-weight: 700;
+    text-align: left;
   }
 
-  /* Animación del despliegue del árbol del folder */
+  .cc-folder__header svg:first-child {
+    color: var(--cc-sidebar-orange);
+  }
+
+  .cc-folder__chevron {
+    width: 14px;
+    height: 14px;
+    margin-left: auto;
+    color: var(--cc-sidebar-ink-muted);
+    transition: transform 200ms var(--cc-sidebar-ease);
+  }
+
+  .cc-folder.is-closed .cc-folder__chevron {
+    transform: rotate(-90deg);
+  }
+
   .cc-folder__tree-wrapper {
     display: grid;
     grid-template-rows: 1fr;
     transition: grid-template-rows 250ms var(--cc-sidebar-ease);
   }
+
   .cc-folder.is-closed .cc-folder__tree-wrapper {
     grid-template-rows: 0fr;
   }
+
   .cc-folder__tree-wrapper-inner {
     overflow: hidden;
   }
@@ -226,16 +244,54 @@
     transition: margin 250ms var(--cc-sidebar-ease), padding 250ms var(--cc-sidebar-ease), border-color 250ms var(--cc-sidebar-ease);
   }
 
-  .cc-tree__link { font-size: .8125rem; min-height: 32px; padding: 0 10px; }
-  .cc-tree__link svg { width: 16px; height: 16px; margin-right: 10px; }
+  .cc-tree__link {
+    font-size: .8125rem;
+    min-height: 32px;
+    padding: 0 10px;
+  }
 
-  .cc-fav-list { display: flex; flex-direction: column; gap: 2px; list-style: none; margin: 0; padding: 0; }
-  .cc-fav__link { font-size: .8125rem; font-weight: 600; min-height: 32px; padding: 0 12px; }
-  .cc-fav__dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 12px; flex-shrink: 0; transition: margin 250ms var(--cc-sidebar-ease); }
+  .cc-tree__link svg {
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+  }
 
-  .cc-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 1; transition: opacity 200ms var(--cc-sidebar-ease); }
+  .cc-fav-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
 
-  .cc-side-nav__tooltip { display: none !important; }
+  .cc-fav__link {
+    font-size: .8125rem;
+    font-weight: 600;
+    min-height: 32px;
+    padding: 0 12px;
+  }
+
+  .cc-fav__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 12px;
+    flex-shrink: 0;
+    transition: margin 250ms var(--cc-sidebar-ease);
+  }
+
+  .cc-truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 1;
+    transition: opacity 200ms var(--cc-sidebar-ease);
+  }
+
+  .cc-side-nav__tooltip {
+    display: none !important;
+  }
 
   .cc-floating-tooltip {
     position: fixed;
@@ -277,54 +333,251 @@
     transform: translateY(-50%) rotate(45deg);
   }
 
-  .cc-empty-mini { padding: 8px 12px; color: var(--cc-sidebar-ink-muted); font-size: .8rem; font-weight: 600; }
+  .cc-empty-mini {
+    padding: 8px 12px;
+    color: var(--cc-sidebar-ink-muted);
+    font-size: .8rem;
+    font-weight: 600;
+  }
 
-  .cc-side-nav.is-collapsed { width: 64px; align-items: center; }
-  .cc-side-nav.is-collapsed .cc-sidebar-header { justify-content: center; padding: 0; width: 100%; }
-  .cc-side-nav.is-collapsed .cc-logo-text { display: none; }
-  .cc-side-nav.is-collapsed .icon-collapse { display: none; }
-  .cc-side-nav.is-collapsed .icon-expand { display: block; }
-  .cc-side-nav.is-collapsed .cc-side-nav__group { padding: 0; align-items: center; }
+  /* ==========================================================
+     FOOTER AVATAR / MENU CONFIGURACION
+     ========================================================== */
+
+  .cc-sidebar-footer {
+    margin-top: auto;
+    width: 100%;
+    padding: 16px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    border-top: 1px solid var(--cc-sidebar-line);
+  }
+
+  .cc-sidebar-footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-direction: row;
+  }
+
+  .cc-side-nav.is-collapsed .cc-sidebar-footer-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .cc-sidebar-user-btn {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    color: var(--cc-sidebar-ink);
+    border-radius: 999px;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    transition: transform 120ms var(--cc-sidebar-ease);
+  }
+
+  .cc-sidebar-user-btn:active {
+    transform: scale(.96);
+  }
+
+  .cc-user-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: #1a73e8;
+    color: #ffffff;
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1;
+    font-family: inherit;
+  }
+
+  .cc-user-menu {
+    position: fixed;
+    left: calc(var(--cc-sidebar-w) + 12px);
+    bottom: 20px;
+    width: 240px;
+    padding: 8px 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+    z-index: 9998;
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity 160ms var(--cc-sidebar-ease), transform 160ms var(--cc-sidebar-ease), left 250ms var(--cc-sidebar-ease);
+  }
+
+  .cc-user-menu.is-open {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .cc-user-menu__item {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 20px;
+    border: 0;
+    background: transparent;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 400;
+    text-align: left;
+    transition: background 150ms ease;
+  }
+
+  .cc-user-menu__item:hover {
+    background: #f3f4f6;
+  }
+
+  .cc-user-menu__item svg {
+    width: 20px;
+    height: 20px;
+    color: #6b7280;
+    flex-shrink: 0;
+    stroke-width: 1.5;
+  }
+
+  .cc-side-nav.is-collapsed {
+    width: 64px;
+    align-items: center;
+  }
+
+  .cc-side-nav.is-collapsed .cc-sidebar-header {
+    justify-content: center;
+    padding: 0;
+    width: 100%;
+  }
+
+  .cc-side-nav.is-collapsed .cc-logo-text {
+    display: none;
+  }
+
+  .cc-side-nav.is-collapsed .icon-collapse {
+    display: none;
+  }
+
+  .cc-side-nav.is-collapsed .icon-expand {
+    display: block;
+  }
+
+  .cc-side-nav.is-collapsed .cc-side-nav__group {
+    padding: 0;
+    align-items: center;
+  }
+
   .cc-side-nav.is-collapsed .cc-truncate,
   .cc-side-nav.is-collapsed .cc-side-nav__section-title,
-  .cc-side-nav.is-collapsed .cc-folder__chevron { opacity: 0; width: 0; display: none; }
+  .cc-side-nav.is-collapsed .cc-folder__chevron {
+    opacity: 0;
+    width: 0;
+    display: none;
+  }
+
   .cc-side-nav.is-collapsed .cc-side-nav__link,
   .cc-side-nav.is-collapsed .cc-folder__header,
   .cc-side-nav.is-collapsed .cc-tree__link,
-  .cc-side-nav.is-collapsed .cc-fav__link { width: 36px; height: 36px; padding: 0; justify-content: center; margin: 0 auto; }
-  .cc-side-nav.is-collapsed .cc-side-nav__separator { width: 24px; margin: 10px 0; }
+  .cc-side-nav.is-collapsed .cc-fav__link {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+    margin: 0 auto;
+  }
+
+  .cc-side-nav.is-collapsed .cc-side-nav__separator {
+    width: 24px;
+    margin: 10px 0;
+  }
+
   .cc-side-nav.is-collapsed svg,
-  .cc-side-nav.is-collapsed .cc-fav__dot { margin-right: 0 !important; }
-  .cc-side-nav.is-collapsed .cc-folder__tree { margin-left: 0; padding-left: 0; border-left: none; }
-  .cc-side-nav.is-collapsed .cc-side-nav__tooltip { display: block; }
+  .cc-side-nav.is-collapsed .cc-fav__dot {
+    margin-right: 0 !important;
+  }
+
+  .cc-side-nav.is-collapsed .cc-folder__tree {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .cc-side-nav.is-collapsed .cc-side-nav__tooltip {
+    display: block;
+  }
 
   @media (hover:hover) and (pointer:fine) {
     .cc-side-nav__link:hover:not(.is-active-gray),
     .cc-folder__header:hover,
     .cc-tree__link:hover:not(.is-active-blue),
-    .cc-fav__link:hover { background: var(--cc-sidebar-hover); }
+    .cc-fav__link:hover {
+      background: var(--cc-sidebar-hover);
+    }
 
     .cc-side-nav.is-collapsed .cc-side-nav__toggle:hover .cc-side-nav__tooltip,
     .cc-side-nav.is-collapsed .cc-side-nav__link:hover .cc-side-nav__tooltip,
     .cc-side-nav.is-collapsed .cc-folder__header:hover .cc-side-nav__tooltip,
     .cc-side-nav.is-collapsed .cc-tree__link:hover .cc-side-nav__tooltip,
-    .cc-side-nav.is-collapsed .cc-fav__link:hover .cc-side-nav__tooltip {
+    .cc-side-nav.is-collapsed .cc-fav__link:hover .cc-side-nav__tooltip,
+    .cc-side-nav.is-collapsed .cc-sidebar-user-btn:hover .cc-side-nav__tooltip {
       opacity: 1;
       transform: translateY(-50%) translateX(0);
     }
   }
 
   .pj-page,
-  .jo-page { margin-left: var(--cc-sidebar-w) !important; width: calc(100% - var(--cc-sidebar-w)) !important; transition: margin 250ms var(--cc-sidebar-ease), width 250ms var(--cc-sidebar-ease); }
-  .jo-page { padding-left: 24px !important; }
-  .cc-page.has-control-sidebar { padding-left: calc(var(--cc-sidebar-w) + 24px) !important; transition: padding 250ms var(--cc-sidebar-ease); }
-  .pjd-wrap.has-control-sidebar { padding-left: var(--cc-sidebar-w) !important; transition: padding 250ms var(--cc-sidebar-ease); }
+  .jo-page {
+    margin-left: var(--cc-sidebar-w) !important;
+    width: calc(100% - var(--cc-sidebar-w)) !important;
+    transition: margin 250ms var(--cc-sidebar-ease), width 250ms var(--cc-sidebar-ease);
+  }
+
+  .jo-page {
+    padding-left: 24px !important;
+  }
+
+  .cc-page.has-control-sidebar {
+    padding-left: calc(var(--cc-sidebar-w) + 24px) !important;
+    transition: padding 250ms var(--cc-sidebar-ease);
+  }
+
+  .pjd-wrap.has-control-sidebar {
+    padding-left: var(--cc-sidebar-w) !important;
+    transition: padding 250ms var(--cc-sidebar-ease);
+  }
 
   @media (max-width: 900px) {
-    .cc-side-nav { display: none; }
-    .pj-page, .jo-page { margin-left: 0 !important; width: 100% !important; }
-    .jo-page { padding-left: 18px !important; }
-    .cc-page.has-control-sidebar, .pjd-wrap.has-control-sidebar { padding-left: 0 !important; }
+    .cc-side-nav {
+      display: none;
+    }
+
+    .pj-page,
+    .jo-page {
+      margin-left: 0 !important;
+      width: 100% !important;
+    }
+
+    .jo-page {
+      padding-left: 18px !important;
+    }
+
+    .cc-page.has-control-sidebar,
+    .pjd-wrap.has-control-sidebar {
+      padding-left: 0 !important;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -333,7 +586,9 @@
     .pj-page,
     .jo-page,
     .cc-page.has-control-sidebar,
-    .pjd-wrap.has-control-sidebar { transition-duration: 0ms !important; }
+    .pjd-wrap.has-control-sidebar {
+      transition-duration: 0ms !important;
+    }
   }
 </style>
 @endonce
@@ -362,13 +617,16 @@
     }
 
     $ccProjectRouteParam = $ccCurrentProject ?: null;
+
     $ccSafeRoute = function (string $name, array $params = []) {
         return Route::has($name) ? route($name, $params) : '#';
     };
 
     $ccProjectUrl = function (string $routeName, ?string $hash = null) use ($ccSafeRoute, $ccProjectRouteParam) {
         if (!$ccProjectRouteParam) return '#';
+
         $url = $ccSafeRoute($routeName, ['project' => $ccProjectRouteParam]);
+
         return $hash && $url !== '#' ? $url . $hash : $url;
     };
 
@@ -376,6 +634,7 @@
     $ccProjectTooltip = $ccCurrentProject?->name ?: 'No hay proyecto activo';
 
     $ccFavoriteProjects = collect();
+
     if (Schema::hasColumn('projects', 'favorite')) {
         $ccFavoriteProjects = (clone $ccProjectBaseQuery)
             ->where('favorite', true)
@@ -395,15 +654,23 @@
     if (Schema::hasColumn('projects', 'labels')) {
         (clone $ccProjectBaseQuery)->select('id', 'labels')->get()->each(function ($item) use (&$ccLabelMap) {
             $labels = $item->labels ?? [];
+
             if (is_string($labels)) {
                 $decoded = json_decode($labels, true);
                 $labels = json_last_error() === JSON_ERROR_NONE ? $decoded : [];
             }
-            if (!is_array($labels)) $labels = [];
+
+            if (!is_array($labels)) {
+                $labels = [];
+            }
 
             foreach ($labels as $label) {
                 $label = trim((string) $label);
-                if ($label === '') continue;
+
+                if ($label === '') {
+                    continue;
+                }
+
                 $key = Str::lower($label);
                 $current = $ccLabelMap->get($key, ['label' => $label, 'count' => 0]);
                 $current['count']++;
@@ -465,11 +732,12 @@
             'search' => '<circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>',
             'folder' => '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>',
             'file_search' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><circle cx="10" cy="13" r="2"></circle><line x1="11.41" y1="14.41" x2="13.5" y2="16.5"></line>',
-            'users' => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
             'file_text' => '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline>',
             'layout' => '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line>',
             'clipboard' => '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect><line x1="9" y1="14" x2="15" y2="14"></line><line x1="9" y1="18" x2="15" y2="18"></line><line x1="9" y1="10" x2="10" y2="10"></line>',
             'briefcase' => '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>',
+            'settings' => '<circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.33 1.82V22a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 20.4a1.65 1.65 0 0 0-1.82-.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1.82-.33H2a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 3.6 9a1.65 1.65 0 0 0 .33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-.6 1.65 1.65 0 0 0 .33-1.82V2a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 3.6a1.65 1.65 0 0 0 1.82.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.36.1.69.3 1 .6.3.3.5.64.6 1H22a2 2 0 1 1 0 4h-.09A1.65 1.65 0 0 0 19.4 15z"></path>',
+            'user' => '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>',
             default => '<circle cx="12" cy="12" r="9"/>',
         };
     };
@@ -478,6 +746,7 @@
 <aside id="ccSidebar" class="cc-side-nav is-collapsed" aria-label="Navegación del proyecto">
     <div class="cc-sidebar-header">
         <h1 class="cc-logo-text">sam</h1>
+
         <button type="button" class="cc-side-nav__toggle" data-cc-sidebar-toggle aria-label="Alternar menú">
             <svg class="icon-collapse" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">{!! $ccIcon('collapse_left') !!}</svg>
             <svg class="icon-expand" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">{!! $ccIcon('expand_right') !!}</svg>
@@ -499,12 +768,16 @@
 
     <div class="cc-side-nav__group">
         <h3 class="cc-side-nav__section-title">Trabajando en:</h3>
-        
+
         <div class="cc-folder is-closed" id="workingFolder">
             <button type="button" class="cc-folder__header" onclick="document.getElementById('workingFolder').classList.toggle('is-closed')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{!! $ccIcon('folder') !!}</svg>
                 <span class="cc-truncate">{{ Str::limit($ccProjectLabel, 21) }}</span>
-                <svg class="cc-folder__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+
+                <svg class="cc-folder__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+
                 <span class="cc-side-nav__tooltip">{{ $ccProjectTooltip }}</span>
             </button>
 
@@ -528,6 +801,7 @@
 
     <div class="cc-side-nav__group">
         <h3 class="cc-side-nav__section-title">Favoritos</h3>
+
         <ul class="cc-fav-list">
             @forelse($ccFavorites as $fav)
                 <li>
@@ -547,6 +821,7 @@
 
     <div class="cc-side-nav__group">
         <h3 class="cc-side-nav__section-title">Etiquetas</h3>
+
         <ul class="cc-fav-list">
             @forelse($ccRealLabels as $label)
                 <li>
@@ -561,14 +836,30 @@
             @endforelse
         </ul>
     </div>
+
+    <div class="cc-sidebar-footer">
+        <div class="cc-sidebar-footer-actions">
+            <button type="button" class="cc-sidebar-user-btn" data-cc-user-menu-toggle aria-expanded="false" aria-label="Abrir configuración">
+                <span class="cc-user-avatar">{{ mb_strtoupper(mb_substr($ccUser?->name ?? 'J', 0, 1)) }}</span>
+                <span class="cc-side-nav__tooltip">Menú de usuario</span>
+            </button>
+        </div>
+
+        <div class="cc-user-menu" id="ccUserMenu">
+            <a href="{{ Route::has('settings.profile') ? route('settings.profile') : url('/configuracion') }}" class="cc-user-menu__item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">{!! $ccIcon('settings') !!}</svg>
+                <span>Configuración</span>
+            </a>
+        </div>
+    </div>
 </aside>
 
 @once
 <script>
-  /* cc-sidebar-force-collapsed-on-load: siempre inicia contraido al entrar a cualquier Blade */
   (function () {
     const sidebar = document.getElementById('ccSidebar');
     if (!sidebar) return;
+
     sidebar.classList.add('is-collapsed');
     document.documentElement.style.setProperty('--cc-sidebar-w', '64px');
   })();
@@ -585,15 +876,54 @@
     window.dispatchEvent(new Event('cc-sidebar-toggle'));
   });
 
+  document.addEventListener('click', function (event) {
+    const toggle = event.target.closest('[data-cc-user-menu-toggle]');
+    const menu = document.getElementById('ccUserMenu');
+
+    if (!menu) return;
+
+    if (toggle) {
+      event.preventDefault();
+      const open = menu.classList.toggle('is-open');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      return;
+    }
+
+    if (!event.target.closest('#ccUserMenu')) {
+      menu.classList.remove('is-open');
+
+      const userToggle = document.querySelector('[data-cc-user-menu-toggle]');
+      if (userToggle) {
+        userToggle.setAttribute('aria-expanded', 'false');
+      }
+    }
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+
+    const menu = document.getElementById('ccUserMenu');
+    if (!menu) return;
+
+    menu.classList.remove('is-open');
+
+    const userToggle = document.querySelector('[data-cc-user-menu-toggle]');
+    if (userToggle) {
+      userToggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+
   (function () {
     let tooltip = document.querySelector('.cc-floating-tooltip');
 
     function ensureTooltip() {
       if (tooltip) return tooltip;
+
       tooltip = document.createElement('div');
       tooltip.className = 'cc-floating-tooltip';
       tooltip.setAttribute('role', 'tooltip');
       document.body.appendChild(tooltip);
+
       return tooltip;
     }
 
@@ -608,6 +938,7 @@
 
     function showTooltip(target) {
       const sidebar = document.getElementById('ccSidebar');
+
       if (!sidebar || !sidebar.classList.contains('is-collapsed')) {
         hideTooltip();
         return;
@@ -629,19 +960,21 @@
     }
 
     document.addEventListener('mouseover', function (event) {
-      const target = event.target.closest('.cc-side-nav__toggle, .cc-side-nav__link, .cc-folder__header, .cc-tree__link, .cc-fav__link');
+      const target = event.target.closest('.cc-side-nav__toggle, .cc-side-nav__link, .cc-folder__header, .cc-tree__link, .cc-fav__link, .cc-sidebar-user-btn');
       if (!target) return;
+
       showTooltip(target);
     });
 
     document.addEventListener('focusin', function (event) {
-      const target = event.target.closest('.cc-side-nav__toggle, .cc-side-nav__link, .cc-folder__header, .cc-tree__link, .cc-fav__link');
+      const target = event.target.closest('.cc-side-nav__toggle, .cc-side-nav__link, .cc-folder__header, .cc-tree__link, .cc-fav__link, .cc-sidebar-user-btn');
       if (!target) return;
+
       showTooltip(target);
     });
 
     document.addEventListener('mouseout', function (event) {
-      if (event.target.closest('.cc-side-nav__toggle, .cc-side-nav__link, .cc-folder__header, .cc-tree__link, .cc-fav__link')) {
+      if (event.target.closest('.cc-side-nav__toggle, .cc-side-nav__link, .cc-folder__header, .cc-tree__link, .cc-fav__link, .cc-sidebar-user-btn')) {
         hideTooltip();
       }
     });

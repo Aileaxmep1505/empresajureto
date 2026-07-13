@@ -505,116 +505,10 @@
 
 <div class="pjd-pane" data-pane="matriz">
   @php
-    $mxSections = [
-      [
-        'title' => 'Requisitos general',
-        'icons' => ['yellow'],
-        'items' => [
-          [
-            'question' => '¿En qué Entidad(es) Federativa(s) o estado(s) se realizará el servicio o entrega de bienes?',
-            'risk' => 'NULO',
-            'answer' => 'El servicio o entrega de bienes se realizará en el Estado de Coahuila de Zaragoza, específicamente en la ciudad de Saltillo, de acuerdo a la ubicación de la Unidad Regional Saltillo de CAPUFE.',
-          ],
-          [
-            'question' => '¿A qué Unidades Requirientes (ej. hospitales, clínicas, almacenes específicos) se deben entregar los productos o prestar los servicios?',
-            'risk' => 'NULO',
-            'answer' => 'Los productos o servicios se deben entregar a las Oficinas Administrativas y a los Centros de Trabajo de la Red CAPUFE adscritos a la Unidad Regional Saltillo.',
-          ],
-          [
-            'question' => '¿Tienen algún costo las bases de participación?',
-            'risk' => 'NULO',
-            'answer' => 'Las bases de participación no tienen costo alguno y se encuentran disponibles a través de la Plataforma Digital de Contrataciones Públicas “Compras MX”.',
-          ],
-          [
-            'question' => '¿Qué tipo de contrato se celebrará (abierto, cerrado, mixto)?',
-            'risk' => 'BAJO',
-            'answer' => 'El contrato será bajo la modalidad cerrada, tal como se establece formalmente en la sección 2.2 (página 22) del documento principal. Las referencias a contrato abierto en otras secciones corresponden exclusivamente a instrucciones de llenado y marcadores de texto en formatos modelo que no fueron editados.',
-          ],
-          [
-            'question' => '¿Se menciona explícitamente si el evento está bajo la cobertura de algún Tratado de Libre Comercio?',
-            'risk' => 'MEDIO',
-            'answer' => "Los documentos mencionan en sus formatos modelo (como el Anexo 11A y el modelo de contrato) la opción genérica de que el evento tenga carácter 'Internacional bajo la cobertura de tratados'. Sin embargo, se especifica y define que el procedimiento actual se trata de una Licitación Pública Nacional Electrónica, por lo que no opera bajo la cobertura de tratados.",
-          ],
-        ],
-      ],
-      [
-        'title' => 'Requisitos legal financiero',
-        'icons' => ['red','yellow'],
-        'items' => [
-          [
-            'question' => '¿Se exige estar dado de alta en algún padrón de proveedores específico o contar con cédula de proveedor vigente?',
-            'risk' => 'MEDIO',
-            'answer' => "Sí, se exigen múltiples registros. Por un lado, se requiere el registro en el Registro Único de Proveedores y Contratistas (RUPC) de CompraNet, el cual se formaliza al ser adjudicado mediante validación de la unidad compradora. Por otro lado, se exige inscripción en el Módulo de Formalización de Instrumentos Jurídicos, para el cual se debe presentar una carta compromiso, aunque las bases presentan una incongruencia al mencionar dos plataformas distintas ('Compras MX' y 'Plataforma de PROCURA') para el mismo propósito.",
-          ],
-          [
-            'question' => '¿Cuáles son las condiciones o restricciones explícitas para subcontratar/subrogar?',
-            'risk' => 'MEDIO',
-            'answer' => 'Se permite la subcontratación bajo el cumplimiento de múltiples condiciones estrictas: 1) Requiere autorización previa de CAPUFE; 2) Está prohibido subcontratar a otro licitante que haya participado en el procedimiento (se debe entregar un manifiesto "W.ManifiestoSub"); 3) El proveedor adjudicado debe solicitar y entregar a CAPUFE la Constancia de Situación Fiscal de su subcontratante; y 4) Los subcontratistas deben tramitar de manera independiente su Opinión de Cumplimiento de Obligaciones Fiscales. Por otra parte, la cesión o transferencia de derechos y obligaciones derivadas del contrato está estrictamente prohibida, con excepción de los derechos de cobro y casos de fusión o escisión, previa autorización de la convocante.',
-          ],
-          [
-            'question' => '¿Se requiere demostrar capacidad financiera (ej. declaraciones anuales, estados financieros, capital contable)?',
-            'risk' => 'NULO',
-            'answer' => 'Sí, se requiere demostrar capacidad financiera y el cumplimiento de obligaciones fiscales. Específicamente, se debe presentar: 1) Copia de la Declaración Fiscal Anual 2025 (demostrando que los ingresos cubren al menos el 20% de su propuesta) y su comprobante de pago de ISR. 2) La última declaración fiscal provisional (mayo 2026) con su respectivo comprobante de pago. 3) Las opiniones de cumplimiento de obligaciones fiscales (SAT), de seguridad social (IMSS) y de aportaciones patronales (INFONAVIT) en sentido positivo.',
-          ],
-          [
-            'question' => '¿Se exige acreditar experiencia previa (ej. presentación de contratos similares, currículum de la empresa)?',
-            'risk' => 'ALTO',
-            'answer' => 'Sí, se exige acreditar la experiencia previa mediante la presentación obligatoria de un Currículum que demuestre relaciones comerciales con al menos tres clientes y un mínimo de un año de experiencia en la venta de materiales similares. Adicionalmente, se deben adjuntar tres copias de contratos formalizados (en 2025 o años anteriores) o tres comprobantes fiscales digitales de ventas similares, acompañados por sus respectivas Constancias de Cumplimiento de Contrato o Cartas de Recomendación emitidas y firmadas por los clientes. Como requisito complementario de documentación legal, se indica la necesidad de presentar documentación que acredite que el proveedor ha entregado los bienes o servicios solicitados. Todos los documentos coinciden en estos requisitos.',
-          ],
-          [
-            'question' => '¿Cuáles son las causas explícitas de desechamiento o descalificación de la propuesta?',
-            'risk' => 'NULO',
-            'answer' => "Las bases establecen múltiples causas explícitas de desechamiento, entre las que destacan: 1) Incumplimiento de condiciones que afecten la solvencia; 2) Bienes que no cumplan con las especificaciones del Anexo Técnico, o presenten fallas/vicios ocultos; 3) Documentación legal o administrativa incompleta o incorrecta (incisos A, E, J, K, L, R); 4) Documentación técnica incompleta o que no cumpla lo requerido (incisos A, B, C, D del apartado 4.1); 5) Propuestas económicas que no se presenten conforme al Anexo 7, o con precios no aceptables/convenientes; 6) Archivos electrónicos ilegibles, con virus o que no puedan abrirse (consideradas como no presentadas); 7) Falta de firma electrónica válida en Compras MX; 8) Omisión de manifestaciones bajo protesta de decir verdad; 9) Acuerdos colusorios para obtener ventaja; 10) Presentar más de una proposición individual. Adicionalmente, las solicitudes de aclaración que no cumplan requisitos de forma podrán ser desechadas. Existe un anexo específico ('Causas_Desechamiento_Propuestas.xlsx'). Se señala explícitamente que la omisión del escrito de información confidencial NO es motivo de desechamiento.",
-          ],
-          [
-            'question' => '¿Qué tipos y periodos de garantías se solicitan presentar (ej. garantía de cumplimiento, de anticipo, de los bienes/vicios ocultos)?',
-            'risk' => 'MEDIO',
-            'answer' => "Se solicitan las siguientes garantías:\n\n1. Garantía de Cumplimiento: Fianza indivisible por el 10% del monto total del contrato (sin IVA) o bien, una Carta de Crédito Irrevocable Stand By equivalente. Existe la posibilidad de exención de esta garantía si el proveedor entrega los bienes a entera satisfacción dentro de los 10 días naturales posteriores a la firma del contrato.\n\n2. Garantía por Defectos y Vicios Ocultos / Calidad (numeral 2.4.2 / Anexo 11A): Mediante Póliza de Fianza expedida por el 10% del importe total del contrato con una vigencia de 12 meses, para responder por defectos de los bienes o la calidad de los servicios prestados.\n\n3. Garantía de Anticipo: Si bien los formatos machote generales y el historial de comportamiento mencionan garantías de anticipo, el análisis detallado de las Bases estipula que en este contrato en particular 'no se otorga anticipo', por lo cual no aplica.",
-          ],
-          [
-            'question' => '¿Solicitan o exigen presentar póliza de responsabilidad civil?',
-            'risk' => 'NULO',
-            'answer' => 'No se requiere la contratación de una póliza de seguro por responsabilidad civil para la adquisición de los bienes, materia del contrato.',
-          ],
-        ],
-      ],
-      [
-        'title' => 'Requisitos técnicos',
-        'icons' => ['red','yellow'],
-        'items' => [
-          [
-            'question' => '¿Bajo qué condición se exigen los bienes a entregar (ej. nuevos, originales, de modelo reciente, sin uso)?',
-            'risk' => 'MEDIO',
-            'answer' => "Los documentos no especifican explícitamente términos como 'nuevos', 'originales' o 'sin uso'. Sin embargo, establecen de forma estricta que los bienes deben cumplir con las características y especificaciones técnicas solicitadas, garantizando su correcto funcionamiento y entregándose sin fallas, defectos ni vicios ocultos, de lo contrario se tendrán por no recibidos a satisfacción de la dependencia. Adicionalmente, el proveedor debe garantizar la no infracción de patentes o marcas.",
-          ],
-          [
-            'question' => '¿Se exige algún origen específico (país de fabricación) para los productos ofertados?',
-            'risk' => 'NULO',
-            'answer' => 'Sí, existe la exigencia inicial de que los bienes sean producidos en el país (México) con al menos un 65% de contenido nacional (acreditable mediante escrito). No obstante, los mismos documentos hacen referencia a trámites para bienes de procedencia extranjera, constituyendo una contradicción en las bases.',
-          ],
-          [
-            'question' => '¿Qué grado mínimo de contenido o integración nacional se exige?',
-            'risk' => 'ALTO',
-            'answer' => 'Se exige que los bienes ofertados (artículos y papelería) cuenten con al menos un sesenta y cinco por ciento (65%) de contenido nacional. Adicionalmente, los documentos señalan que los participantes deben ser de nacionalidad mexicana (100%) y contar con constitución legal y domicilio en el territorio nacional.',
-          ],
-          [
-            'question' => '¿Cómo se debe certificar o acreditar el cumplimiento de las Normas Oficiales Mexicanas (NOMs)? (ej. certificados de calidad, dictámenes de laboratorios de prueba).',
-            'risk' => 'BAJO',
-            'answer' => 'El cumplimiento de las Normas (NMX-N-086-SCFI-2009, NOM-050-SCFI-2004 y NMX-N-001-SCFI-2011) se debe acreditar mediante la presentación de un documento escrito en el cual el licitante manifieste cumplir con las disposiciones establecidas en dichas normativas. Adicionalmente, el administrador del contrato realizará pruebas posteriores (como pruebas de peso y gramaje) para verificar el cumplimiento físico y técnico. No se exige de forma expresa la entrega inicial de certificados o dictámenes de laboratorios en la propuesta.',
-          ],
-          [
-            'question' => '¿Se deben entregar muestras físicas de los productos como parte de la propuesta técnica?',
-            'risk' => 'BAJO',
-            'answer' => 'Los documentos analizados no solicitan explícitamente la entrega de muestras físicas como parte de la propuesta técnica. En su lugar, se requiere incluir una descripción técnica detallada de los bienes que contenga la marca comercial del producto propuesto, especificaciones técnicas y fotografías.',
-          ],
-          [
-            'question' => '¿Existe cláusula de subrogación obligatoria en caso de fallas del equipo?',
-            'risk' => 'NULO',
-            'answer' => 'No se estipula explícitamente una cláusula de subrogación obligatoria en caso de fallas. No obstante, los documentos establecen mecanismos directos de garantía y reposición: el proveedor cuenta con un plazo (de hasta 3 días hábiles según la página 6) para sustituir o corregir bienes que no cumplan con las especificaciones o presenten defectos. Además, se requiere una fianza por el 10% del importe total del contrato, con vigencia de 12 meses, para responder por defectos y vicios ocultos de los bienes entregados.',
-          ],
-        ],
-      ],
-    ];
+    $mxSections = collect(data_get($sd, 'matriz.secciones', []))
+      ->filter(fn ($section) => is_array($section))
+      ->values()
+      ->all()
 
     $mxItems = collect($mxSections)->flatMap(fn($section) => $section['items'])->values();
     $mxAlto = $mxItems->where('risk', 'ALTO')->count();
@@ -746,7 +640,11 @@
             </div>
           </div>
         </div>
-      @endforeach
+      @empty
+        <div class="pjd-mx-empty">
+          La IA todavía no ha generado la matriz de cumplimiento para los documentos de este proyecto.
+        </div>
+      @endforelse
     </div>
   </div>
 </div>

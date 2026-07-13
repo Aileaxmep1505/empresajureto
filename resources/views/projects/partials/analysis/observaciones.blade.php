@@ -449,64 +449,10 @@
     $obsSparkle = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.7 5.1L19 10l-5.3 1.9L12 17l-1.7-5.1L5 10l5.3-1.9L12 3Z"></path><path d="M19 4v4"></path><path d="M17 6h4"></path><path d="M5 16v4"></path><path d="M3 18h4"></path></svg>';
 
     // Datos ampliados con citas y fuentes simulando la respuesta de IA
-    $obsSections = [
-      [
-        'title' => 'Candados de Marca',
-        'items' => [
-          [
-            'title' => 'Medidas exactas en borradores de migajón',
-            'text' => 'Solicitar medidas exactas con un margen de tolerancia mínimo restringe la participación, actuando como candado para una marca o molde de fabricante específico.',
-            'quote' => 'BORRADOR GOMA BLANCA DE MIGAJÓN MEDIDA +/- DE 4 CM DE LARGO POR 3 CM DE ANCHO (Pág. N/A)',
-            'source' => 'ANEXO_TECNICO.pdf'
-          ],
-          [
-            'title' => 'Dimensiones restrictivas en cajas de cartón',
-            'text' => 'Especificar medidas en milímetros o centímetros tan precisas suele corresponder a moldes específicos de ciertos fabricantes, limitando la libre competencia.',
-            'quote' => 'CAJA DE ARCHIVO TAMAÑO OFICIO CON MEDIDAS DE 35.5 CM DE LARGO X 25.5 CM DE ANCHO (Pág. 12)',
-            'source' => 'ANEXO_TECNICO.pdf'
-          ],
-          [
-            'title' => 'Color y material dirigido en dedales',
-            'text' => 'Requerir un color específico (rojo) y material para un artículo genérico restringe a los proveedores que manejan otras variantes estándar o polímeros de igual función.',
-          ],
-          [
-            'title' => 'Exigencia de normas NMX/NOM específicas',
-            'text' => 'Solicitar de manera general que todo el catálogo cumpla con normas NMX/NOM sumamente específicas actúa como candado y descalifica opciones equivalentes válidas.',
-          ],
-        ],
-      ],
-      [
-        'title' => 'Discrepancia de Tiempos/Fechas',
-        'items' => [
-          [
-            'title' => 'Vigencia insuficiente para proceso de pago',
-            'text' => 'Si la entrega máxima ocurre al día 40, los 20 días restantes son insuficientes para procesar la facturación y el pago (estipulado en 17 días hábiles) dentro de la vigencia del contrato.',
-          ],
-          [
-            'title' => 'Discrepancia en periodos fiscales exigidos',
-            'text' => 'La exigencia de comprobantes fiscales de 2025 y provisionales de mayo 2026 genera incertidumbre sobre las fechas aplicables vigentes del proceso.',
-          ],
-        ],
-      ],
-      [
-        'title' => 'Requisito Ilegal o Abusivo',
-        'items' => [
-          [
-            'title' => 'Pago condicionado a depósito de penas',
-            'text' => 'Condicionar el pago de los bienes ya entregados y validados al pago previo de penas mediante un depósito bancario forzoso es una práctica abusiva que afecta la liquidez.',
-          ],
-        ],
-      ],
-      [
-        'title' => 'Ambigüedad Técnica',
-        'items' => [
-          [
-            'title' => 'Longitud ambigua en cinta para coser',
-            'text' => "La descripción es ambigua al usar la palabra 'aproximadamente', impidiendo costear el insumo con exactitud para la propuesta económica.",
-          ],
-        ],
-      ],
-    ];
+    $obsSections = collect(data_get($sd, 'observaciones.secciones', []))
+      ->filter(fn ($section) => is_array($section))
+      ->values()
+      ->all()
   @endphp
 
   <div id="pjdObservacionesComponent" class="pjd-obs-root">
@@ -519,7 +465,7 @@
       </div>
 
       <div class="pjd-obs-stack">
-        @foreach($obsSections as $sectionIndex => $section)
+        @forelse($obsSections as $sectionIndex => $section)
           {{-- Mantenemos la primera sección abierta por defecto para emular el diseño --}}
           <section class="pjd-obs-card {{ $sectionIndex === 0 ? 'is-open' : '' }}">
             <div class="pjd-obs-card-head" data-obs-toggle role="button" tabindex="0" aria-expanded="{{ $sectionIndex === 0 ? 'true' : 'false' }}">
@@ -593,7 +539,11 @@
               </div>
             </div>
           </section>
-        @endforeach
+        @empty
+        <div class="pjd-obs-empty">
+          No se detectaron observaciones sustentadas en los documentos cargados.
+        </div>
+      @endforelse
       </div>
     </div>
   </div>
