@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @section('title','Ruta #'.$routePlan->id)
-
+@section('content_class', 'content--flush')
 @section('content')
 @php
   use Illuminate\Support\Str;
@@ -36,35 +36,50 @@
 
 <div id="route-show" class="rs">
   <style>
+    /* Fuente corporativa */
+    @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
+
     /* =========================
        Minimal / Modern UI
        Namespace: #route-show.rs
        ========================= */
     #route-show.rs{
-      --ink:#0b1220;
-      --muted:#6b7280;
-      --line:#e7eef7;
-      --bg:#f7f9fc;
+      --bg:#f4f5f7;
       --card:#ffffff;
+      --input-bg:#f9fafb;
 
-      --brand:#a6d3ff;
-      --brand-ink:#0b1220;
+      --ink-dark:#0f172a;
+      --ink:#334155;
+      --muted:#64748b;
+      --muted-light:#94a3b8;
 
-      --ok:#c6f6d5;
-      --warn:#ffe8b2;
-      --danger:#ffd6e7;
-      --info:#b7f0e2;
+      --line:#e2e8f0;
+
+      --blue:#007aff;
+      --blue-soft:#eff6ff;
+
+      --success:#15803d;
+      --success-soft:#f0fdf4;
+
+      --danger:#ef4444;
+      --danger-soft:#fef2f2;
+
+      --warning:#c2410c;
+      --warning-soft:#fff7ed;
 
       --radius:16px;
-      --shadow:0 14px 40px rgba(2,8,23,.08);
+      --shadow-card:0 4px 12px rgba(0,0,0,.02);
+      --shadow-hover:0 12px 24px rgba(15,23,42,.06);
 
+      font-family:'Quicksand', system-ui, -apple-system, 'Segoe UI', sans-serif;
       color:var(--ink);
       background:var(--bg);
-      padding:20px 14px;
+      padding:36px 20px 48px;
+      -webkit-font-smoothing:antialiased;
     }
     #route-show.rs *{ box-sizing:border-box; }
     #route-show.rs a{ color:inherit; text-decoration:none; }
-    #route-show.rs a:hover{ text-decoration:underline; }
+    #route-show.rs a:hover{ color:var(--blue); text-decoration:none; }
 
     .wrap{ max-width:1200px; margin:0 auto; }
 
@@ -75,53 +90,62 @@
       justify-content:space-between;
       gap:12px;
       flex-wrap:wrap;
-      margin-bottom:14px;
+      margin-bottom:20px;
     }
     .title{
-      font-weight:900;
-      letter-spacing:.2px;
-      font-size:clamp(18px,2.2vw,26px);
-      line-height:1.1;
+      font-weight:700;
+      letter-spacing:-.02em;
+      font-size:clamp(20px,2.2vw,28px);
+      line-height:1.15;
+      color:var(--ink-dark);
     }
     .sub{
       color:var(--muted);
-      margin-top:6px;
+      margin-top:8px;
       font-size:.95rem;
       display:flex;
       flex-wrap:wrap;
-      gap:10px;
+      gap:12px;
       align-items:center;
+      font-weight:500;
     }
 
     /* Buttons */
-    .actions{ display:flex; gap:8px; flex-wrap:wrap; }
+    .actions{ display:flex; gap:10px; flex-wrap:wrap; }
     .btnx{
+      font-family:inherit;
       border:1px solid var(--line);
       background:var(--card);
       color:var(--ink);
       border-radius:999px;
-      padding:.48rem .85rem;
-      font-weight:800;
+      padding:.55rem .95rem;
+      font-weight:600;
+      font-size:.9rem;
       line-height:1;
       display:inline-flex;
       align-items:center;
       gap:.45rem;
-      transition:.18s;
-      box-shadow:0 6px 18px rgba(2,8,23,.06);
+      transition:transform .12s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease, color .16s ease;
       user-select:none;
       white-space:nowrap;
+      cursor:pointer;
     }
     .btnx:hover{
       transform:translateY(-1px);
-      background:#fff;
-      box-shadow:var(--shadow);
-      border-color:#d6ecff;
+      background:#f9fafb;
       text-decoration:none;
     }
+    .btnx:active{ transform:scale(.98); }
     .btnx.primary{
-      background:var(--brand);
-      border-color:#d6ecff;
-      color:var(--brand-ink);
+      background:var(--blue);
+      border-color:var(--blue);
+      color:#fff;
+    }
+    .btnx.primary:hover{
+      background:#0069e0;
+      border-color:#0069e0;
+      color:#fff;
+      box-shadow:0 8px 18px rgba(0,122,255,.22);
     }
 
     /* Cards */
@@ -129,85 +153,90 @@
       background:var(--card);
       border:1px solid var(--line);
       border-radius:var(--radius);
-      box-shadow:var(--shadow);
+      box-shadow:var(--shadow-card);
       overflow:hidden;
     }
     .card .hd{
-      padding:12px 14px;
+      padding:14px 16px;
       border-bottom:1px solid var(--line);
       display:flex;
       justify-content:space-between;
       align-items:center;
       gap:10px;
-      background:linear-gradient(180deg,#fbfdff,transparent);
+      background:#fbfcfe;
     }
-    .card .bd{ padding:14px; }
+    .card .hd .muted{ font-weight:600; }
+    .card .hd strong{ color:var(--ink-dark); }
+    .card .bd{ padding:18px; }
 
-    /* Status chip */
+    /* Status chip (pastel + texto fuerte) */
     .chip{
       display:inline-flex;
       align-items:center;
       gap:.45rem;
-      padding:.22rem .65rem;
+      padding:.28rem .7rem;
       border-radius:999px;
       border:1px solid var(--line);
-      background:#fff;
-      font-weight:900;
+      background:var(--card);
+      font-weight:600;
       font-size:.82rem;
       white-space:nowrap;
     }
-    .dot{ width:8px; height:8px; border-radius:50%; background:#94a3b8; }
-    .st-scheduled .dot{ background:var(--info); }
-    .st-draft .dot{ background:#cbd5e1; }
-    .st-in_progress .dot{ background:var(--warn); }
-    .st-done .dot{ background:var(--ok); }
-    .st-cancelled .dot{ background:var(--danger); }
+    .chip .dot{ width:7px; height:7px; border-radius:50%; background:currentColor; opacity:.65; }
+    .chip.st-scheduled  { background:var(--blue-soft);    color:var(--blue);    border-color:#dbeafe; }
+    .chip.st-draft      { background:#f1f5f9;             color:var(--muted);   border-color:#e2e8f0; }
+    .chip.st-in_progress{ background:var(--warning-soft); color:var(--warning); border-color:#fed7aa; }
+    .chip.st-done       { background:var(--success-soft); color:var(--success); border-color:#bbf7d0; }
+    .chip.st-cancelled  { background:var(--danger-soft);  color:var(--danger);  border-color:#fecaca; }
 
     /* KPI row */
     .kpis{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
+      gap:12px;
     }
     .kpi{
       border:1px solid var(--line);
-      border-radius:14px;
-      padding:10px 12px;
-      background:#fff;
+      border-radius:12px;
+      padding:14px 16px;
+      background:var(--input-bg);
     }
     .kpi .lbl{
       color:var(--muted);
       font-size:.74rem;
-      font-weight:800;
+      font-weight:600;
       text-transform:uppercase;
       letter-spacing:.04em;
     }
     .kpi .val{
-      margin-top:4px;
-      font-weight:900;
-      font-size:1.15rem;
-      letter-spacing:.2px;
+      margin-top:6px;
+      font-weight:700;
+      font-size:1.2rem;
+      letter-spacing:-.01em;
+      color:var(--ink-dark);
     }
     .kpi .mini{
-      margin-top:4px;
+      margin-top:6px;
       color:var(--muted);
       font-size:.9rem;
+      font-weight:500;
     }
+    .kpi .mini strong{ color:var(--ink-dark); }
 
     /* Progress */
     .prog{
-      height:10px;
+      height:8px;
       border-radius:999px;
-      background:#eef2f7;
+      background:#eef1f5;
       overflow:hidden;
-      border:1px solid #eef2f7;
-      margin-top:8px;
+      margin-top:10px;
     }
     .prog > span{
       display:block;
       height:100%;
       width:0%;
-      background:linear-gradient(90deg,#cfe4ff,#7fb7ff);
+      background:var(--blue);
+      border-radius:999px;
       transition:width .6s ease;
     }
 
@@ -217,19 +246,24 @@
       justify-content:space-between;
       align-items:center;
       flex-wrap:wrap;
-      gap:10px;
-      margin:14px 0 10px;
+      gap:12px;
+      margin:22px 0 12px;
     }
     .search{
       display:flex;
       align-items:center;
       gap:.5rem;
-      background:#fff;
+      background:var(--input-bg);
       border:1px solid var(--line);
-      border-radius:999px;
-      padding:.42rem .7rem;
-      box-shadow:0 8px 22px rgba(2,8,23,.04);
-      min-width:260px;
+      border-radius:8px;
+      padding:0 .8rem;
+      height:42px;
+      min-width:280px;
+      transition:border-color .18s ease, box-shadow .18s ease;
+    }
+    .search:focus-within{
+      border-color:var(--blue);
+      box-shadow:0 0 0 3px var(--blue-soft);
     }
     .search input{
       border:0;
@@ -238,42 +272,53 @@
       width:min(420px, 52vw);
       color:var(--ink);
       font-size:.95rem;
+      font-family:inherit;
+      font-weight:500;
+      height:100%;
     }
+    .search input::placeholder{ color:var(--muted-light); }
+    .toolbar .muted{ font-weight:500; }
+    .toolbar .muted strong{ color:var(--ink-dark); }
     .xbtn{
       border:0;
       background:transparent;
-      padding:.2rem .35rem;
-      border-radius:999px;
+      padding:.2rem .4rem;
+      border-radius:8px;
       cursor:pointer;
       color:var(--muted);
       display:none;
     }
-    .xbtn:hover{ background:#f3f6fb; color:var(--ink); }
+    .xbtn:hover{ background:#eef1f5; color:var(--ink); }
 
     /* Table */
     .table-wrap{
       border:1px solid var(--line);
       border-radius:var(--radius);
       overflow:hidden;
-      background:#fff;
+      background:var(--card);
+      box-shadow:var(--shadow-card);
     }
     table{ width:100%; border-collapse:separate; border-spacing:0; }
     thead th{
       text-align:left;
-      font-weight:900;
-      color:#334155;
-      background:#f9fbff;
+      font-weight:600;
+      color:var(--muted);
+      background:#fbfcfe;
       border-bottom:1px solid var(--line);
-      padding:10px 12px;
-      font-size:.92rem;
+      padding:14px 16px;
+      font-size:.82rem;
+      text-transform:uppercase;
+      letter-spacing:.02em;
     }
     tbody td{
-      padding:12px;
-      border-bottom:1px solid #f1f5f9;
+      padding:16px;
+      border-bottom:1px solid var(--line);
       vertical-align:middle;
       font-size:.95rem;
+      font-weight:500;
     }
-    tbody tr:hover{ background:#f8fbff; }
+    tbody tr:last-child td{ border-bottom:0; }
+    tbody tr:hover{ background:#fbfcfe; }
     .td-idx{ width:70px; color:var(--muted); }
     .muted{ color:var(--muted); font-size:.9rem; }
     .nowrap{ white-space:nowrap; }
@@ -283,28 +328,29 @@
       display:inline-flex;
       align-items:center;
       gap:.4rem;
-      padding:.18rem .65rem;
+      padding:.28rem .7rem;
       border-radius:999px;
       border:1px solid var(--line);
-      font-weight:900;
+      font-weight:600;
       font-size:.82rem;
-      background:#fff;
+      background:var(--card);
       white-space:nowrap;
     }
-    .badge.done{ background:#eefcf7; border-color:#bbf7d0; color:#065f46; }
-    .badge.pending{ background:#f8fafc; border-color:#e5e7eb; color:#111827; }
-    .badge.skipped{ background:#fff7ed; border-color:#fed7aa; color:#92400e; }
+    .badge.done   { background:var(--success-soft); border-color:#bbf7d0; color:var(--success); }
+    .badge.pending{ background:#f1f5f9;             border-color:#e2e8f0; color:var(--muted); }
+    .badge.skipped{ background:var(--warning-soft); border-color:#fed7aa; color:var(--warning); }
+    .badge .dot{ background:currentColor; opacity:.6; }
 
-    /* Lat/Lng display -> más útil que “0.000000,0.000000” */
+    /* Lat/Lng display */
     .coord{
       display:flex;
       flex-direction:column;
-      gap:2px;
-      line-height:1.1;
+      gap:3px;
+      line-height:1.15;
     }
     .coord .addr{
-      font-weight:800;
-      color:#111827;
+      font-weight:600;
+      color:var(--ink-dark);
       font-size:.92rem;
     }
     .coord .ll{
@@ -313,26 +359,33 @@
     }
 
     /* Mobile cards */
-    .mgrid{ display:grid; gap:10px; }
+    .mgrid{ display:grid; gap:12px; }
     .mcard{
       border:1px solid var(--line);
-      border-radius:14px;
-      padding:10px 12px;
-      background:#fff;
-      box-shadow:0 10px 24px rgba(2,8,23,.05);
+      border-radius:12px;
+      padding:16px;
+      background:var(--card);
+      box-shadow:var(--shadow-card);
+      transition:transform .18s ease, box-shadow .18s ease;
     }
+    .mcard:hover{ transform:translateY(-2px); box-shadow:var(--shadow-hover); }
     .mrow{ display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
-    .mname{ font-weight:900; }
-    .mmeta{ margin-top:6px; color:var(--muted); font-size:.92rem; }
+    .mname{ font-weight:700; color:var(--ink-dark); }
+    .mmeta{ margin-top:6px; color:var(--muted); font-size:.92rem; font-weight:500; }
+    .mmeta strong{ color:var(--ink-dark); }
 
     /* Responsive */
     .only-desktop{ display:block; }
     .only-mobile{ display:none; }
     @media (max-width: 991.98px){
-      #route-show.rs{ padding:18px 12px; }
+      #route-show.rs{ padding:24px 14px 36px; }
       .kpis{ grid-template-columns:repeat(2,minmax(0,1fr)); }
       .only-desktop{ display:none; }
       .only-mobile{ display:block; }
+      .actions{ width:100%; }
+      .actions .btnx{ flex:1 1 auto; justify-content:center; }
+      .search{ min-width:unset; width:100%; }
+      .search input{ width:100%; }
     }
   </style>
 
@@ -364,7 +417,7 @@
     {{-- Resumen / KPIs --}}
     <div class="card" style="margin-bottom:12px;">
       <div class="hd">
-        <div class="muted" style="font-weight:800;">Resumen</div>
+        <div class="muted" style="font-weight:600;">Resumen</div>
         <div class="muted">ID: <strong>#{{ $routePlan->id }}</strong></div>
       </div>
       <div class="bd">
@@ -444,19 +497,19 @@
               @endphp
               <tr data-hay="{{ $hay }}">
                 <td class="td-idx">#{{ $idx }}</td>
-                <td style="font-weight:900;">{{ $s->name ?? '—' }}</td>
+                <td style="font-weight:700; color:var(--ink-dark);">{{ $s->name ?? '—' }}</td>
                 <td>
                   <div class="coord">
                     @if($addr)
                       <div class="addr">{{ $addr }}</div>
                     @else
-                      <div class="addr" style="color:var(--muted); font-weight:800;">Dirección no disponible</div>
+                      <div class="addr" style="color:var(--muted); font-weight:600;">Dirección no disponible</div>
                     @endif
                     <div class="ll">{{ $latTxt }}, {{ $lngTxt }}</div>
                   </div>
                 </td>
                 <td class="nowrap">{{ $eta }}</td>
-                <td><span class="badge {{ $st }}"><span class="dot" style="width:7px;height:7px;"></span>{{ $stEs }}</span></td>
+                <td><span class="badge {{ $st }}"><span class="dot" style="width:6px;height:6px;border-radius:50%;"></span>{{ $stEs }}</span></td>
               </tr>
             @endforeach
           </tbody>
@@ -490,7 +543,7 @@
                 <div class="mname">#{{ $idx }} · {{ $s->name ?? '—' }}</div>
 
                 @if($addr)
-                  <div class="mmeta" style="color:#111827; font-weight:800;">{{ $addr }}</div>
+                  <div class="mmeta" style="color:var(--ink-dark); font-weight:600;">{{ $addr }}</div>
                 @else
                   <div class="mmeta">Dirección no disponible</div>
                 @endif

@@ -5,94 +5,336 @@
 @section('content')
 @php
   use App\Models\Venta;
+  use App\Models\CatalogItem;
 
   /** =========================
    * 1) RESOLVER ORIGEN DE DATOS
    * ==========================*/
   /** @var \App\Models\Order|null $order */
-  $hasOrder   = isset($order) && $order;
+  $hasOrder = isset($order) && $order;
 
-  // ID de sesión (prioriza el de la orden)
-  $sessionId  = $sessionId
-                ?? request('session_id')
-                ?? ($hasOrder ? ($order->stripe_session_id ?? null) : null);
+  $sessionId = $sessionId
+      ?? request('session_id')
+      ?? ($hasOrder ? ($order->stripe_session_id ?? null) : null);
 
-  // --------- Cuando VIENE ORDEN (preferido) ----------
+  /*
+  |--------------------------------------------------------------------------
+  | Helpers internos de esta vista
+  |--------------------------------------------------------------------------
+  | Esta vista debe mostrar artículos aunque la sesión ya se haya limpiado.
+  | Por eso intenta leer en este orden:
+  | 1) $order->items / order_items
+  | 2) $cart enviado desde el controlador success()
+  | 3) session('checkout.cart_snapshot')
+  | 4) session('cart')
+  */
+  $normalizeCheckoutItem = function ($row) {
+      $rowArr = is_array($row) ? $row : (array) $row;
+
+      $metaRaw = $rowArr['meta'] ?? null;
+      $meta = [];
+      if (is_array($metaRaw)) {
+          $meta = $metaRaw;
+      } elseif (is_string($metaRaw) && $metaRaw !== '') {
+          $decoded = json_decode($metaRaw, true);
+          $meta = is_array($decoded) ? $decoded : [];
+      }
+
+      /*
+       * Buscar producto real si la partida solo trae ID.
+       * Esto ayuda cuando order_items guarda product_id/catalog_item_id,
+       * pero no guarda nombre, imagen o precio.
+       */
+      $catalogId = $rowArr['catalog_item_id']
+          ?? $rowArr['product_id']
+          ?? $rowArr['item_id']
+          ?? data_get($rowArr, 'item.id')
+          ?? null;
+
+      $catalog = null;
+      if ($catalogId) {
+          try {
+              $catalog = CatalogItem::find($catalogId);
+          } catch (\Throwable $e) {
+              $catalog = null;
+          }
+      }
+
+      $name = $rowArr['name']
+          ?? $rowArr['product_name']
+          ?? $rowArr['description']
+          ?? $rowArr['item_name']
+          ?? $rowArr['title']
+          ?? data_get($rowArr, 'item.name')
+          ?? ($catalog->name ?? null)
+          ?? 'Producto';
+
+      $qty = (int) (
+          $rowArr['qty']
+          ?? $rowArr['quantity']
+          ?? $rowArr['cantidad']
+          ?? 1
+      );
+      $qty = max(1, $qty);
+
+      $price = (float) (
+          $rowArr['price']
+          ?? $rowArr['unit_price']
+          ?? $rowArr['unit_amount']
+          ?? $rowArr['precio']
+          ?? data_get($rowArr, 'item.price')
+          ?? data_get($rowArr, 'item.sale_price')
+          ?? ($catalog ? ($catalog->sale_price ?? $catalog->price ?? 0) : 0)
+      );
+
+      $amount = (float) (
+          $rowArr['amount']
+          ?? $rowArr['total']
+          ?? $rowArr['line_total']
+          ?? $rowArr['subtotal']
+          ?? ($price * $qty)
+      );
+
+      if ($price <= 0 && $amount > 0 && $qty > 0) {
+          $price = round($amount / $qty, 2);
+      }
+
+      if ($amount <= 0 && $price > 0) {
+          $amount = round($price * $qty, 2);
+      }
+
+      $image = $rowArr['image']
+          ?? $rowArr['image_url']
+          ?? $rowArr['thumbnail']
+          ?? data_get($meta, 'image')
+          ?? data_get($meta, 'image_url')
+          ?? data_get($rowArr, 'item.image_url')
+          ?? ($catalog->image_url ?? null)
+          ?? ($catalog->image ?? null)
+          ?? null;
+
+      return (object) [
+          'catalog_item_id' => $catalogId,
+          'name' => $name,
+          'qty' => $qty,
+          'price' => $price,
+          'amount' => $amount,
+          'meta' => ['image' => $image],
+      ];
+  };
+
+  $itemsFromArray = function ($rows) use ($normalizeCheckoutItem) {
+      return collect((array) $rows)
+          ->filter(fn ($row) => is_array($row) || is_object($row))
+          ->map(fn ($row) => $normalizeCheckoutItem($row))
+          ->values();
+  };
+
+  /*
+  |--------------------------------------------------------------------------
+  | Envío seleccionado
+  |--------------------------------------------------------------------------
+  */
+  $checkoutShipping = (array) session('checkout.shipping', []);
+  $legacyShipping = (array) session('shipping', []);
+  $incomingShipping = is_array($shipping ?? null) ? $shipping : [];
+
+  $sessionShipping = array_filter($incomingShipping)
+      ? $incomingShipping
+      : (array_filter($checkoutShipping) ? $checkoutShipping : $legacyShipping);
+
+  $sessionShipPrice = (float) ($sessionShipping['price'] ?? 0);
+  $sessionShipName = $sessionShipping['name']
+      ?? $sessionShipping['carrier']
+      ?? $sessionShipping['label']
+      ?? null;
+  $sessionShipSrv = $sessionShipping['service_label']
+      ?? $sessionShipping['service_description']
+      ?? $sessionShipping['service']
+      ?? null;
+  $sessionShipEta = $sessionShipping['eta'] ?? null;
+  $sessionShipLogo = $sessionShipping['logo_url'] ?? null;
+  $storePays = (bool) ($sessionShipping['store_pays'] ?? false);
+  $carrierCost = (float) ($sessionShipping['carrier_cost'] ?? $sessionShipPrice);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Artículos enviados por el controlador
+  |--------------------------------------------------------------------------
+  */
+  $incomingCart = isset($cart) && is_array($cart) ? $cart : [];
+  $snapshotCart = (array) session('checkout.cart_snapshot', []);
+  $sessionCart = (array) session('cart', []);
+
+  // --------- Cuando VIENE ORDEN ----------
   if ($hasOrder) {
-      $itemsCol   = $order->relationLoaded('items') ? $order->items : $order->items()->get();
-      $items      = collect($itemsCol ?? []);
-      $subtotal   = (float) ($order->subtotal ?? 0);
-      $shipAmount = (float) ($order->shipping_amount ?? 0);
-      $total      = (float) ($order->total ?? ($subtotal + $shipAmount));
+      $items = collect();
 
-      $shipName   = $order->shipping_name ?? null;
-      $shipSrv    = $order->shipping_service ?? null;
-      $shipEta    = $order->shipping_eta ?? null;
+      try {
+          if (method_exists($order, 'items')) {
+              $itemsCol = $order->relationLoaded('items') ? $order->items : $order->items()->get();
+              $items = $itemsFromArray($itemsCol ?? []);
+          }
+      } catch (\Throwable $e) {
+          $items = collect();
+      }
 
-      $addrArr    = (array) ($order->address_json ?? []);
-      $addrTx     = trim(
-                      ($addrArr['street'] ?? '') . ' ' .
-                      ($addrArr['ext_number'] ?? '') . ' ' .
-                      ($addrArr['colony'] ?? '') . ', ' .
-                      ($addrArr['municipality'] ?? '') . ', ' .
-                      ($addrArr['state'] ?? '') . ' CP ' .
-                      ($addrArr['postal_code'] ?? '')
-                    );
+      /*
+       * Fallback directo a DB:
+       * Si la relación del modelo no leyó las partidas, buscamos manualmente en order_items.
+       */
+      if ($items->isEmpty()) {
+          try {
+              if (\Illuminate\Support\Facades\Schema::hasTable('order_items')) {
+                  $dbItems = \Illuminate\Support\Facades\DB::table('order_items')
+                      ->where('order_id', $order->id)
+                      ->get();
+
+                  $items = $itemsFromArray($dbItems ?? []);
+              }
+          } catch (\Throwable $e) {
+              $items = collect();
+          }
+      }
+
+      /*
+       * Fallback de pantalla:
+       * Si por alguna razón la orden todavía no tiene partidas guardadas,
+       * usamos el carrito que el controlador envía antes de limpiar la sesión.
+       */
+      if ($items->isEmpty() && !empty($incomingCart)) {
+          $items = $itemsFromArray($incomingCart);
+      }
+
+      if ($items->isEmpty() && !empty($snapshotCart)) {
+          $items = $itemsFromArray($snapshotCart);
+      }
+
+      if ($items->isEmpty() && !empty($sessionCart)) {
+          $items = $itemsFromArray($sessionCart);
+      }
+
+      /*
+       * Si la tabla order_items trae una partida genérica en ceros
+       * pero todavía tenemos el carrito entrante/snapshot, usamos ese carrito.
+       * Esto corrige el caso visual: Producto x1 $0.00.
+       */
+      $itemsLookEmpty = $items->count()
+          && (float) $items->sum('amount') <= 0
+          && $items->filter(fn ($i) => ($i->name ?? 'Producto') !== 'Producto')->isEmpty();
+
+      if ($itemsLookEmpty && !empty($incomingCart)) {
+          $items = $itemsFromArray($incomingCart);
+      } elseif ($itemsLookEmpty && !empty($snapshotCart)) {
+          $items = $itemsFromArray($snapshotCart);
+      } elseif ($itemsLookEmpty && !empty($sessionCart)) {
+          $items = $itemsFromArray($sessionCart);
+      }
+
+      $subtotal = (float) ($order->subtotal ?? 0);
+
+      if ($subtotal <= 0 && $items->count()) {
+          $subtotal = (float) $items->sum('amount');
+      }
+
+      /*
+       * Último respaldo:
+       * Si solo tenemos una partida pero vino en ceros, usamos el subtotal real de la orden
+       * para que no se muestre $0.00.
+       */
+      if ($subtotal > 0 && $items->count() === 1 && (float) $items->sum('amount') <= 0) {
+          $only = $items->first();
+          $qty = max(1, (int)($only->qty ?? 1));
+          $only->amount = round($subtotal, 2);
+          $only->price = round($subtotal / $qty, 2);
+          $items = collect([$only]);
+      }
+
+      /*
+       * Si la orden todavía no guardó el envío pero la sesión sí lo trae,
+       * usamos la sesión para no mostrar GRATIS incorrectamente.
+       */
+      $orderShipAmount = (float) ($order->shipping_amount ?? 0);
+      $shipAmount = $orderShipAmount > 0 ? $orderShipAmount : $sessionShipPrice;
+
+      $orderTotal = (float) ($order->total ?? 0);
+      $total = $orderTotal > 0
+          ? (($orderShipAmount <= 0 && $sessionShipPrice > 0) ? ($subtotal + $sessionShipPrice) : $orderTotal)
+          : ($subtotal + $shipAmount);
+
+      $shipName = $order->shipping_name
+          ?? $order->shipping_carrier
+          ?? $sessionShipName
+          ?? 'Envío estándar';
+
+      $shipSrv = $order->shipping_service
+          ?? $sessionShipSrv;
+
+      $shipEta = $order->shipping_eta
+          ?? $sessionShipEta;
+
+      $shipLogoUrl = $order->shipping_logo_url
+          ?? $sessionShipLogo;
+
+      $addrArr = (array) ($order->address_json ?? []);
+      $addrTx = trim(
+          ($addrArr['street'] ?? '') . ' ' .
+          ($addrArr['ext_number'] ?? '') . ' ' .
+          ($addrArr['colony'] ?? '') . ', ' .
+          ($addrArr['municipality'] ?? '') . ', ' .
+          ($addrArr['state'] ?? '') . ' CP ' .
+          ($addrArr['postal_code'] ?? '')
+      );
   }
-  // --------- Fallback: usar SESIÓN (si no hay orden) ----------
+  // --------- Fallback: usar CARRITO / SESIÓN ----------
   else {
-      $cart       = (array) session('cart', []);
-      $subtotal   = array_reduce($cart, fn($c,$r)=> $c + (float)($r['price']??0) * max(1,(int)($r['qty']??1)), 0);
-      $shipping   = (array) session('checkout.shipping', ['price'=>0]);
-      $shipAmount = (float) ($shipping['price'] ?? 0);
-      $total      = $subtotal + $shipAmount;
+      $cart = !empty($incomingCart)
+          ? $incomingCart
+          : (!empty($snapshotCart) ? $snapshotCart : $sessionCart);
 
-      $shipName   = $shipping['name']    ?? ($shipping['carrier'] ?? null);
-      $shipSrv    = $shipping['service'] ?? null;
-      $shipEta    = $shipping['eta']     ?? null;
+      $items = $itemsFromArray($cart);
 
-      $addr       = (array) session('checkout.address', []);
-      $addrTx     = trim(
-                      ($addr['street'] ?? '') . ' ' .
-                      ($addr['ext_number'] ?? '') . ' ' .
-                      ($addr['colony'] ?? '') . ', ' .
-                      ($addr['municipality'] ?? '') . ', ' .
-                      ($addr['state'] ?? '') . ' CP ' .
-                      ($addr['postal_code'] ?? '')
-                    );
+      $subtotal = (float) $items->sum('amount');
 
-      // para pintar items con el mismo markup que la orden
-      $items = collect(array_map(function($r){
-          return (object)[
-              'name'   => $r['name'] ?? 'Producto',
-              'qty'    => (int) max(1, (int)($r['qty'] ?? 1)),
-              'price'  => (float) ($r['price'] ?? 0),
-              'amount' => (float) ($r['price'] ?? 0) * max(1, (int)($r['qty'] ?? 1)),
-              'meta'   => ['image' => $r['image'] ?? null],
-          ];
-      }, $cart));
+      $shipAmount = $sessionShipPrice;
+      $total = $subtotal + $shipAmount;
+
+      $shipName = $sessionShipName ?: 'Envío estándar';
+      $shipSrv = $sessionShipSrv;
+      $shipEta = $sessionShipEta;
+      $shipLogoUrl = $sessionShipLogo;
+
+      $addr = (array) session('checkout.address', []);
+      $addrTx = trim(
+          ($addr['street'] ?? '') . ' ' .
+          ($addr['ext_number'] ?? '') . ' ' .
+          ($addr['colony'] ?? '') . ', ' .
+          ($addr['municipality'] ?? '') . ', ' .
+          ($addr['state'] ?? '') . ' CP ' .
+          ($addr['postal_code'] ?? '')
+      );
   }
 
   /** =========================
    * 2) FACTURA (si se timbró)
    * ==========================*/
-  // Estructura esperada: ['id','uuid','series','folio_number', ...]
-  $invoice    = (array) ($invoice ?? session('checkout.invoice', []));
-  $invoiceId  = $invoice['id']           ?? null;
-  $invoiceUUID= $invoice['uuid']         ?? null;
-  $series     = $invoice['series']       ?? null;
-  $folioNum   = $invoice['folio_number'] ?? null;
-  $folioFull  = trim(($series ? $series : '').'-'.($folioNum ? $folioNum : ''), '-');
+  $invoice = (array) ($invoice ?? session('checkout.invoice', []));
+  $invoiceId = $invoice['id'] ?? null;
+  $invoiceUUID = $invoice['uuid'] ?? null;
+  $series = $invoice['series'] ?? null;
+  $folioNum = $invoice['folio_number'] ?? null;
+  $folioFull = trim(($series ? $series : '').'-'.($folioNum ? $folioNum : ''), '-');
 
-  // Fallback a tu modelo Venta (si lo usas)
   $ventaIdFromSession = session('venta_id');
   $venta = null;
+
   if ($ventaIdFromSession) {
       $venta = Venta::query()
         ->where('user_id', auth()->id())
         ->where('id', $ventaIdFromSession)
         ->first();
   }
+
   if (!$venta && auth()->check()) {
       $venta = Venta::query()
         ->where('user_id', auth()->id())
@@ -100,14 +342,15 @@
         ->orderByDesc('id')
         ->first();
   }
-  $facturaPDF  = $venta->factura_pdf_url   ?? null;
-  $facturaXML  = $venta->factura_xml_url   ?? null;
-  $facturaId   = $venta->factura_id        ?? null;
-  $facturaUUID = $venta->factura_uuid      ?? null;
+
+  $facturaPDF = $venta->factura_pdf_url ?? null;
+  $facturaXML = $venta->factura_xml_url ?? null;
+  $facturaId = $venta->factura_id ?? null;
+  $facturaUUID = $venta->factura_uuid ?? null;
 
   $tagFolio = $folioFull ?: ($venta->serie ?? '');
   $tagFolio = trim($tagFolio . (isset($venta->folio) ? '-'.$venta->folio : ''), '-');
-  $tagUUID  = $invoiceUUID ?: $facturaUUID;
+  $tagUUID = $invoiceUUID ?: $facturaUUID;
 @endphp
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -220,6 +463,36 @@
   
   .sx-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
   
+  .sx-ship-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px;
+    margin-top: 10px;
+  }
+
+  .sx-ship-logo {
+    width: 92px;
+    height: 58px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+  }
+
+  .sx-ship-logo img {
+    max-width: 78px;
+    max-height: 38px;
+    object-fit: contain;
+    display: block;
+  }
+
   .sx-pill {
     display: inline-flex; gap: 8px; align-items: center;
     background: var(--card); border: 1px solid var(--line); color: var(--ink);
@@ -265,14 +538,37 @@
         @if(($shipName ?? null) || ($addrTx ?? null))
           <div class="line"></div>
           <h3 style="font-weight:700; margin: 0 0 12px 0; font-size: 1.1rem; color: var(--ink);">Detalles de Envío</h3>
-          <div style="margin-bottom:8px; font-weight: 600; color: var(--ink);">
-            @if($shipName){{ $shipName }}@endif
-            @if($shipSrv) <span class="muted" style="font-weight:500;">— {{ $shipSrv }}</span>@endif
-            @if($shipEta) <span class="muted" style="font-weight:500;">({{ $shipEta }})</span>@endif
+
+          <div class="sx-ship-card">
+            @if($shipLogoUrl)
+              <div class="sx-ship-logo">
+                <img src="{{ $shipLogoUrl }}" alt="{{ $shipName }}" onerror="this.style.display='none'">
+              </div>
+            @endif
+
+            <div style="min-width:0;">
+              <div style="margin-bottom:6px; font-weight: 700; color: var(--ink);">
+                {{ $shipName ?: 'Envío estándar' }}
+                @if($shipSrv)
+                  <span class="muted" style="font-weight:600;">— {{ $shipSrv }}</span>
+                @endif
+              </div>
+
+              @if($shipEta)
+                <div class="muted" style="font-weight:600; margin-bottom:6px;">{{ $shipEta }}</div>
+              @endif
+
+              @if(!empty($addrTx))
+                <div style="line-height: 1.6; color: var(--text);">{{ $addrTx }}</div>
+              @endif
+
+              @if($storePays && $carrierCost > 0)
+                <div class="muted" style="font-size:.85rem; margin-top:8px;">
+                  Costo de paquetería: ${{ number_format($carrierCost, 2) }} MXN cubierto por tienda.
+                </div>
+              @endif
+            </div>
           </div>
-          @if(!empty($addrTx))
-            <div style="line-height: 1.6; color: var(--text);">{{ $addrTx }}</div>
-          @endif
         @endif
 
         {{-- Resumen del pedido --}}
@@ -308,7 +604,14 @@
             @endforeach
           </div>
         @else
-          <p class="muted">No pudimos leer los artículos de esta orden (posiblemente la sesión ya expiró).</p>
+          <div class="sx-item" style="grid-template-columns:1fr;">
+            <div>
+              <div style="font-weight:600; color: var(--ink);">Pedido registrado correctamente</div>
+              <div class="muted" style="font-size: 0.92rem; margin-top: 4px;">
+                No encontramos el detalle de partidas en la sesión, pero tu orden quedó guardada y el total pagado se muestra abajo.
+              </div>
+            </div>
+          </div>
         @endif
 
         {{-- Totales --}}
@@ -318,6 +621,11 @@
           <span>Envío</span>
           <span class="muted">{{ $shipAmount > 0 ? '$'.number_format($shipAmount,2).' MXN' : 'GRATIS' }}</span>
         </div>
+        @if($storePays && $carrierCost > 0)
+          <div class="muted" style="font-size:.85rem; text-align:right; margin-top:-6px;">
+            Paquetería ${{ number_format($carrierCost, 2) }} MXN cubierta por tienda
+          </div>
+        @endif
         <div class="line" style="margin-bottom: 16px;"></div>
         <div class="sum" style="font-size:1.2rem; font-weight: 700; color: var(--ink);">
           <span>Total Pagado</span>

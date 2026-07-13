@@ -3,26 +3,23 @@
 namespace App\Http\Controllers\Logistics;
 
 use App\Http\Controllers\Controller;
+use App\Models\DriverPosition;
 use App\Models\RoutePlan;
 use App\Models\RouteStop;
-use App\Models\DriverPosition;
 use App\Models\User;
 use App\Models\WmsShipment;
-use App\Services\OsrmClient;
 use App\Services\RouteAiAdvisor;
-use App\Services\TrafficService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class RoutePlanController extends Controller
 {
     public function __construct(
-        protected OsrmClient $osrm,
-        protected TrafficService $traffic,
         protected RouteAiAdvisor $advisor,
     ) {
         // $this->middleware('auth');
@@ -31,14 +28,19 @@ class RoutePlanController extends Controller
     /* =========================================================================
      | Permisos
      * ========================================================================= */
+
     private function canUserManage(): bool
     {
-        $u = Auth::user();
-        if (!$u) return false;
+        $user = Auth::user();
 
-        if (class_exists(\Spatie\Permission\Models\Role::class) && method_exists($u, 'hasRole')) {
-            return !$u->hasRole('cliente_web');
+        if (!$user) {
+            return false;
         }
+
+        if (class_exists(\Spatie\Permission\Models\Role::class) && method_exists($user, 'hasRole')) {
+            return !$user->hasRole('cliente_web');
+        }
+
         return true;
     }
 
@@ -49,72 +51,99 @@ class RoutePlanController extends Controller
 
     private function canDrive(RoutePlan $plan): void
     {
-        $u = Auth::user();
-        abort_unless($u, 403);
+        $user = Auth::user();
 
-        if (class_exists(\Spatie\Permission\Models\Role::class) && method_exists($u, 'hasRole')) {
-            $ok = ($u->id === $plan->driver_id) || $this->canUserManage();
+        abort_unless($user, 403);
+
+        if (class_exists(\Spatie\Permission\Models\Role::class) && method_exists($user, 'hasRole')) {
+            $ok = ((int) $user->id === (int) $plan->driver_id) || $this->canUserManage();
             abort_unless($ok, 403);
             return;
         }
 
-        abort_unless($u->id === $plan->driver_id, 403);
+        abort_unless((int) $user->id === (int) $plan->driver_id, 403);
     }
 
-    /* =========================
-     | Helpers coords + dirección
-     * ========================= */
+    /* =========================================================================
+     | Helpers coordenadas
+     * ========================================================================= */
 
-    private function normalizeCoord($v): ?float
+    private function normalizeCoord($value): ?float
     {
-        if ($v === null) return null;
-        if ($v === '') return null;
-
-        if (is_string($v)) {
-            $v = trim($v);
-            $v = str_replace(',', '.', $v);
+        if ($value === null) {
+            return null;
         }
 
-        if (!is_numeric($v)) return null;
+        if ($value === '') {
+            return null;
+        }
 
-        $f = (float) $v;
-        if (!is_finite($f)) return null;
+        if (is_string($value)) {
+            $value = trim($value);
+            $value = str_replace(',', '.', $value);
+        }
 
-        if (abs($f) < 0.0000001) return null;
+        if (!is_numeric($value)) {
+            return null;
+        }
 
-        return $f;
+        $float = (float) $value;
+
+        if (!is_finite($float)) {
+            return null;
+        }
+
+        if (abs($float) < 0.0000001) {
+            return null;
+        }
+
+        return $float;
     }
 
     private function validLatLng(?float $lat, ?float $lng): bool
     {
-        if ($lat === null || $lng === null) return false;
-        if (abs($lat) > 90 || abs($lng) > 180) return false;
-        if (abs($lat) < 0.0000001 && abs($lng) < 0.0000001) return false;
+        if ($lat === null || $lng === null) {
+            return false;
+        }
+
+        if (abs($lat) > 90 || abs($lng) > 180) {
+            return false;
+        }
+
+        if (abs($lat) < 0.0000001 && abs($lng) < 0.0000001) {
+            return false;
+        }
+
         return true;
     }
 
     private function haversineMeters(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
-        $R = 6371000.0;
-        $toRad = fn($d) => $d * M_PI / 180;
+        $earthRadius = 6371000.0;
+        $toRad = fn ($degrees) => $degrees * M_PI / 180;
 
         $dLat = $toRad($lat2 - $lat1);
         $dLng = $toRad($lng2 - $lng1);
 
-        $a = sin($dLat / 2) ** 2 + cos($toRad($lat1)) * cos($toRad($lat2)) * sin($dLng / 2) ** 2;
-        return 2 * $R * asin(sqrt($a));
+        $a = sin($dLat / 2) ** 2
+            + cos($toRad($lat1)) * cos($toRad($lat2)) * sin($dLng / 2) ** 2;
+
+        return 2 * $earthRadius * asin(sqrt($a));
     }
 
-    private function normalizeText(string $s): string
+    private function normalizeText(string $text): string
     {
-        $s = trim($s);
-        if ($s === '') return '';
+        $text = trim($text);
 
-        $s = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s) ?: $s;
-        $s = preg_replace('/\s+/', ' ', $s);
-        $s = trim($s);
+        if ($text === '') {
+            return '';
+        }
 
-        return $s;
+        $converted = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text);
+        $text = $converted ?: $text;
+        $text = preg_replace('/\s+/', ' ', $text);
+
+        return trim($text);
     }
 
     private function dedupeParts(array $parts): array
@@ -122,259 +151,495 @@ class RoutePlanController extends Controller
         $out = [];
         $seen = [];
 
-        foreach ($parts as $p) {
-            $p = trim((string)$p);
-            if ($p === '') continue;
+        foreach ($parts as $part) {
+            $part = trim((string) $part);
 
-            $key = mb_strtolower($this->normalizeText($p));
-            if (isset($seen[$key])) continue;
+            if ($part === '') {
+                continue;
+            }
+
+            $key = mb_strtolower($this->normalizeText($part));
+
+            if (isset($seen[$key])) {
+                continue;
+            }
 
             $seen[$key] = true;
-            $out[] = $p;
+            $out[] = $part;
         }
+
         return $out;
     }
 
-    private function buildAddressFromStop(array $s): string
+    private function coordString(float $lat, float $lng): string
     {
-        $address = trim((string)($s['address'] ?? ''));
-        if ($address !== '') return $this->ensureMexicoHint($address);
+        return $lat . ',' . $lng;
+    }
 
-        $parts = [];
-        foreach (['calle', 'colonia', 'ciudad', 'estado', 'cp'] as $k) {
-            $v = trim((string)($s[$k] ?? ''));
-            if ($v !== '') $parts[] = $v;
+    private function ensureMexicoHint(string $address): string
+    {
+        $address = trim($address);
+
+        if ($address === '') {
+            return '';
         }
 
-        $parts = $this->dedupeParts($parts);
-        $addr = trim(implode(', ', $parts));
-        return $this->ensureMexicoHint($addr);
+        if (
+            stripos($address, 'mexico') === false &&
+            stripos($address, 'méxico') === false &&
+            stripos($address, 'mx') === false
+        ) {
+            $address .= ', México';
+        }
+
+        return $address;
     }
 
-    private function ensureMexicoHint(string $addr): string
+    private function buildAddressFromStop(array $stop): string
     {
-        $addr = trim($addr);
-        if ($addr === '') return '';
-        if (stripos($addr, 'mex') === false) $addr .= ', México';
-        return $addr;
+        $address = trim((string) ($stop['address'] ?? ''));
+
+        if ($address !== '') {
+            return $this->ensureMexicoHint($address);
+        }
+
+        $parts = [];
+
+        foreach (['calle', 'colonia', 'ciudad', 'estado', 'cp'] as $key) {
+            $value = trim((string) ($stop[$key] ?? ''));
+
+            if ($value !== '') {
+                $parts[] = $value;
+            }
+        }
+
+        $address = trim(implode(', ', $this->dedupeParts($parts)));
+
+        return $this->ensureMexicoHint($address);
     }
 
-    private function httpNominatim()
+    /* =========================================================================
+     | Google Maps helpers
+     * ========================================================================= */
+
+    private function googleServerKey(): ?string
     {
-        return Http::timeout(12)
-            ->withHeaders([
-                'Accept' => 'application/json',
-                'User-Agent' => (config('app.name', 'Laravel') ?: 'Laravel') . ' routes-geocoder/1.0',
-                'Referer'    => config('app.url') ?: 'http://localhost',
+        $key = config('services.google_maps.server_key')
+            ?: config('services.google_maps.browser_key')
+            ?: env('GOOGLE_MAPS_SERVER_KEY')
+            ?: env('GOOGLE_MAPS_BROWSER_KEY');
+
+        $key = trim((string) $key);
+
+        return $key !== '' ? $key : null;
+    }
+
+    private function googleHttp()
+    {
+        return Http::timeout(25)
+            ->connectTimeout(8)
+            ->acceptJson();
+    }
+
+    private function googleGeocode(string $address): array
+    {
+        $key = $this->googleServerKey();
+
+        if (!$key) {
+            Log::error('google.geocode.missing_key');
+            return [null, null, null];
+        }
+
+        $address = $this->ensureMexicoHint($address);
+
+        if ($address === '') {
+            return [null, null, null];
+        }
+
+        try {
+            $response = $this->googleHttp()->get('https://maps.googleapis.com/maps/api/geocode/json', [
+                'address' => $address,
+                'region' => 'mx',
+                'language' => 'es-419',
+                'key' => $key,
             ]);
+
+            if (!$response->ok()) {
+                Log::warning('google.geocode.http_failed', [
+                    'status' => $response->status(),
+                    'body' => Str::limit($response->body(), 500),
+                ]);
+
+                return [null, null, null];
+            }
+
+            $json = $response->json();
+
+            if (($json['status'] ?? null) !== 'OK' || empty($json['results'][0]['geometry']['location'])) {
+                Log::warning('google.geocode.invalid_response', [
+                    'status' => $json['status'] ?? null,
+                    'error_message' => $json['error_message'] ?? null,
+                    'address' => $address,
+                ]);
+
+                return [null, null, null];
+            }
+
+            $location = $json['results'][0]['geometry']['location'];
+            $lat = isset($location['lat']) ? (float) $location['lat'] : null;
+            $lng = isset($location['lng']) ? (float) $location['lng'] : null;
+
+            if (!$this->validLatLng($lat, $lng)) {
+                return [null, null, null];
+            }
+
+            return [
+                $lat,
+                $lng,
+                $json['results'][0]['formatted_address'] ?? $address,
+            ];
+        } catch (\Throwable $e) {
+            Log::error('google.geocode.exception', [
+                'address' => $address,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [null, null, null];
+        }
     }
+
+    private function googleDirections(array $coords, bool $optimizeWaypoints = false, bool $steps = true): array
+    {
+        $key = $this->googleServerKey();
+
+        if (!$key) {
+            return [
+                'ok' => false,
+                'status' => 'MISSING_KEY',
+                'message' => 'Falta GOOGLE_MAPS_SERVER_KEY o GOOGLE_MAPS_BROWSER_KEY.',
+            ];
+        }
+
+        $coords = collect($coords)
+            ->map(function ($coord) {
+                $lat = $this->normalizeCoord($coord['lat'] ?? null);
+                $lng = $this->normalizeCoord($coord['lng'] ?? null);
+
+                if (!$this->validLatLng($lat, $lng)) {
+                    return null;
+                }
+
+                return [
+                    'lat' => (float) $lat,
+                    'lng' => (float) $lng,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        if (count($coords) < 2) {
+            return [
+                'ok' => false,
+                'status' => 'NOT_ENOUGH_COORDS',
+                'message' => 'Google Directions necesita mínimo origen y destino.',
+                'coords_count' => count($coords),
+            ];
+        }
+
+        $origin = $coords[0];
+        $destination = $coords[count($coords) - 1];
+
+        $waypoints = array_slice($coords, 1, max(0, count($coords) - 2));
+
+        $params = [
+            'origin' => $this->coordString($origin['lat'], $origin['lng']),
+            'destination' => $this->coordString($destination['lat'], $destination['lng']),
+            'mode' => 'driving',
+            'language' => 'es-419',
+            'region' => 'mx',
+            'units' => 'metric',
+            'departure_time' => 'now',
+            'traffic_model' => 'best_guess',
+            'alternatives' => 'false',
+            'key' => $key,
+        ];
+
+        if (!empty($waypoints)) {
+            $waypointStrings = collect($waypoints)
+                ->map(fn ($point) => $this->coordString($point['lat'], $point['lng']))
+                ->values()
+                ->all();
+
+            $params['waypoints'] = ($optimizeWaypoints ? 'optimize:true|' : '') . implode('|', $waypointStrings);
+        }
+
+        try {
+            $response = $this->googleHttp()->get('https://maps.googleapis.com/maps/api/directions/json', $params);
+
+            if (!$response->ok()) {
+                return [
+                    'ok' => false,
+                    'status' => 'HTTP_' . $response->status(),
+                    'message' => 'Google Directions no respondió correctamente.',
+                    'body' => Str::limit($response->body(), 1000),
+                ];
+            }
+
+            $json = $response->json();
+
+            if (($json['status'] ?? null) !== 'OK' || empty($json['routes'][0])) {
+                return [
+                    'ok' => false,
+                    'status' => $json['status'] ?? 'UNKNOWN',
+                    'message' => $json['error_message'] ?? 'Google Directions no devolvió ruta válida.',
+                    'response' => $json,
+                ];
+            }
+
+            return [
+                'ok' => true,
+                'status' => 'OK',
+                'response' => $json,
+                'route' => $json['routes'][0],
+                'coords' => $coords,
+                'waypoints' => $waypoints,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'ok' => false,
+                'status' => 'EXCEPTION',
+                'message' => $e->getMessage(),
+            ];
+        }
+    }
+
+    private function formatStepsFromGoogle(array $googleRoute): array
+    {
+        $out = [];
+
+        foreach (($googleRoute['legs'] ?? []) as $leg) {
+            foreach (($leg['steps'] ?? []) as $step) {
+                $html = (string) ($step['html_instructions'] ?? '');
+                $instruction = trim(strip_tags(str_replace(['<div', '</div>'], ['. <div', '</div>'], $html)));
+                $instruction = preg_replace('/\s+/', ' ', $instruction);
+
+                $out[] = [
+                    'instruction' => $instruction !== '' ? $instruction : 'Continúa',
+                    'name' => '',
+                    'distance' => (int) ($step['distance']['value'] ?? 0),
+                    'duration' => (int) ($step['duration']['value'] ?? 0),
+                    'polyline' => $step['polyline']['points'] ?? null,
+                    'start' => [
+                        'lat' => $step['start_location']['lat'] ?? null,
+                        'lng' => $step['start_location']['lng'] ?? null,
+                    ],
+                    'end' => [
+                        'lat' => $step['end_location']['lat'] ?? null,
+                        'lng' => $step['end_location']['lng'] ?? null,
+                    ],
+                ];
+            }
+        }
+
+        return $out;
+    }
+
+    private function googleLegsPayload(array $googleRoute): array
+    {
+        $legs = [];
+
+        foreach (($googleRoute['legs'] ?? []) as $leg) {
+            $duration = (int) ($leg['duration']['value'] ?? 0);
+            $durationTraffic = (int) ($leg['duration_in_traffic']['value'] ?? $duration);
+
+            $legs[] = [
+                'from' => [
+                    'lat' => $leg['start_location']['lat'] ?? null,
+                    'lng' => $leg['start_location']['lng'] ?? null,
+                ],
+                'to' => [
+                    'lat' => $leg['end_location']['lat'] ?? null,
+                    'lng' => $leg['end_location']['lng'] ?? null,
+                ],
+                'distance' => (int) ($leg['distance']['value'] ?? 0),
+                'duration' => $duration,
+                'adj_duration' => $durationTraffic,
+                'start_address' => $leg['start_address'] ?? null,
+                'end_address' => $leg['end_address'] ?? null,
+            ];
+        }
+
+        return $legs;
+    }
+
+    private function googleRoutePayload(array $googleRoute, float $startLat, float $startLng): array
+    {
+        $legs = $this->googleLegsPayload($googleRoute);
+
+        $totalDistance = (int) collect($legs)->sum('distance');
+        $totalDuration = (int) collect($legs)->sum(fn ($leg) => (int) ($leg['adj_duration'] ?? $leg['duration'] ?? 0));
+
+        return [
+            'label' => 'ruta_principal',
+            'provider' => 'google_maps',
+            'polyline' => $googleRoute['overview_polyline']['points'] ?? null,
+            'geometry' => null,
+            'bounds' => $googleRoute['bounds'] ?? null,
+            'legs' => $legs,
+            'total_sec' => $totalDuration,
+            'total_m' => $totalDistance,
+            'steps' => $this->formatStepsFromGoogle($googleRoute),
+            'roundtrip' => true,
+            'start' => [
+                'lat' => (float) $startLat,
+                'lng' => (float) $startLng,
+            ],
+        ];
+    }
+
+    /* =========================================================================
+     | Geocoding de paradas / proveedores
+     * ========================================================================= */
 
     private function geocodeMx(string $address, array $parts = []): array
     {
         $address = trim($address);
 
-        $calle  = trim((string)($parts['calle'] ?? ''));
-        $col    = trim((string)($parts['colonia'] ?? ''));
-        $ciudad = trim((string)($parts['ciudad'] ?? ''));
-        $estado = trim((string)($parts['estado'] ?? ''));
-        $cp     = trim((string)($parts['cp'] ?? ''));
+        if ($address !== '') {
+            return $this->googleGeocode($address);
+        }
 
-        if ($address === '' && $calle === '' && $ciudad === '' && $estado === '' && $cp === '') {
+        $calle = trim((string) ($parts['calle'] ?? ''));
+        $colonia = trim((string) ($parts['colonia'] ?? ''));
+        $ciudad = trim((string) ($parts['ciudad'] ?? ''));
+        $estado = trim((string) ($parts['estado'] ?? ''));
+        $cp = trim((string) ($parts['cp'] ?? ''));
+
+        $fallback = $this->ensureMexicoHint(
+            implode(', ', $this->dedupeParts([$calle, $colonia, $ciudad, $estado, $cp]))
+        );
+
+        if ($fallback === '') {
             return [null, null, null];
         }
 
-        try {
-            $street = trim(implode(', ', $this->dedupeParts([$calle, $col])));
-            $street = $this->normalizeText($street);
-            $city   = $this->normalizeText($ciudad);
-            $state  = $this->normalizeText($estado);
-            $zip    = $this->normalizeText($cp);
-
-            if ($street !== '' || $city !== '' || $state !== '' || $zip !== '') {
-                $res = $this->httpNominatim()->get('https://nominatim.openstreetmap.org/search', array_filter([
-                    'format'          => 'jsonv2',
-                    'limit'           => 1,
-                    'accept-language' => 'es',
-                    'countrycodes'    => 'mx',
-                    'addressdetails'  => 1,
-                    'street'      => $street !== '' ? $street : null,
-                    'city'        => $city   !== '' ? $city   : null,
-                    'state'       => $state  !== '' ? $state  : null,
-                    'postalcode'  => $zip    !== '' ? $zip    : null,
-                    'country'     => 'Mexico',
-                ], fn($v) => !is_null($v) && $v !== ''));
-
-                if ($res->ok()) {
-                    $j = $res->json();
-                    if (is_array($j) && !empty($j[0])) {
-                        $lat = isset($j[0]['lat']) ? (float)$j[0]['lat'] : null;
-                        $lng = isset($j[0]['lon']) ? (float)$j[0]['lon'] : null;
-                        if ($this->validLatLng($lat, $lng)) {
-                            return [$lat, $lng, (string)($j[0]['display_name'] ?? null)];
-                        }
-                    }
-                }
-            }
-        } catch (\Throwable $e) {
-            Log::warning('geocodeMx structured exception', ['error'=>$e->getMessage()]);
-        }
-
-        $q = $address !== '' ? $this->ensureMexicoHint($address) : '';
-        $q = $this->normalizeText($q);
-
-        if ($q === '' && ($calle || $col || $ciudad || $estado || $cp)) {
-            $q = $this->normalizeText($this->ensureMexicoHint(
-                implode(', ', $this->dedupeParts([$calle, $col, $ciudad, $estado, $cp]))
-            ));
-        }
-
-        $tryQ = function(string $qq){
-            $qq = trim($qq);
-            if ($qq === '') return [null,null,null];
-
-            $res = $this->httpNominatim()->get('https://nominatim.openstreetmap.org/search', [
-                'format' => 'jsonv2',
-                'limit'  => 1,
-                'accept-language' => 'es',
-                'countrycodes'    => 'mx',
-                'addressdetails'  => 1,
-                'q' => $qq,
-            ]);
-
-            if (!$res->ok()) return [null,null,null];
-
-            $j = $res->json();
-            if (!is_array($j) || empty($j[0])) return [null,null,null];
-
-            $lat = isset($j[0]['lat']) ? (float)$j[0]['lat'] : null;
-            $lng = isset($j[0]['lon']) ? (float)$j[0]['lon'] : null;
-
-            if (!$this->validLatLng($lat, $lng)) return [null,null,null];
-
-            return [$lat, $lng, (string)($j[0]['display_name'] ?? null)];
-        };
-
-        if ($q !== '') {
-            [$lat, $lng, $dn] = $tryQ($q);
-            if ($this->validLatLng($lat, $lng)) return [$lat, $lng, $dn];
-        }
-
-        $q2 = $this->normalizeText($this->ensureMexicoHint(
-            implode(', ', $this->dedupeParts(array_filter([$cp, $ciudad, $estado], fn($x)=>trim((string)$x) !== '')))
-        ));
-        if ($q2 !== '' && $q2 !== $q) {
-            [$lat, $lng, $dn] = $tryQ($q2);
-            if ($this->validLatLng($lat, $lng)) return [$lat, $lng, $dn];
-        }
-
-        $q3 = $this->normalizeText($this->ensureMexicoHint(
-            implode(', ', $this->dedupeParts(array_filter([$calle, $ciudad, $estado, $cp], fn($x)=>trim((string)$x) !== '')))
-        ));
-        if ($q3 !== '' && $q3 !== $q2) {
-            [$lat, $lng, $dn] = $tryQ($q3);
-            if ($this->validLatLng($lat, $lng)) return [$lat, $lng, $dn];
-        }
-
-        return [null, null, null];
+        return $this->googleGeocode($fallback);
     }
 
-    private function resolveStopLatLng(array $s): array
+    private function resolveStopLatLng(array $stop): array
     {
-        $lat = $this->normalizeCoord($s['lat'] ?? null);
-        $lng = $this->normalizeCoord($s['lng'] ?? null);
+        $lat = $this->normalizeCoord($stop['lat'] ?? null);
+        $lng = $this->normalizeCoord($stop['lng'] ?? null);
 
         if ($this->validLatLng($lat, $lng)) {
             return [$lat, $lng, null, null];
         }
 
-        $providerId = isset($s['provider_id']) && is_numeric($s['provider_id']) ? (int)$s['provider_id'] : null;
+        $providerId = isset($stop['provider_id']) && is_numeric($stop['provider_id'])
+            ? (int) $stop['provider_id']
+            : null;
+
         $providerAddress = null;
         $providerParts = [];
 
         if ($providerId && Schema::hasTable('providers')) {
-            $prov = DB::table('providers')->where('id', $providerId)->first();
-            if ($prov) {
-                $pLat = $this->normalizeCoord($prov->lat ?? null);
-                $pLng = $this->normalizeCoord($prov->lng ?? null);
+            $provider = DB::table('providers')->where('id', $providerId)->first();
 
-                if ($this->validLatLng($pLat, $pLng)) {
-                    return [$pLat, $pLng, null, $providerId];
+            if ($provider) {
+                $providerLat = $this->normalizeCoord($provider->lat ?? null);
+                $providerLng = $this->normalizeCoord($provider->lng ?? null);
+
+                if ($this->validLatLng($providerLat, $providerLng)) {
+                    return [$providerLat, $providerLng, null, $providerId];
                 }
 
                 $providerParts = [
-                    'calle'   => $prov->calle ?? null,
-                    'colonia' => $prov->colonia ?? null,
-                    'ciudad'  => $prov->ciudad ?? null,
-                    'estado'  => $prov->estado ?? null,
-                    'cp'      => $prov->cp ?? null,
+                    'calle' => $provider->calle ?? null,
+                    'colonia' => $provider->colonia ?? null,
+                    'ciudad' => $provider->ciudad ?? null,
+                    'estado' => $provider->estado ?? null,
+                    'cp' => $provider->cp ?? null,
                 ];
 
                 $providerAddress = $this->ensureMexicoHint(
-                    implode(', ', $this->dedupeParts(array_filter([
-                        $prov->calle ?? null,
-                        $prov->colonia ?? null,
-                        $prov->ciudad ?? null,
-                        $prov->estado ?? null,
-                        $prov->cp ?? null,
-                    ], fn($x)=> trim((string)$x) !== '')))
+                    implode(', ', $this->dedupeParts([
+                        $provider->calle ?? null,
+                        $provider->colonia ?? null,
+                        $provider->ciudad ?? null,
+                        $provider->estado ?? null,
+                        $provider->cp ?? null,
+                    ]))
                 );
             }
         }
 
-        $addr = $this->buildAddressFromStop($s);
+        $address = $this->buildAddressFromStop($stop);
 
-        if ($addr !== '') {
-            [$gLat, $gLng] = $this->geocodeMx($addr, [
-                'calle'   => $s['calle'] ?? null,
-                'colonia' => $s['colonia'] ?? null,
-                'ciudad'  => $s['ciudad'] ?? null,
-                'estado'  => $s['estado'] ?? null,
-                'cp'      => $s['cp'] ?? null,
+        if ($address !== '') {
+            [$geoLat, $geoLng] = $this->geocodeMx($address, [
+                'calle' => $stop['calle'] ?? null,
+                'colonia' => $stop['colonia'] ?? null,
+                'ciudad' => $stop['ciudad'] ?? null,
+                'estado' => $stop['estado'] ?? null,
+                'cp' => $stop['cp'] ?? null,
             ]);
-            if ($this->validLatLng($gLat, $gLng)) {
-                return [$gLat, $gLng, $addr, $providerId];
+
+            if ($this->validLatLng($geoLat, $geoLng)) {
+                return [$geoLat, $geoLng, $address, $providerId];
             }
         }
 
         if ($providerAddress) {
-            [$gLat, $gLng] = $this->geocodeMx($providerAddress, $providerParts);
-            if ($this->validLatLng($gLat, $gLng)) {
-                return [$gLat, $gLng, $providerAddress, $providerId];
+            [$geoLat, $geoLng] = $this->geocodeMx($providerAddress, $providerParts);
+
+            if ($this->validLatLng($geoLat, $geoLng)) {
+                return [$geoLat, $geoLng, $providerAddress, $providerId];
             }
         }
 
-        return [null, null, $addr ?: $providerAddress, $providerId];
+        return [null, null, $address ?: $providerAddress, $providerId];
     }
 
-    /* =========================
-     | Presence helpers (online/offline)
-     * ========================= */
+    /* =========================================================================
+     | Presence / ubicación chofer
+     * ========================================================================= */
 
     private function presenceConfig(): array
     {
         return [
             'online_seconds' => 120,
-            'warn_seconds'   => 45,
+            'warn_seconds' => 45,
         ];
     }
 
-    private function lastSeenAt(?DriverPosition $last): ?\Illuminate\Support\Carbon
+    private function lastSeenAt(?DriverPosition $position): ?\Illuminate\Support\Carbon
     {
-        if (!$last) return null;
+        if (!$position) {
+            return null;
+        }
 
-        if (!empty($last->received_at)) return \Illuminate\Support\Carbon::parse($last->received_at);
-        if (!empty($last->created_at))  return \Illuminate\Support\Carbon::parse($last->created_at);
-        if (!empty($last->captured_at)) return \Illuminate\Support\Carbon::parse($last->captured_at);
+        if (!empty($position->received_at)) {
+            return \Illuminate\Support\Carbon::parse($position->received_at);
+        }
+
+        if (!empty($position->captured_at)) {
+            return \Illuminate\Support\Carbon::parse($position->captured_at);
+        }
+
+        if (!empty($position->created_at)) {
+            return \Illuminate\Support\Carbon::parse($position->created_at);
+        }
 
         return null;
     }
 
-    private function presencePayload(?DriverPosition $last): array
+    private function presencePayload(?DriverPosition $position): array
     {
-        $cfg = $this->presenceConfig();
-        $seen = $this->lastSeenAt($last);
+        $config = $this->presenceConfig();
+        $seenAt = $this->lastSeenAt($position);
 
-        if (!$seen) {
+        if (!$seenAt) {
             return [
                 'state' => 'offline',
                 'last_seen_at' => null,
@@ -384,60 +649,103 @@ class RoutePlanController extends Controller
             ];
         }
 
-        $age = now()->diffInSeconds($seen);
-        $online = $age <= $cfg['online_seconds'];
+        $age = now()->diffInSeconds($seenAt);
+        $online = $age <= $config['online_seconds'];
 
         return [
             'state' => $online ? 'online' : 'offline',
-            'last_seen_at' => $seen->toIso8601String(),
+            'last_seen_at' => $seenAt->toIso8601String(),
             'stale_seconds' => $age,
-            'warn' => $age >= $cfg['warn_seconds'],
-            'disconnected_at' => $online ? null : $seen->toIso8601String(),
+            'warn' => $age >= $config['warn_seconds'],
+            'disconnected_at' => $online ? null : $seenAt->toIso8601String(),
         ];
     }
 
-    private function positionPayload(?DriverPosition $last): ?array
+    private function positionPayload(?DriverPosition $position): ?array
     {
-        if (!$last) return null;
+        if (!$position) {
+            return null;
+        }
 
-        $lat = $last->lat !== null ? (float)$last->lat : null;
-        $lng = $last->lng !== null ? (float)$last->lng : null;
-        if ($lat === null || $lng === null) return null;
+        $lat = $position->lat !== null ? (float) $position->lat : null;
+        $lng = $position->lng !== null ? (float) $position->lng : null;
+
+        if (!$this->validLatLng($lat, $lng)) {
+            return null;
+        }
 
         return [
+            'id' => $position->id,
+            'user_id' => $position->user_id,
+
             'lat' => $lat,
             'lng' => $lng,
 
-            'snap_lat' => $last->snap_lat !== null ? (float)$last->snap_lat : null,
-            'snap_lng' => $last->snap_lng !== null ? (float)$last->snap_lng : null,
-            'snap_distance_m' => $last->snap_distance_m ?? null,
+            'snap_lat' => $position->snap_lat !== null ? (float) $position->snap_lat : null,
+            'snap_lng' => $position->snap_lng !== null ? (float) $position->snap_lng : null,
+            'snap_distance_m' => $position->snap_distance_m ?? null,
 
-            'accuracy' => $last->accuracy,
-            'speed' => $last->speed,
-            'heading' => $last->heading,
+            'accuracy' => $position->accuracy,
+            'speed' => $position->speed,
+            'heading' => $position->heading,
 
-            'captured_at' => optional($last->captured_at)->toIso8601String(),
-            'received_at' => $this->lastSeenAt($last)?->toIso8601String(),
+            'captured_at' => optional($position->captured_at)->toIso8601String(),
+            'received_at' => optional($position->received_at)->toIso8601String(),
+            'seen_at' => $this->lastSeenAt($position)?->toIso8601String(),
 
-            'app_state' => $last->app_state ?? null,
-            'battery'   => $last->battery ?? null,
-            'network'   => $last->network ?? null,
-            'is_mocked' => $last->is_mocked ?? null,
+            'app_state' => $position->app_state ?? null,
+            'battery' => $position->battery ?? null,
+            'network' => $position->network ?? null,
+            'is_mocked' => $position->is_mocked ?? null,
         ];
     }
 
-    /* =========================
+    private function resolveLocationTargetUserId(Request $request): int
+    {
+        $authUser = Auth::user();
+
+        abort_unless($authUser, 401);
+
+        $targetUserId = (int) $authUser->id;
+        $routePlanId = $request->input('route_plan_id') ?: $request->query('route_plan_id');
+
+        if ($routePlanId) {
+            $routePlan = RoutePlan::query()->find($routePlanId);
+
+            if ($routePlan && $routePlan->driver_id) {
+                $targetUserId = (int) $routePlan->driver_id;
+            }
+        }
+
+        return $targetUserId;
+    }
+
+    private function latestDriverPosition(?int $driverId): ?DriverPosition
+    {
+        if (!$driverId) {
+            return null;
+        }
+
+        return DriverPosition::where('user_id', $driverId)
+            ->orderByRaw('COALESCE(received_at, captured_at, created_at) DESC')
+            ->first();
+    }
+
+    /* =========================================================================
      | Helpers WMS / Shipment
-     * ========================= */
+     * ========================================================================= */
 
     private function userPhoneValue(?User $user): ?string
     {
-        if (!$user) return null;
+        if (!$user) {
+            return null;
+        }
 
         $attrs = $user->getAttributes();
 
         foreach (['phone', 'telefono', 'phone_number', 'mobile', 'cellphone', 'whatsapp_phone'] as $field) {
             $value = trim((string) ($attrs[$field] ?? ''));
+
             if ($value !== '') {
                 return $value;
             }
@@ -481,9 +789,9 @@ class RoutePlanController extends Controller
         return null;
     }
 
-    /* ===========================
-     | CRUD / Panel de logística
-     * =========================== */
+    /* =========================================================================
+     | CRUD / Panel logística
+     * ========================================================================= */
 
     public function index()
     {
@@ -492,7 +800,7 @@ class RoutePlanController extends Controller
         $plans = RoutePlan::with('driver')
             ->withCount([
                 'stops',
-                'stops as done_stops_count' => fn($q) => $q->where('status', 'done'),
+                'stops as done_stops_count' => fn ($query) => $query->where('status', 'done'),
             ])
             ->latest()
             ->paginate(20);
@@ -504,13 +812,14 @@ class RoutePlanController extends Controller
     {
         $this->canManage();
 
-        $orderCol = Schema::hasColumn('users', 'name') ? 'name'
+        $orderCol = Schema::hasColumn('users', 'name')
+            ? 'name'
             : (Schema::hasColumn('users', 'email') ? 'email' : 'id');
 
-        $drivers = \App\Models\User::query()
+        $drivers = User::query()
             ->when(
                 class_exists(\Spatie\Permission\Models\Role::class),
-                fn($q) => $q->whereDoesntHave('roles', fn($r) => $r->where('name', 'cliente_web'))
+                fn ($query) => $query->whereDoesntHave('roles', fn ($role) => $role->where('name', 'cliente_web'))
             )
             ->orderBy($orderCol)
             ->get();
@@ -523,14 +832,11 @@ class RoutePlanController extends Controller
             $latCols = ['lat', 'latitude', 'latitud', 'latitud_gps'];
             $lngCols = ['lng', 'lon', 'long', 'longitude', 'longitud', 'longitud_gps'];
 
-            $pLat = collect($latCols)->first(fn($c) => in_array($c, $cols, true));
-            $pLng = collect($lngCols)->first(fn($c) => in_array($c, $cols, true));
+            $pLat = collect($latCols)->first(fn ($col) => in_array($col, $cols, true));
+            $pLng = collect($lngCols)->first(fn ($col) => in_array($col, $cols, true));
 
             $select = ['id'];
 
-            // Campos reales de tu tabla providers:
-            // empresa = nombre de la empresa
-            // nombre  = contacto / asesor
             $select[] = in_array('empresa', $cols, true)
                 ? DB::raw("`empresa` as `empresa`")
                 : DB::raw("NULL as `empresa`");
@@ -539,19 +845,20 @@ class RoutePlanController extends Controller
                 ? DB::raw("`nombre` as `nombre`")
                 : DB::raw("NULL as `nombre`");
 
-            foreach (['email', 'telefono', 'rfc', 'tipo_persona', 'calle', 'colonia', 'ciudad', 'estado', 'cp'] as $c) {
-                $select[] = in_array($c, $cols, true)
-                    ? DB::raw("`{$c}` as `{$c}`")
-                    : DB::raw("NULL as `{$c}`");
+            foreach (['email', 'telefono', 'rfc', 'tipo_persona', 'calle', 'colonia', 'ciudad', 'estado', 'cp'] as $col) {
+                $select[] = in_array($col, $cols, true)
+                    ? DB::raw("`{$col}` as `{$col}`")
+                    : DB::raw("NULL as `{$col}`");
             }
 
             $select[] = $pLat ? DB::raw("NULLIF(`{$pLat}`, 0) as `lat`") : DB::raw("NULL as `lat`");
             $select[] = $pLng ? DB::raw("NULLIF(`{$pLng}`, 0) as `lng`") : DB::raw("NULL as `lng`");
 
             $addrParts = [];
-            foreach (['calle', 'colonia', 'ciudad', 'estado', 'cp'] as $c) {
-                if (in_array($c, $cols, true)) {
-                    $addrParts[] = "NULLIF(TRIM(`{$c}`),'')";
+
+            foreach (['calle', 'colonia', 'ciudad', 'estado', 'cp'] as $col) {
+                if (in_array($col, $cols, true)) {
+                    $addrParts[] = "NULLIF(TRIM(`{$col}`),'')";
                 }
             }
 
@@ -559,90 +866,95 @@ class RoutePlanController extends Controller
                 ? DB::raw("CONCAT_WS(', ', " . implode(', ', $addrParts) . ") as `address`")
                 : DB::raw("'' as `address`");
 
-            $q = DB::table('providers')->select($select);
+            $query = DB::table('providers')->select($select);
 
             if (in_array('estatus', $cols, true)) {
-                $q->where(function ($w) {
-                    $w->where('estatus', 1)
-                      ->orWhere('estatus', '1')
-                      ->orWhere('estatus', true);
+                $query->where(function ($where) {
+                    $where->where('estatus', 1)
+                        ->orWhere('estatus', '1')
+                        ->orWhere('estatus', true);
                 });
             }
 
-            // No filtramos solo por coordenadas: deben aparecer todos los proveedores
-            // como APSA aunque todavía no tengan lat/lng. Si no tienen coordenadas,
-            // el Blade los geocodifica usando calle/colonia/ciudad/estado/cp.
             if ($pLat && $pLng) {
-                $q->orderByRaw("(NULLIF(`{$pLat}`,0) is not null and NULLIF(`{$pLng}`,0) is not null) desc");
+                $query->orderByRaw("(NULLIF(`{$pLat}`,0) is not null and NULLIF(`{$pLng}`,0) is not null) desc");
             }
 
-            $q->orderByRaw("COALESCE(NULLIF(TRIM(`empresa`), ''), NULLIF(TRIM(`nombre`), ''), CONCAT('Proveedor #', id)) ASC");
+            $query->orderByRaw("COALESCE(NULLIF(TRIM(`empresa`), ''), NULLIF(TRIM(`nombre`), ''), CONCAT('Proveedor #', id)) ASC");
 
-            $providers = $q->get();
+            $providers = $query->get();
         }
 
         return view('logistics.routes.create', compact('drivers', 'providers'));
     }
 
-    public function store(Request $r)
+    public function store(Request $request)
     {
         $this->canManage();
 
-        $stopsInput = $r->input('stops');
+        $stopsInput = $request->input('stops');
+
         if (is_string($stopsInput)) {
             $decoded = json_decode($stopsInput, true);
+
             if (json_last_error() === JSON_ERROR_NONE) {
-                $r->merge(['stops' => $decoded]);
+                $request->merge(['stops' => $decoded]);
             }
         }
 
-        $data = $r->validate([
-            'driver_id'            => ['required', 'exists:users,id'],
-            'name'                 => ['nullable', 'string', 'max:180'],
-            'shipment_id'          => ['nullable', 'integer'],
-            'back_url'             => ['nullable', 'string', 'max:2000'],
+        $data = $request->validate([
+            'driver_id' => ['required', 'exists:users,id'],
+            'name' => ['nullable', 'string', 'max:180'],
+            'shipment_id' => ['nullable', 'integer'],
+            'back_url' => ['nullable', 'string', 'max:2000'],
 
-            'stops'                => ['required', 'array', 'min:1'],
-            'stops.*.name'         => ['nullable', 'string', 'max:180'],
+            'stops' => ['required', 'array', 'min:1'],
+            'stops.*.name' => ['nullable', 'string', 'max:180'],
+            'stops.*.provider_id' => ['nullable'],
 
-            'stops.*.provider_id'  => ['nullable'],
+            'stops.*.address' => ['nullable', 'string', 'max:700'],
+            'stops.*.calle' => ['nullable', 'string', 'max:250'],
+            'stops.*.colonia' => ['nullable', 'string', 'max:250'],
+            'stops.*.ciudad' => ['nullable', 'string', 'max:250'],
+            'stops.*.estado' => ['nullable', 'string', 'max:250'],
+            'stops.*.cp' => ['nullable', 'string', 'max:20'],
 
-            'stops.*.address'      => ['nullable', 'string', 'max:700'],
-            'stops.*.calle'        => ['nullable', 'string', 'max:250'],
-            'stops.*.colonia'      => ['nullable', 'string', 'max:250'],
-            'stops.*.ciudad'       => ['nullable', 'string', 'max:250'],
-            'stops.*.estado'       => ['nullable', 'string', 'max:250'],
-            'stops.*.cp'           => ['nullable', 'string', 'max:20'],
-
-            'stops.*.lat'          => ['nullable'],
-            'stops.*.lng'          => ['nullable'],
+            'stops.*.lat' => ['nullable'],
+            'stops.*.lng' => ['nullable'],
         ]);
 
         $resolvedStops = [];
         $errors = [];
 
-        foreach ($data['stops'] as $i => $s) {
-            [$lat, $lng, $addrUsed, $providerIdUsed] = $this->resolveStopLatLng($s);
+        foreach ($data['stops'] as $index => $stop) {
+            [$lat, $lng, $addressUsed, $providerIdUsed] = $this->resolveStopLatLng($stop);
 
             if (!$this->validLatLng($lat, $lng)) {
-                $name = trim((string)($s['name'] ?? ''));
-                $who  = $name ?: ($addrUsed ?: 'sin nombre');
-                $errors[] = "No se pudo obtener coordenadas para el punto #".($i+1)." ({$who}).";
-                Log::warning('store() stop without coords', ['i'=>$i+1, 'stop'=>$s, 'addr_used'=>$addrUsed]);
+                $name = trim((string) ($stop['name'] ?? ''));
+                $label = $name ?: ($addressUsed ?: 'sin nombre');
+
+                $errors[] = 'No se pudo obtener coordenadas para el punto #' . ($index + 1) . " ({$label}).";
+
+                Log::warning('routes.store.stop_without_coords', [
+                    'index' => $index + 1,
+                    'stop' => $stop,
+                    'address_used' => $addressUsed,
+                ]);
+
                 continue;
             }
 
             $resolvedStops[] = [
-                'name'        => $s['name'] ?? null,
-                'lat'         => (float)$lat,
-                'lng'         => (float)$lng,
-                'address'     => $addrUsed ?: $this->buildAddressFromStop($s),
+                'name' => $stop['name'] ?? null,
+                'lat' => (float) $lat,
+                'lng' => (float) $lng,
+                'address' => $addressUsed ?: $this->buildAddressFromStop($stop),
 
-                'calle'   => $s['calle'] ?? null,
-                'colonia' => $s['colonia'] ?? null,
-                'ciudad'  => $s['ciudad'] ?? null,
-                'estado'  => $s['estado'] ?? null,
-                'cp'      => $s['cp'] ?? null,
+                'calle' => $stop['calle'] ?? null,
+                'colonia' => $stop['colonia'] ?? null,
+                'ciudad' => $stop['ciudad'] ?? null,
+                'estado' => $stop['estado'] ?? null,
+                'cp' => $stop['cp'] ?? null,
 
                 'provider_id' => $providerIdUsed,
             ];
@@ -663,41 +975,61 @@ class RoutePlanController extends Controller
         return DB::transaction(function () use ($data, $resolvedStops) {
             $plan = RoutePlan::create([
                 'driver_id' => $data['driver_id'],
-                'name'      => $data['name'] ?? null,
-                'status'    => 'scheduled',
+                'name' => $data['name'] ?? null,
+                'status' => 'scheduled',
             ]);
 
-            foreach ($resolvedStops as $i => $s) {
+            foreach ($resolvedStops as $index => $stop) {
                 $payload = [
-                    'route_plan_id'  => $plan->id,
-                    'name'           => $s['name'] ?: ('Punto '.($i+1)),
-                    'lat'            => $s['lat'],
-                    'lng'            => $s['lng'],
+                    'route_plan_id' => $plan->id,
+                    'name' => $stop['name'] ?: ('Punto ' . ($index + 1)),
+                    'lat' => $stop['lat'],
+                    'lng' => $stop['lng'],
                     'sequence_index' => null,
-                    'status'         => 'pending',
+                    'status' => 'pending',
                 ];
 
-                if (Schema::hasColumn('route_stops', 'provider_id')) $payload['provider_id'] = $s['provider_id'];
-                if (Schema::hasColumn('route_stops', 'address'))     $payload['address']     = $s['address'];
-                if (Schema::hasColumn('route_stops', 'calle'))       $payload['calle']       = $s['calle'];
-                if (Schema::hasColumn('route_stops', 'colonia'))     $payload['colonia']     = $s['colonia'];
-                if (Schema::hasColumn('route_stops', 'ciudad'))      $payload['ciudad']      = $s['ciudad'];
-                if (Schema::hasColumn('route_stops', 'estado'))      $payload['estado']      = $s['estado'];
-                if (Schema::hasColumn('route_stops', 'cp'))          $payload['cp']          = $s['cp'];
+                if (Schema::hasColumn('route_stops', 'provider_id')) {
+                    $payload['provider_id'] = $stop['provider_id'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'address')) {
+                    $payload['address'] = $stop['address'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'calle')) {
+                    $payload['calle'] = $stop['calle'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'colonia')) {
+                    $payload['colonia'] = $stop['colonia'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'ciudad')) {
+                    $payload['ciudad'] = $stop['ciudad'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'estado')) {
+                    $payload['estado'] = $stop['estado'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'cp')) {
+                    $payload['cp'] = $stop['cp'];
+                }
 
                 RouteStop::create($payload);
 
-                if (!empty($s['provider_id']) && Schema::hasTable('providers')) {
+                if (!empty($stop['provider_id']) && Schema::hasTable('providers')) {
                     try {
-                        DB::table('providers')->where('id', (int)$s['provider_id'])->update([
-                            'lat' => $s['lat'],
-                            'lng' => $s['lng'],
+                        DB::table('providers')->where('id', (int) $stop['provider_id'])->update([
+                            'lat' => $stop['lat'],
+                            'lng' => $stop['lng'],
                             'updated_at' => now(),
                         ]);
                     } catch (\Throwable $e) {
-                        Log::warning('store() provider update failed', [
-                            'provider_id'=>$s['provider_id'],
-                            'error'=>$e->getMessage(),
+                        Log::warning('routes.store.provider_update_failed', [
+                            'provider_id' => $stop['provider_id'],
+                            'error' => $e->getMessage(),
                         ]);
                     }
                 }
@@ -748,8 +1080,9 @@ class RoutePlanController extends Controller
             }
 
             if ($backUrl !== '' && str_starts_with($backUrl, url('/'))) {
-                $sep = str_contains($backUrl, '?') ? '&' : '?';
-                return redirect()->to($backUrl . $sep . 'route_plan_id=' . $plan->id)
+                $separator = str_contains($backUrl, '?') ? '&' : '?';
+
+                return redirect()->to($backUrl . $separator . 'route_plan_id=' . $plan->id)
                     ->with('ok', 'Ruta creada y vinculada al embarque');
             }
 
@@ -763,8 +1096,8 @@ class RoutePlanController extends Controller
 
         $routePlan->load([
             'driver',
-            'stops' => function ($q) {
-                $q->orderByRaw('COALESCE(sequence_index, 999999), id');
+            'stops' => function ($query) {
+                $query->orderByRaw('COALESCE(sequence_index, 999999), id');
             },
         ]);
 
@@ -781,127 +1114,247 @@ class RoutePlanController extends Controller
 
         $stops = $routePlan->stops()
             ->orderByRaw('COALESCE(sequence_index, 999999), id')
-            ->get(['id', 'name', 'lat', 'lng', 'sequence_index', 'eta_seconds', 'status', 'done_at']);
+            ->get([
+                'id',
+                'name',
+                'lat',
+                'lng',
+                'sequence_index',
+                'eta_seconds',
+                'status',
+                'done_at',
+            ]);
 
         Log::info('driver.routes.show view boot', [
             'plan_id' => $routePlan->id,
             'stops_count' => $stops->count(),
             'has_driver' => (bool) $routePlan->driver,
+            'driver_id' => $routePlan->driver_id,
+            'auth_user_id' => auth()->id(),
         ]);
 
         return view('driver.routes.show', compact('routePlan', 'stops'));
     }
 
-    public function saveDriverLocation(Request $r)
-    {
-        $u = Auth::user(); abort_unless($u, 401);
+    /* =========================================================================
+     | GPS chofer
+     * ========================================================================= */
 
-        $data = $r->validate([
-            'lat' => ['required', 'numeric'],
-            'lng' => ['required', 'numeric'],
+    public function saveDriverLocation(Request $request)
+    {
+        $authUser = Auth::user();
+
+        abort_unless($authUser, 401);
+
+        $data = $request->validate([
+            'route_plan_id' => ['nullable', 'integer', 'exists:route_plans,id'],
+            'route_driver_id' => ['nullable', 'integer'],
+            'auth_user_id' => ['nullable', 'integer'],
+
+            'lat' => ['required', 'numeric', 'between:-90,90'],
+            'lng' => ['required', 'numeric', 'between:-180,180'],
             'accuracy' => ['nullable', 'numeric'],
-            'speed'    => ['nullable', 'numeric'],
-            'heading'  => ['nullable', 'numeric'],
+            'speed' => ['nullable', 'numeric'],
+            'heading' => ['nullable', 'numeric'],
             'captured_at' => ['nullable', 'date'],
-            'app_state' => ['nullable', 'string', 'max:30'],
-            'battery'   => ['nullable', 'integer', 'min:0', 'max:100'],
-            'network'   => ['nullable', 'string', 'max:30'],
+
+            'app_state' => ['nullable', 'string', 'max:80'],
+            'battery' => ['nullable', 'numeric'],
+            'network' => ['nullable', 'string', 'max:80'],
             'is_mocked' => ['nullable', 'boolean'],
         ]);
 
-        $lat = (float)$data['lat'];
-        $lng = (float)$data['lng'];
-        $acc = isset($data['accuracy']) ? (float)$data['accuracy'] : null;
+        $lat = (float) $data['lat'];
+        $lng = (float) $data['lng'];
 
-        if (abs($lat) < 0.0000001 && abs($lng) < 0.0000001) {
-            return response()->json(['ok'=>false,'message'=>'GPS inválido (0,0)'], 422);
-        }
-        if (abs($lat) > 90 || abs($lng) > 180) {
-            return response()->json(['ok'=>false,'message'=>'GPS fuera de rango'], 422);
-        }
-
-        if ($acc !== null && $acc > 200) {
-            return response()->json(['ok'=>false,'message'=>'Precisión muy baja (accuracy alto)'], 202);
+        if (!$this->validLatLng($lat, $lng)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'GPS inválido.',
+            ], 422);
         }
 
-        $prev = DriverPosition::where('user_id', $u->id)->latest('captured_at')->first();
-        $capAt = !empty($data['captured_at']) ? \Illuminate\Support\Carbon::parse($data['captured_at']) : now();
+        $routePlan = null;
+        $targetUserId = (int) $authUser->id;
 
-        if ($prev && $prev->lat !== null && $prev->lng !== null && $prev->captured_at) {
-            $prevAt = \Illuminate\Support\Carbon::parse($prev->captured_at);
-            if ($capAt->diffInSeconds($prevAt) <= 15) {
-                $dist = $this->haversineMeters((float)$prev->lat, (float)$prev->lng, $lat, $lng);
-                if ($dist > 2000) {
-                    return response()->json(['ok'=>false,'message'=>'Salto GPS detectado'], 202);
+        if (!empty($data['route_plan_id'])) {
+            $routePlan = RoutePlan::query()->find($data['route_plan_id']);
+
+            if ($routePlan && $routePlan->driver_id) {
+                $targetUserId = (int) $routePlan->driver_id;
+            }
+        }
+
+        $capturedAt = !empty($data['captured_at'])
+            ? \Illuminate\Support\Carbon::parse($data['captured_at'])
+            : now();
+
+        $previous = $this->latestDriverPosition($targetUserId);
+
+        if ($previous && $previous->lat !== null && $previous->lng !== null) {
+            $previousSeenAt = $this->lastSeenAt($previous);
+
+            if ($previousSeenAt) {
+                $seconds = abs($capturedAt->diffInSeconds($previousSeenAt));
+
+                $distance = $this->haversineMeters(
+                    (float) $previous->lat,
+                    (float) $previous->lng,
+                    $lat,
+                    $lng
+                );
+
+                if ($seconds <= 20 && $distance > 2500) {
+                    Log::warning('driver.location.jump_detected_but_saved', [
+                        'auth_user_id' => $authUser->id,
+                        'target_user_id' => $targetUserId,
+                        'route_plan_id' => $routePlan?->id,
+                        'previous_position_id' => $previous->id,
+                        'seconds_between' => $seconds,
+                        'distance_m' => $distance,
+                        'previous_lat' => (float) $previous->lat,
+                        'previous_lng' => (float) $previous->lng,
+                        'new_lat' => $lat,
+                        'new_lng' => $lng,
+                    ]);
                 }
             }
         }
 
-        $snapLat = null; $snapLng = null; $snapDist = null;
+        $accuracy = isset($data['accuracy']) ? (float) $data['accuracy'] : null;
+
+        if ($accuracy !== null && $accuracy > 500) {
+            Log::warning('driver.location.low_accuracy_but_saved', [
+                'auth_user_id' => $authUser->id,
+                'target_user_id' => $targetUserId,
+                'route_plan_id' => $routePlan?->id,
+                'accuracy' => $accuracy,
+                'lat' => $lat,
+                'lng' => $lng,
+            ]);
+        }
+
         try {
-            $near = $this->osrm->nearest(['lat'=>$lat,'lng'=>$lng], ['number'=>1]);
-            if (($near['code'] ?? '') === 'Ok' && !empty($near['waypoints'][0]['location'])) {
-                $loc = $near['waypoints'][0]['location'];
-                $snapLng = isset($loc[0]) ? (float)$loc[0] : null;
-                $snapLat = isset($loc[1]) ? (float)$loc[1] : null;
-                if (isset($near['waypoints'][0]['distance'])) {
-                    $snapDist = (int) round($near['waypoints'][0]['distance']);
-                }
-            }
+            $position = DriverPosition::create([
+                'user_id' => $targetUserId,
+
+                'lat' => $lat,
+                'lng' => $lng,
+                'accuracy' => $data['accuracy'] ?? null,
+                'speed' => $data['speed'] ?? null,
+                'heading' => $data['heading'] ?? null,
+
+                'captured_at' => $capturedAt,
+                'received_at' => now(),
+
+                'app_state' => $data['app_state'] ?? null,
+                'battery' => $data['battery'] ?? null,
+                'network' => $data['network'] ?? null,
+                'is_mocked' => $data['is_mocked'] ?? null,
+
+                // Ya no usamos OSRM ni snap-to-road.
+                'snap_lat' => null,
+                'snap_lng' => null,
+                'snap_distance_m' => null,
+            ]);
+
+            Log::info('driver.location.saved', [
+                'position_id' => $position->id,
+                'auth_user_id' => $authUser->id,
+                'saved_user_id' => $position->user_id,
+                'route_plan_id' => $routePlan?->id,
+                'route_driver_id' => $routePlan?->driver_id,
+                'lat' => $position->lat,
+                'lng' => $position->lng,
+                'accuracy' => $position->accuracy,
+                'received_at' => optional($position->received_at)->toDateTimeString(),
+            ]);
+
+            return response()->json([
+                'ok' => true,
+                'id' => $position->id,
+
+                'auth_user_id' => $authUser->id,
+                'saved_user_id' => $position->user_id,
+
+                'route_plan_id' => $routePlan?->id,
+                'route_driver_id' => $routePlan?->driver_id,
+
+                'lat' => (float) $position->lat,
+                'lng' => (float) $position->lng,
+                'accuracy' => $position->accuracy,
+                'captured_at' => optional($position->captured_at)->toIso8601String(),
+                'received_at' => optional($position->received_at)->toIso8601String(),
+            ], 200);
         } catch (\Throwable $e) {
+            Log::error('driver.location.save.failed', [
+                'auth_user_id' => $authUser->id,
+                'target_user_id' => $targetUserId,
+                'route_plan_id' => $routePlan?->id,
+                'payload' => $data,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'message' => 'No se pudo guardar la ubicación.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
-
-        DriverPosition::create([
-            'user_id'     => $u->id,
-            'lat'         => $lat,
-            'lng'         => $lng,
-            'accuracy'    => $data['accuracy'] ?? null,
-            'speed'       => $data['speed'] ?? null,
-            'heading'     => $data['heading'] ?? null,
-            'captured_at' => $data['captured_at'] ?? now(),
-            'received_at' => now(),
-            'app_state' => $data['app_state'] ?? null,
-            'battery'   => $data['battery'] ?? null,
-            'network'   => $data['network'] ?? null,
-            'is_mocked' => $data['is_mocked'] ?? null,
-            'snap_lat' => $snapLat,
-            'snap_lng' => $snapLng,
-            'snap_distance_m' => $snapDist,
-        ]);
-
-        return response()->json(['ok' => true], 200);
     }
 
-    public function getDriverLocation()
+    public function getDriverLocation(Request $request)
     {
-        $u = Auth::user(); abort_unless($u, 401);
+        $authUser = Auth::user();
 
-        $last = DriverPosition::where('user_id', $u->id)
-            ->latest('captured_at')
-            ->first();
+        abort_unless($authUser, 401);
+
+        $targetUserId = $this->resolveLocationTargetUserId($request);
+        $last = $this->latestDriverPosition($targetUserId);
 
         return response()->json([
-            'lat' => $last?->lat,
-            'lng' => $last?->lng,
+            'ok' => true,
+            'auth_user_id' => $authUser->id,
+            'target_user_id' => $targetUserId,
+
+            'found' => (bool) $last,
+            'id' => $last?->id,
+            'lat' => $last?->lat !== null ? (float) $last->lat : null,
+            'lng' => $last?->lng !== null ? (float) $last->lng : null,
+            'accuracy' => $last?->accuracy,
+            'speed' => $last?->speed,
+            'heading' => $last?->heading,
+
             'captured_at' => optional($last?->captured_at)->toIso8601String(),
-            'received_at' => $this->lastSeenAt($last)?->toIso8601String(),
+            'received_at' => optional($last?->received_at)->toIso8601String(),
             'presence' => $this->presencePayload($last),
         ], 200);
     }
 
     public function live(RoutePlan $routePlan)
     {
-        $u = Auth::user(); abort_unless($u, 401);
-        $ok = $this->canUserManage() || ($u->id === $routePlan->driver_id);
+        $user = Auth::user();
+
+        abort_unless($user, 401);
+
+        $ok = $this->canUserManage() || ((int) $user->id === (int) $routePlan->driver_id);
+
         abort_unless($ok, 403);
 
-        $last = DriverPosition::where('user_id', $routePlan->driver_id)
-            ->latest('captured_at')
-            ->first();
+        $last = $this->latestDriverPosition($routePlan->driver_id);
 
         $stops = $routePlan->stops()
             ->orderByRaw('COALESCE(sequence_index, 999999), id')
-            ->get(['id','name','lat','lng','sequence_index','eta_seconds','status','done_at']);
+            ->get([
+                'id',
+                'name',
+                'lat',
+                'lng',
+                'sequence_index',
+                'eta_seconds',
+                'status',
+                'done_at',
+            ]);
 
         return response()->json([
             'plan_id' => $routePlan->id,
@@ -913,74 +1366,101 @@ class RoutePlanController extends Controller
                 'lat' => $routePlan->start_lat,
                 'lng' => $routePlan->start_lng,
             ],
-            'sequence_locked' => (bool)($routePlan->sequence_locked ?? false),
+            'sequence_locked' => (bool) ($routePlan->sequence_locked ?? false),
             'server_time' => now()->toIso8601String(),
         ], 200);
     }
 
+    /* =========================================================================
+     | Optimización / cálculo de ruta con Google Maps
+     * ========================================================================= */
+
     private function lockSequence(RoutePlan $routePlan, float $startLat, float $startLng): void
     {
-        if (!empty($routePlan->sequence_locked)) return;
-
-        $pending = $routePlan->stops()
-            ->where('status','pending')
-            ->orderByRaw('COALESCE(sequence_index, 999999), id')
-            ->get();
-
-        $stopsValid = $pending->filter(function ($s) {
-            $lat = $this->normalizeCoord($s->lat);
-            $lng = $this->normalizeCoord($s->lng);
-            return $this->validLatLng($lat, $lng);
-        })->values();
-
-        if ($stopsValid->isEmpty()) return;
-
-        $nearest = null; $nearestD = INF;
-        foreach ($stopsValid as $s) {
-            $lat = (float)$this->normalizeCoord($s->lat);
-            $lng = (float)$this->normalizeCoord($s->lng);
-            $d = $this->haversineMeters($startLat, $startLng, $lat, $lng);
-            if ($d < $nearestD) { $nearestD = $d; $nearest = $s; }
-        }
-
-        $seedStops = collect([$nearest])
-            ->merge($stopsValid->filter(fn($x)=>$x->id !== $nearest->id))
-            ->values();
-
-        $tripCoords = $seedStops->map(fn($s)=>[
-            'lat' => (float)$this->normalizeCoord($s->lat),
-            'lng' => (float)$this->normalizeCoord($s->lng),
-        ])->all();
-
-        $trip = $this->osrm->trip($tripCoords, [
-            'source'    => 'first',
-            'roundtrip' => 'true',
-            'steps'     => 'false',
-            'geometries'=> 'geojson',
-            'overview'  => 'full',
-            'annotations' => 'duration,distance',
-        ]);
-
-        if (($trip['code'] ?? '') !== 'Ok' || empty($trip['trips'][0]['waypoint_indices'])) {
-            Log::warning('lockSequence() OSRM trip invalid', ['plan_id'=>$routePlan->id, 'detail'=>$trip]);
+        if (!empty($routePlan->sequence_locked)) {
             return;
         }
 
-        $indices = $trip['trips'][0]['waypoint_indices'];
-        $orderedStops = collect($indices)
-            ->map(fn($i)=> $seedStops[(int)$i] ?? null)
-            ->filter()
-            ->values();
+        $pending = $routePlan->stops()
+            ->where('status', 'pending')
+            ->orderByRaw('COALESCE(sequence_index, 999999), id')
+            ->get();
+
+        $stopsValid = $pending->filter(function ($stop) {
+            $lat = $this->normalizeCoord($stop->lat);
+            $lng = $this->normalizeCoord($stop->lng);
+
+            return $this->validLatLng($lat, $lng);
+        })->values();
+
+        if ($stopsValid->isEmpty()) {
+            $routePlan->update([
+                'start_lat' => (float) $startLat,
+                'start_lng' => (float) $startLng,
+                'started_at' => $routePlan->started_at ?: now(),
+                'status' => 'in_progress',
+                'sequence_locked' => true,
+            ]);
+
+            return;
+        }
+
+        $coords = [];
+
+        $coords[] = [
+            'lat' => (float) $startLat,
+            'lng' => (float) $startLng,
+        ];
+
+        foreach ($stopsValid as $stop) {
+            $coords[] = [
+                'lat' => (float) $this->normalizeCoord($stop->lat),
+                'lng' => (float) $this->normalizeCoord($stop->lng),
+            ];
+        }
+
+        // Roundtrip: destino final vuelve al inicio.
+        $coords[] = [
+            'lat' => (float) $startLat,
+            'lng' => (float) $startLng,
+        ];
+
+        $directions = $this->googleDirections($coords, true, false);
+
+        if (!$directions['ok']) {
+            Log::warning('lockSequence.google_directions_invalid', [
+                'plan_id' => $routePlan->id,
+                'detail' => $directions,
+            ]);
+
+            // Fallback sin OSRM: ordenar por cercanía progresiva.
+            $orderedStops = $this->nearestNeighborOrder($stopsValid, $startLat, $startLng);
+        } else {
+            $waypointOrder = $directions['route']['waypoint_order'] ?? [];
+
+            if (empty($waypointOrder)) {
+                $orderedStops = $stopsValid;
+            } else {
+                $orderedStops = collect($waypointOrder)
+                    ->map(fn ($index) => $stopsValid[(int) $index] ?? null)
+                    ->filter()
+                    ->values();
+
+                if ($orderedStops->count() !== $stopsValid->count()) {
+                    $orderedStops = $stopsValid;
+                }
+            }
+        }
 
         DB::transaction(function () use ($routePlan, $orderedStops, $startLat, $startLng) {
-            foreach ($orderedStops as $i => $s) {
-                $s->sequence_index = $i + 1;
-                $s->save();
+            foreach ($orderedStops as $index => $stop) {
+                $stop->sequence_index = $index + 1;
+                $stop->save();
             }
 
             $routePlan->update([
-                'start_lat' => (float)$startLat,
-                'start_lng' => (float)$startLng,
+                'start_lat' => (float) $startLat,
+                'start_lng' => (float) $startLng,
                 'started_at' => $routePlan->started_at ?: now(),
                 'status' => 'in_progress',
                 'sequence_locked' => true,
@@ -988,66 +1468,124 @@ class RoutePlanController extends Controller
         });
     }
 
-    public function start(Request $r, RoutePlan $routePlan)
+    private function nearestNeighborOrder($stops, float $startLat, float $startLng)
+    {
+        $remaining = collect($stops)->values();
+        $ordered = collect();
+
+        $currentLat = $startLat;
+        $currentLng = $startLng;
+
+        while ($remaining->isNotEmpty()) {
+            $nearestIndex = null;
+            $nearestDistance = INF;
+
+            foreach ($remaining as $index => $stop) {
+                $lat = (float) $this->normalizeCoord($stop->lat);
+                $lng = (float) $this->normalizeCoord($stop->lng);
+
+                $distance = $this->haversineMeters($currentLat, $currentLng, $lat, $lng);
+
+                if ($distance < $nearestDistance) {
+                    $nearestDistance = $distance;
+                    $nearestIndex = $index;
+                }
+            }
+
+            $nearest = $remaining[$nearestIndex];
+            $ordered->push($nearest);
+
+            $currentLat = (float) $this->normalizeCoord($nearest->lat);
+            $currentLng = (float) $this->normalizeCoord($nearest->lng);
+
+            $remaining = $remaining->reject(fn ($_, $index) => $index === $nearestIndex)->values();
+        }
+
+        return $ordered;
+    }
+
+    public function start(Request $request, RoutePlan $routePlan)
     {
         $this->canDrive($routePlan);
 
         if (!empty($routePlan->sequence_locked)) {
-            return response()->json(['ok'=>true,'message'=>'Orden ya bloqueado'], 200);
+            return response()->json([
+                'ok' => true,
+                'message' => 'Orden ya bloqueado',
+                'sequence_locked' => true,
+            ], 200);
         }
 
-        $startLat = $this->normalizeCoord($r->input('start_lat'));
-        $startLng = $this->normalizeCoord($r->input('start_lng'));
+        $startLat = $this->normalizeCoord($request->input('start_lat'));
+        $startLng = $this->normalizeCoord($request->input('start_lng'));
 
         if (!$this->validLatLng($startLat, $startLng)) {
-            $last = DriverPosition::where('user_id', Auth::id())->latest('captured_at')->first();
-            if (!$last) return response()->json(['message'=>'No hay ubicación actual del chofer.'], 422);
+            $last = $this->latestDriverPosition($routePlan->driver_id ?: Auth::id());
+
+            if (!$last) {
+                return response()->json([
+                    'message' => 'No hay ubicación actual del chofer.',
+                ], 422);
+            }
+
             $startLat = $this->normalizeCoord($last->lat);
             $startLng = $this->normalizeCoord($last->lng);
         }
 
         if (!$this->validLatLng($startLat, $startLng)) {
-            return response()->json(['message'=>'Ubicación de inicio inválida.'], 422);
+            return response()->json([
+                'message' => 'Ubicación de inicio inválida.',
+            ], 422);
         }
 
-        $this->lockSequence($routePlan->fresh(), (float)$startLat, (float)$startLng);
+        $this->lockSequence($routePlan->fresh(), (float) $startLat, (float) $startLng);
 
         return response()->json([
-            'ok'=>true,
-            'message'=>'Ruta iniciada, orden bloqueado (roundtrip).',
-            'start'=>['lat'=>(float)$startLat,'lng'=>(float)$startLng],
+            'ok' => true,
+            'message' => 'Ruta iniciada con Google Maps.',
+            'start' => [
+                'lat' => (float) $startLat,
+                'lng' => (float) $startLng,
+            ],
             'sequence_locked' => true,
         ], 200);
     }
 
-    public function compute(Request $r, RoutePlan $routePlan)
+    public function compute(Request $request, RoutePlan $routePlan)
     {
         $this->canDrive($routePlan);
+
         $routePlan->load('driver');
 
         $startLat = $this->normalizeCoord($routePlan->start_lat);
         $startLng = $this->normalizeCoord($routePlan->start_lng);
 
         if (!$this->validLatLng($startLat, $startLng)) {
-            $startLat = $this->normalizeCoord($r->input('start_lat'));
-            $startLng = $this->normalizeCoord($r->input('start_lng'));
+            $startLat = $this->normalizeCoord($request->input('start_lat'));
+            $startLng = $this->normalizeCoord($request->input('start_lng'));
         }
 
         if (!$this->validLatLng($startLat, $startLng)) {
-            $last = DriverPosition::where('user_id', Auth::id())->latest('captured_at')->first();
+            $last = $this->latestDriverPosition($routePlan->driver_id ?: Auth::id());
+
             if (!$last) {
-                return response()->json(['message' => 'No hay ubicación actual del chofer. Toca “Usar mi ubicación”.'], 422);
+                return response()->json([
+                    'message' => 'No hay ubicación actual del chofer. Toca “Ver mi ubicación”.',
+                ], 422);
             }
+
             $startLat = $this->normalizeCoord($last->lat);
             $startLng = $this->normalizeCoord($last->lng);
         }
 
         if (!$this->validLatLng($startLat, $startLng)) {
-            return response()->json(['message' => 'Ubicación de inicio inválida.'], 422);
+            return response()->json([
+                'message' => 'Ubicación de inicio inválida.',
+            ], 422);
         }
 
         if (empty($routePlan->sequence_locked)) {
-            $this->lockSequence($routePlan->fresh(), (float)$startLat, (float)$startLng);
+            $this->lockSequence($routePlan->fresh(), (float) $startLat, (float) $startLng);
             $routePlan = $routePlan->fresh();
         }
 
@@ -1057,210 +1595,484 @@ class RoutePlanController extends Controller
             ->get();
 
         if ($stops->isEmpty()) {
-            return response()->json(['message' => 'No hay paradas pendientes', 'routes' => []], 200);
+            return response()->json([
+                'message' => 'No hay paradas pendientes',
+                'routes' => [],
+                'ordered_stops' => $routePlan->stops()
+                    ->orderByRaw('COALESCE(sequence_index, 999999), id')
+                    ->get(['id', 'name', 'lat', 'lng', 'sequence_index', 'eta_seconds', 'status', 'done_at']),
+            ], 200);
         }
 
-        $stopsValid = $stops->filter(function ($s) {
-            $lat = $this->normalizeCoord($s->lat);
-            $lng = $this->normalizeCoord($s->lng);
+        $stopsValid = $stops->filter(function ($stop) {
+            $lat = $this->normalizeCoord($stop->lat);
+            $lng = $this->normalizeCoord($stop->lng);
+
             return $this->validLatLng($lat, $lng);
         })->values();
 
         if ($stopsValid->isEmpty()) {
-            return response()->json(['message' => 'No hay paradas pendientes con coordenadas válidas.', 'routes' => []], 200);
+            return response()->json([
+                'message' => 'No hay paradas pendientes con coordenadas válidas.',
+                'routes' => [],
+            ], 200);
         }
 
         $routeCoords = [];
-        $routeCoords[] = ['lat'=>(float)$startLat, 'lng'=>(float)$startLng];
-        foreach ($stopsValid as $s) {
+
+        $routeCoords[] = [
+            'lat' => (float) $startLat,
+            'lng' => (float) $startLng,
+        ];
+
+        foreach ($stopsValid as $stop) {
             $routeCoords[] = [
-                'lat' => (float)$this->normalizeCoord($s->lat),
-                'lng' => (float)$this->normalizeCoord($s->lng),
+                'lat' => (float) $this->normalizeCoord($stop->lat),
+                'lng' => (float) $this->normalizeCoord($stop->lng),
             ];
         }
-        $routeCoords[] = ['lat'=>(float)$startLat, 'lng'=>(float)$startLng];
 
-        $routeRes = $this->osrm->route($routeCoords, [
-            'alternatives' => 'false',
-            'steps'        => 'true',
-            'geometries'   => 'geojson',
-            'overview'     => 'full',
-            'annotations'  => 'duration,distance',
-        ]);
+        // Roundtrip: vuelve al inicio.
+        $routeCoords[] = [
+            'lat' => (float) $startLat,
+            'lng' => (float) $startLng,
+        ];
 
-        if (($routeRes['code'] ?? '') !== 'Ok' || empty($routeRes['routes'][0])) {
-            Log::error('OSRM invalid route', ['plan_id'=>$routePlan->id, 'detail'=>$routeRes]);
+        $directions = $this->googleDirections($routeCoords, false, true);
+
+        if (!$directions['ok']) {
+            Log::error('compute.google_directions_invalid', [
+                'plan_id' => $routePlan->id,
+                'detail' => $directions,
+            ]);
+
             return response()->json([
-                'message' => 'OSRM no devolvió una ruta válida.',
-                'detail'  => $routeRes,
+                'message' => 'Google Maps no devolvió una ruta válida.',
+                'detail' => $directions,
             ], 422);
         }
 
-        $r0 = $routeRes['routes'][0];
+        $googleRoute = $directions['route'];
+        $principal = $this->googleRoutePayload($googleRoute, (float) $startLat, (float) $startLng);
 
-        $legs = [];
-        $rlegs = $r0['legs'] ?? [];
-        for ($k=0; $k<count($rlegs); $k++) {
-            $from = $routeCoords[$k] ?? null;
-            $to   = $routeCoords[$k+1] ?? null;
-            if (!$from || !$to) break;
-
-            $leg = $rlegs[$k];
-            $legs[] = [
-                'from'     => $from,
-                'to'       => $to,
-                'distance' => (int) round($leg['distance'] ?? 0),
-                'duration' => (int) round($leg['duration'] ?? 0),
-            ];
-        }
-
-        $legs = $this->traffic->applyDelays($legs);
-        $totalAdj = (int) collect($legs)->sum('adj_duration');
-
-        $steps = $this->formatStepsFromOsrm($r0);
-
-        $principal = [
-            'label'     => 'ruta_principal',
-            'geometry'  => $r0['geometry'] ?? null,
-            'legs'      => $legs,
-            'total_sec' => $totalAdj ?: (int) round($r0['duration'] ?? 0),
-            'total_m'   => (int) round($r0['distance'] ?? 0),
-            'steps'     => $steps,
-            'roundtrip' => true,
-            'start'     => ['lat'=>(float)$startLat,'lng'=>(float)$startLng],
-        ];
-
+        $legs = $principal['legs'] ?? [];
         $etaAcc = 0;
-        foreach ($stopsValid as $idx => $stop) {
-            $leg = $legs[$idx] ?? null;
-            $etaAcc += (int)($leg['adj_duration'] ?? $leg['duration'] ?? 0);
+
+        foreach ($stopsValid as $index => $stop) {
+            $leg = $legs[$index] ?? null;
+
+            $etaAcc += (int) ($leg['adj_duration'] ?? $leg['duration'] ?? 0);
+
             $stop->eta_seconds = $etaAcc;
-            try { $stop->save(); } catch (\Throwable $e) {}
+
+            try {
+                $stop->save();
+            } catch (\Throwable $e) {
+                Log::warning('compute.stop_eta_save_failed', [
+                    'stop_id' => $stop->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
-        $advice = $this->advisor->advise([$principal], [
-            'driver' => $routePlan->driver?->name,
-            'route'  => $routePlan->name,
-        ]);
+        try {
+            $advice = $this->advisor->advise([$principal], [
+                'driver' => $routePlan->driver?->name,
+                'route' => $routePlan->name,
+                'provider' => 'google_maps',
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('route.advisor.failed', [
+                'plan_id' => $routePlan->id,
+                'error' => $e->getMessage(),
+            ]);
 
-        $exportLinks = $this->buildNavLinks($principal, $routePlan->stops()->where('status','pending')->get(), (float)$startLat, (float)$startLng);
+            $advice = null;
+        }
+
+        $exportLinks = $this->buildNavLinks(
+            $principal,
+            $routePlan->stops()->where('status', 'pending')->get(),
+            (float) $startLat,
+            (float) $startLng
+        );
 
         return response()->json([
-            'plan_id'         => $routePlan->id,
-            'sequence_locked' => (bool)($routePlan->sequence_locked ?? false),
-            'roundtrip'       => true,
-            'start'           => ['lat'=>(float)$startLat,'lng'=>(float)$startLng],
-            'ordered_stops'   => $routePlan->stops()
+            'plan_id' => $routePlan->id,
+            'provider' => 'google_maps',
+            'sequence_locked' => (bool) ($routePlan->sequence_locked ?? false),
+            'roundtrip' => true,
+            'start' => [
+                'lat' => (float) $startLat,
+                'lng' => (float) $startLng,
+            ],
+            'ordered_stops' => $routePlan->stops()
                 ->orderByRaw('COALESCE(sequence_index, 999999), id')
-                ->get(['id','name','lat','lng','sequence_index','eta_seconds','status','done_at']),
-            'routes'          => [$principal],
-            'advice_md'       => $advice ?: "Ruta optimizada y cierre al inicio.",
-            'total_minutes'   => (int) round(($principal['total_sec'] ?? 0) / 60),
-            'export_links'    => $exportLinks,
+                ->get(['id', 'name', 'lat', 'lng', 'sequence_index', 'eta_seconds', 'status', 'done_at']),
+            'routes' => [$principal],
+            'advice_md' => $advice ?: 'Ruta calculada con Google Maps y cierre al punto de inicio.',
+            'total_minutes' => (int) round(($principal['total_sec'] ?? 0) / 60),
+            'export_links' => $exportLinks,
         ], 200);
     }
 
-    public function recompute(Request $r, RoutePlan $routePlan)
+    public function recompute(Request $request, RoutePlan $routePlan)
     {
         $this->canDrive($routePlan);
-        return $this->compute($r, $routePlan);
+
+        return $this->compute($request, $routePlan);
     }
 
-    public function markStopDone(Request $r, RoutePlan $routePlan, RouteStop $stop)
+    public function markStopDone(Request $request, RoutePlan $routePlan, RouteStop $stop)
     {
         $this->canDrive($routePlan);
 
-        if ((int)$stop->route_plan_id !== (int)$routePlan->id) {
-            return response()->json(['message'=>'Stop no pertenece a esta ruta'], 404);
+        if ((int) $stop->route_plan_id !== (int) $routePlan->id) {
+            return response()->json([
+                'message' => 'Stop no pertenece a esta ruta',
+            ], 404);
         }
 
         $stop->update([
-            'status'  => 'done',
+            'status' => 'done',
             'done_at' => now(),
         ]);
 
         $pending = $routePlan->stops()->where('status', 'pending')->count();
-        $routePlan->update(['status' => $pending === 0 ? 'done' : 'in_progress']);
 
-        return response()->json(['ok' => true], 200);
-    }
+        $routePlan->update([
+            'status' => $pending === 0 ? 'done' : 'in_progress',
+        ]);
 
-    private function formatStepsFromOsrm(array $route): array
-    {
-        $out = [];
-        $legs = $route['legs'] ?? [];
-        foreach ($legs as $leg) {
-            $slist = $leg['steps'] ?? [];
-            foreach ($slist as $st) {
-                $maneuver = $st['maneuver']['type'] ?? '';
-                $modifier = $st['maneuver']['modifier'] ?? '';
-                $roadName = $st['name'] ?? '';
-                $distance = (int) round($st['distance'] ?? 0);
-                $duration = (int) round($st['duration'] ?? 0);
-
-                $instr = $this->humanInstruction($maneuver, $modifier, $roadName);
-                $out[] = [
-                    'instruction' => $instr,
-                    'name'        => $roadName,
-                    'distance'    => $distance,
-                    'duration'    => $duration,
-                ];
-            }
-        }
-        return $out;
-    }
-
-    private function humanInstruction(string $type, string $modifier, string $name): string
-    {
-        $dir = match ($modifier) {
-            'left' => 'a la izquierda',
-            'right' => 'a la derecha',
-            'slight_left' => 'ligeramente a la izquierda',
-            'slight_right' => 'ligeramente a la derecha',
-            'sharp_left' => 'giro cerrado a la izquierda',
-            'sharp_right' => 'giro cerrado a la derecha',
-            'uturn' => 'retorno',
-            default => ''
-        };
-
-        $on = $name ? " sobre {$name}" : '';
-
-        return match ($type) {
-            'depart'  => 'Inicia' . $on,
-            'arrive'  => 'Llegada' . $on,
-            'turn'    => $dir ? "Gira {$dir}{$on}" : "Gira{$on}",
-            'merge'   => "Incorpórate{$on}",
-            'ramp'    => "Toma la rampa{$on}",
-            'roundabout' => "Toma la glorieta{$on}",
-            'fork'    => "Mantente en la bifurcación{$on}",
-            'continue' => "Continúa{$on}",
-            default   => ucfirst($type) . $on,
-        };
+        return response()->json([
+            'ok' => true,
+        ], 200);
     }
 
     private function buildNavLinks(array $principal, $pendingStops, float $startLat, float $startLng): array
     {
-        $ordered = collect($pendingStops)->sortBy(function ($s) {
-            $si = $s->sequence_index ?? 999999;
-            return sprintf("%06d-%06d", $si, $s->id);
-        })->values();
+        $ordered = collect($pendingStops)
+            ->sortBy(function ($stop) {
+                $sequence = $stop->sequence_index ?? 999999;
+                return sprintf('%06d-%06d', $sequence, $stop->id);
+            })
+            ->values();
 
         $next = $ordered->first();
-        if (!$next) return [];
+
+        if (!$next) {
+            return [];
+        }
 
         $origin = $startLat . ',' . $startLng;
-        $dest   = $next->lat . ',' . $next->lng;
+        $destination = $next->lat . ',' . $next->lng;
 
-        $gmaps = 'https://www.google.com/maps/dir/?api=1'
+        $googleMaps = 'https://www.google.com/maps/dir/?api=1'
             . '&origin=' . urlencode($origin)
-            . '&destination=' . urlencode($dest)
-            . '&travelmode=driving&dir_action=navigate';
+            . '&destination=' . urlencode($destination)
+            . '&travelmode=driving'
+            . '&dir_action=navigate';
 
-        $waze = 'https://waze.com/ul?ll=' . urlencode($dest) . '&navigate=yes&zoom=17';
+        $waze = 'https://waze.com/ul?ll='
+            . urlencode($destination)
+            . '&navigate=yes&zoom=17';
 
         return [
-            'maps_principal' => $gmaps,
-            'waze_next'      => $waze,
+            'maps_principal' => $googleMaps,
+            'waze_next' => $waze,
         ];
     }
+    public function edit(RoutePlan $routePlan)
+    {
+        $this->canManage();
+
+        $routePlan->load([
+            'driver',
+            'stops' => function ($query) {
+                $query->orderByRaw('COALESCE(sequence_index, 999999), id');
+            },
+        ]);
+
+        $orderCol = Schema::hasColumn('users', 'name')
+            ? 'name'
+            : (Schema::hasColumn('users', 'email') ? 'email' : 'id');
+
+        $drivers = User::query()
+            ->when(
+                class_exists(\Spatie\Permission\Models\Role::class),
+                fn ($query) => $query->whereDoesntHave('roles', fn ($role) => $role->where('name', 'cliente_web'))
+            )
+            ->orderBy($orderCol)
+            ->get();
+
+        /*
+         * Mismo listado de proveedores que usa la vista de crear ruta.
+         * La vista edit.blade.php necesita $providers para pintar el panel.
+         */
+        $providers = collect();
+
+        if (Schema::hasTable('providers')) {
+            $cols = Schema::getColumnListing('providers');
+
+            $latCols = ['lat', 'latitude', 'latitud', 'latitud_gps'];
+            $lngCols = ['lng', 'lon', 'long', 'longitude', 'longitud', 'longitud_gps'];
+
+            $pLat = collect($latCols)->first(fn ($col) => in_array($col, $cols, true));
+            $pLng = collect($lngCols)->first(fn ($col) => in_array($col, $cols, true));
+
+            $select = ['id'];
+
+            $select[] = in_array('empresa', $cols, true)
+                ? DB::raw("`empresa` as `empresa`")
+                : DB::raw("NULL as `empresa`");
+
+            $select[] = in_array('nombre', $cols, true)
+                ? DB::raw("`nombre` as `nombre`")
+                : DB::raw("NULL as `nombre`");
+
+            foreach (['email', 'telefono', 'rfc', 'tipo_persona', 'calle', 'colonia', 'ciudad', 'estado', 'cp'] as $col) {
+                $select[] = in_array($col, $cols, true)
+                    ? DB::raw("`{$col}` as `{$col}`")
+                    : DB::raw("NULL as `{$col}`");
+            }
+
+            $select[] = $pLat
+                ? DB::raw("NULLIF(`{$pLat}`, 0) as `lat`")
+                : DB::raw("NULL as `lat`");
+
+            $select[] = $pLng
+                ? DB::raw("NULLIF(`{$pLng}`, 0) as `lng`")
+                : DB::raw("NULL as `lng`");
+
+            $addrParts = [];
+
+            foreach (['calle', 'colonia', 'ciudad', 'estado', 'cp'] as $col) {
+                if (in_array($col, $cols, true)) {
+                    $addrParts[] = "NULLIF(TRIM(`{$col}`),'')";
+                }
+            }
+
+            $select[] = !empty($addrParts)
+                ? DB::raw("CONCAT_WS(', ', " . implode(', ', $addrParts) . ") as `address`")
+                : DB::raw("'' as `address`");
+
+            $query = DB::table('providers')->select($select);
+
+            if (in_array('estatus', $cols, true)) {
+                $query->where(function ($where) {
+                    $where->where('estatus', 1)
+                        ->orWhere('estatus', '1')
+                        ->orWhere('estatus', true);
+                });
+            }
+
+            if ($pLat && $pLng) {
+                $query->orderByRaw("(NULLIF(`{$pLat}`,0) is not null and NULLIF(`{$pLng}`,0) is not null) desc");
+            }
+
+            if (in_array('empresa', $cols, true) && in_array('nombre', $cols, true)) {
+                $query->orderByRaw("COALESCE(NULLIF(TRIM(`empresa`), ''), NULLIF(TRIM(`nombre`), ''), CONCAT('Proveedor #', id)) ASC");
+            } elseif (in_array('empresa', $cols, true)) {
+                $query->orderByRaw("COALESCE(NULLIF(TRIM(`empresa`), ''), CONCAT('Proveedor #', id)) ASC");
+            } elseif (in_array('nombre', $cols, true)) {
+                $query->orderByRaw("COALESCE(NULLIF(TRIM(`nombre`), ''), CONCAT('Proveedor #', id)) ASC");
+            } else {
+                $query->orderBy('id');
+            }
+
+            $providers = $query->get();
+        }
+
+        return view('logistics.routes.edit', compact('routePlan', 'drivers', 'providers'));
+    }
+
+    public function update(Request $request, RoutePlan $routePlan)
+    {
+        $this->canManage();
+
+        $stopsInput = $request->input('stops');
+
+        if (is_string($stopsInput)) {
+            $decoded = json_decode($stopsInput, true);
+
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $request->merge(['stops' => $decoded]);
+            }
+        }
+
+        $data = $request->validate([
+            'driver_id' => ['required', 'exists:users,id'],
+            'name' => ['nullable', 'string', 'max:180'],
+
+            'stops' => ['required', 'array', 'min:1'],
+            'stops.*.id' => ['nullable', 'integer'],
+            'stops.*.name' => ['nullable', 'string', 'max:180'],
+            'stops.*.provider_id' => ['nullable'],
+
+            'stops.*.address' => ['nullable', 'string', 'max:700'],
+            'stops.*.calle' => ['nullable', 'string', 'max:250'],
+            'stops.*.colonia' => ['nullable', 'string', 'max:250'],
+            'stops.*.ciudad' => ['nullable', 'string', 'max:250'],
+            'stops.*.estado' => ['nullable', 'string', 'max:250'],
+            'stops.*.cp' => ['nullable', 'string', 'max:20'],
+
+            'stops.*.lat' => ['nullable'],
+            'stops.*.lng' => ['nullable'],
+        ]);
+
+        $resolvedStops = [];
+        $errors = [];
+
+        foreach ($data['stops'] as $index => $stop) {
+            $stopId = !empty($stop['id']) ? (int) $stop['id'] : null;
+
+            /*
+             * Usa la misma lógica de create:
+             * 1) Si viene lat/lng válidos, los respeta.
+             * 2) Si viene provider_id, toma coordenadas/dirección del proveedor.
+             * 3) Si no hay coordenadas, geocodifica con Google Maps.
+             */
+            [$lat, $lng, $addressUsed, $providerIdUsed] = $this->resolveStopLatLng($stop);
+
+            if (!$this->validLatLng($lat, $lng)) {
+                $label = trim((string) ($stop['name'] ?? ''));
+                $label = $label !== '' ? $label : ('Punto #' . ($index + 1));
+
+                $errors[] = "No se pudo obtener coordenadas válidas para {$label}.";
+
+                Log::warning('routes.update.stop_without_coords', [
+                    'route_plan_id' => $routePlan->id,
+                    'index' => $index + 1,
+                    'stop' => $stop,
+                    'address_used' => $addressUsed,
+                ]);
+
+                continue;
+            }
+
+            $resolvedStops[] = [
+                'id' => $stopId,
+                'name' => trim((string) ($stop['name'] ?? '')) ?: ('Punto ' . ($index + 1)),
+                'lat' => (float) $lat,
+                'lng' => (float) $lng,
+                'address' => $addressUsed ?: $this->buildAddressFromStop($stop),
+                'calle' => $stop['calle'] ?? null,
+                'colonia' => $stop['colonia'] ?? null,
+                'ciudad' => $stop['ciudad'] ?? null,
+                'estado' => $stop['estado'] ?? null,
+                'cp' => $stop['cp'] ?? null,
+                'provider_id' => $providerIdUsed,
+            ];
+        }
+
+        if (empty($resolvedStops)) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'stops' => 'No se pudo actualizar: ninguna parada tiene coordenadas válidas.',
+                ]);
+        }
+
+        if (!empty($errors)) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'stops' => implode("\n", $errors),
+                ]);
+        }
+
+        return DB::transaction(function () use ($routePlan, $data, $resolvedStops) {
+            $routePlan->update([
+                'driver_id' => $data['driver_id'],
+                'name' => $data['name'] ?? null,
+
+                /*
+                 * Si agregas, editas o eliminas paradas, se desbloquea la secuencia
+                 * para que Google Maps vuelva a recalcular desde la vista del chofer.
+                 */
+                'sequence_locked' => false,
+                'start_lat' => null,
+                'start_lng' => null,
+                'started_at' => null,
+                'status' => 'scheduled',
+            ]);
+
+            $submittedIds = collect($resolvedStops)
+                ->pluck('id')
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+
+            /*
+             * Elimina paradas que ya no vienen en el formulario.
+             */
+            $deleteQuery = $routePlan->stops();
+
+            if (!empty($submittedIds)) {
+                $deleteQuery->whereNotIn('id', $submittedIds);
+            }
+
+            $deleteQuery->delete();
+
+            foreach ($resolvedStops as $index => $stopData) {
+                $payload = [
+                    'route_plan_id' => $routePlan->id,
+                    'name' => $stopData['name'],
+                    'lat' => $stopData['lat'],
+                    'lng' => $stopData['lng'],
+                    'sequence_index' => null,
+                    'eta_seconds' => null,
+                    'status' => 'pending',
+                    'done_at' => null,
+                ];
+
+                if (Schema::hasColumn('route_stops', 'provider_id')) {
+                    $payload['provider_id'] = $stopData['provider_id'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'address')) {
+                    $payload['address'] = $stopData['address'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'calle')) {
+                    $payload['calle'] = $stopData['calle'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'colonia')) {
+                    $payload['colonia'] = $stopData['colonia'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'ciudad')) {
+                    $payload['ciudad'] = $stopData['ciudad'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'estado')) {
+                    $payload['estado'] = $stopData['estado'];
+                }
+
+                if (Schema::hasColumn('route_stops', 'cp')) {
+                    $payload['cp'] = $stopData['cp'];
+                }
+
+                if (!empty($stopData['id'])) {
+                    $existingStop = RouteStop::where('route_plan_id', $routePlan->id)
+                        ->where('id', (int) $stopData['id'])
+                        ->first();
+
+                    if ($existingStop) {
+                        $existingStop->update($payload);
+                        continue;
+                    }
+                }
+
+                RouteStop::create($payload);
+            }
+
+            return redirect()
+                ->route('routes.show', $routePlan)
+                ->with('ok', 'Ruta actualizada. La secuencia se recalculará con Google Maps.');
+        });
+    }
+
 }

@@ -692,22 +692,30 @@
       savedList.insertAdjacentHTML('beforeend', html);
     });
 
-    savedList.addEventListener('change', async (e)=>{
+    // IMPORTANTE:
+    // No usar { once:true }. Ese era el problema:
+    // el primer cambio automático consumía el listener y después ya no dejaba cambiar dirección.
+    savedList.onchange = async (e)=>{
       const r = e.target.closest('input[type="radio"][name="addrOption"]');
       if(!r) return;
 
       $$('.addr-item').forEach(el=>el.classList.remove('active'));
-      const item = r.closest('.addr-item'); item.classList.add('active');
+      const item = r.closest('.addr-item');
+      if(item) item.classList.add('active');
 
-      const radios = $$('#saved-list input[type="radio"]');
+      const radios = Array.from(savedList.querySelectorAll('input[type="radio"][name="addrOption"]'));
       const idx = radios.indexOf(r);
       const chosen = ADDRS[idx];
+
+      if(!chosen) return;
 
       selectedAddr = chosen;
       renderCurrentAddrCard(chosen);
 
-      if(chosen?.id != null){ await persistSelectedAddressById(chosen.id); }
-    }, { once:true });
+      if(chosen?.id != null){
+        await persistSelectedAddressById(chosen.id);
+      }
+    };
   }
 
   function autoSelectInitial(){

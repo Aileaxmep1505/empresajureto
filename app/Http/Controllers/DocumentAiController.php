@@ -22,10 +22,13 @@ class DocumentAiController extends Controller
         $request->validate([
             'file' => ['required', 'file', 'mimes:pdf', 'max:51200'],
             'licitacion_pdf_id' => ['required', 'integer'],
-            'pages_per_chunk' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'pages_per_chunk' => ['nullable', 'integer', 'min:1', 'max:30'],
         ]);
 
-        $pagesPerChunk = (int) ($request->input('pages_per_chunk', 5));
+        $defaultPagesPerChunk = (int) env('AZURE_PAGES_PER_CHUNK', 20);
+        $pagesPerChunk = (int) ($request->input('pages_per_chunk') ?: $defaultPagesPerChunk);
+        $pagesPerChunk = max(1, min($pagesPerChunk, 30));
+
         $path = $request->file('file')->store('licitaciones/ai', 'public');
         $fullPdfPath = storage_path('app/public/' . $path);
 
@@ -44,7 +47,6 @@ class DocumentAiController extends Controller
         $pythonBin = config('services.python_ai.bin');
         $pythonScript = config('services.python_ai.script');
 
-        // Validaciones ANTES de responder (para avisar si está mal configurado).
         $configError = null;
 
         if (!$pythonBin || !file_exists($pythonBin)) {
@@ -70,16 +72,14 @@ class DocumentAiController extends Controller
             ], 500);
         }
 
-        // Archivo de progreso REAL (lo escribe Python y lo lee show()).
         $progressPath = storage_path('app/ai_progress/' . $run->id . '.json');
         @mkdir(dirname($progressPath), 0775, true);
         @file_put_contents($progressPath, json_encode([
             'pct' => 3,
             'etapa' => 'En cola',
-            'detalle' => 'Preparando análisis...',
+            'detalle' => 'Preparando análisis rápido...',
         ], JSON_UNESCAPED_UNICODE));
 
-        // 1) Responder YA al navegador con el run_id (evita el 504 Gateway Time-out).
         $response = response()->json([
             'ok' => true,
             'document_ai_run_id' => $run->id,
@@ -99,9 +99,11 @@ class DocumentAiController extends Controller
             fastcgi_finish_request();
         }
 
-        // 2) El navegador ya recibió la respuesta; seguimos procesando en segundo plano.
         @ignore_user_abort(true);
-        @set_time_limit(1200);
+
+        $processTimeout = (int) env('PYTHON_AI_TIMEOUT', 900);
+        $processTimeout = max(300, min($processTimeout, 1800));
+        @set_time_limit($processTimeout + 60);
 
         try {
             Log::info('DocumentAiController@start - ejecutando python (background)', [
@@ -110,25 +112,60 @@ class DocumentAiController extends Controller
                 'python_script' => $pythonScript,
                 'pdf' => $fullPdfPath,
                 'progress' => $progressPath,
+                'timeout' => $processTimeout,
+                'pages_per_chunk' => $pagesPerChunk,
             ]);
 
-            $process = new Process([
-                $pythonBin,
-                $pythonScript,
-                '--file',
-                $fullPdfPath,
-                '--run-id',
-                (string) $run->id,
-                '--pages-per-chunk',
-                (string) $pagesPerChunk,
-                '--filename',
-                $run->filename,
-                '--progress-file',
-                $progressPath,
+            $pythonRoot = dirname($pythonScript, 2);
+
+            $childEnv = array_merge($_ENV, $_SERVER, [
+                'AI_PROGRESS_FILE' => $progressPath,
+                'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
+                'HOME' => getenv('HOME') ?: dirname($pythonBin, 2),
+                'LANG' => getenv('LANG') ?: 'en_US.UTF-8',
+                'LC_ALL' => getenv('LC_ALL') ?: 'en_US.UTF-8',
+                'PYTHONUNBUFFERED' => '1',
+                'PYTHONIOENCODING' => 'utf-8',
+
+                // Ajustes rápidos. Si ya los tienes en .env, estos defaults se pueden cambiar ahí.
+                'AZURE_PAGES_PER_CHUNK' => (string) $pagesPerChunk,
+                'AZURE_FORCE_SPLIT_PAGES' => (string) env('AZURE_FORCE_SPLIT_PAGES', 35),
+                'AZURE_MAX_WORKERS' => (string) env('AZURE_MAX_WORKERS', 5),
+                'AZURE_CACHE_ENABLED' => (string) env('AZURE_CACHE_ENABLED', 1),
+
+                // La estructura general se hace local para evitar otra llamada grande a OpenAI.
+                'OPENAI_STRUCTURE_WITH_AI' => (string) env('OPENAI_STRUCTURE_WITH_AI', 0),
+
+                // Corrección de partidas: bloques más grandes + menos llamadas.
+                'OPENAI_CORRECT_ITEMS' => (string) env('OPENAI_CORRECT_ITEMS', 1),
+                'OPENAI_CORRECT_CHUNK_ITEMS' => (string) env('OPENAI_CORRECT_CHUNK_ITEMS', 120),
+                'OPENAI_CORRECT_MAX_WORKERS' => (string) env('OPENAI_CORRECT_MAX_WORKERS', 4),
+                'OPENAI_CORRECT_TIMEOUT' => (string) env('OPENAI_CORRECT_TIMEOUT', 45),
+                'OPENAI_MAX_CANDIDATES_FOR_AI' => (string) env('OPENAI_MAX_CANDIDATES_FOR_AI', 240),
+                'OPENAI_REASONING_EFFORT' => (string) env('OPENAI_REASONING_EFFORT', 'low'),
             ]);
 
-            $process->setTimeout(1200);
-            $process->setIdleTimeout(1200);
+            $process = new Process(
+                [
+                    $pythonBin,
+                    $pythonScript,
+                    '--file',
+                    $fullPdfPath,
+                    '--run-id',
+                    (string) $run->id,
+                    '--pages-per-chunk',
+                    (string) $pagesPerChunk,
+                    '--filename',
+                    $run->filename,
+                    '--progress-file',
+                    $progressPath,
+                ],
+                is_dir($pythonRoot) ? $pythonRoot : null,
+                $childEnv
+            );
+
+            $process->setTimeout($processTimeout);
+            $process->setIdleTimeout($processTimeout);
             $process->run();
 
             $stdout = trim($process->getOutput());
@@ -139,7 +176,7 @@ class DocumentAiController extends Controller
                 'successful' => $process->isSuccessful(),
                 'exit_code' => $process->getExitCode(),
                 'stdout_length' => strlen($stdout),
-                'stderr' => $stderr,
+                'stderr' => mb_substr($stderr, 0, 4000),
             ]);
 
             if (!$process->isSuccessful()) {
