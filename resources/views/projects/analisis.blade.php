@@ -8,12 +8,29 @@
 @php
   use Illuminate\Support\Str;
 
-  $sd = $project->structured_data ?? [];
-  $ficha = $sd['ficha'] ?? [];
-  $fechas = $sd['fechas_clave'] ?? [];
-  $resumenEjec = $sd['resumen_ejecutivo'] ?? [];
-  $partidas = $sd['partidas'] ?? [];
-  $citas = $sd['citas'] ?? [];
+  $sd = is_array($project->structured_data ?? null)
+      ? $project->structured_data
+      : [];
+
+  $ficha = is_array($sd['ficha'] ?? null)
+      ? $sd['ficha']
+      : [];
+
+  $fechas = is_array($sd['fechas_clave'] ?? null)
+      ? $sd['fechas_clave']
+      : [];
+
+  $resumenEjec = is_array($sd['resumen_ejecutivo'] ?? null)
+      ? $sd['resumen_ejecutivo']
+      : [];
+
+  $partidas = is_array($sd['partidas'] ?? null)
+      ? $sd['partidas']
+      : [];
+
+  $citas = is_array($sd['citas'] ?? null)
+      ? $sd['citas']
+      : [];
 
   /*
    |--------------------------------------------------------------------------
@@ -74,8 +91,55 @@
 
   $__pjdDocText = trim(preg_replace('/\s+/u', ' ', strip_tags(collect($__pjdDocParts)->filter()->implode(' '))));
 
-  $__pjdClean = function ($value) {
-      return trim(preg_replace('/\s+/u', ' ', strip_tags((string) $value)));
+  $__pjdClean = function ($value) use (&$__pjdFlat) {
+      if (is_null($value)) {
+          return '';
+      }
+
+      if (is_bool($value)) {
+          return $value ? 'Sí' : 'No';
+      }
+
+      if (is_scalar($value)) {
+          return trim(preg_replace('/\s+/u', ' ', strip_tags((string) $value)));
+      }
+
+      if (is_object($value)) {
+          $value = (array) $value;
+      }
+
+      if (is_array($value)) {
+          foreach ([
+              'respuesta',
+              'valor',
+              'texto',
+              'descripcion',
+              'nombre',
+              'titulo',
+              'label',
+              'content',
+              'fecha',
+          ] as $key) {
+              if (
+                  array_key_exists($key, $value)
+                  && (is_scalar($value[$key]) || $value[$key] instanceof \Stringable)
+              ) {
+                  $candidate = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $value[$key])));
+
+                  if ($candidate !== '') {
+                      return $candidate;
+                  }
+              }
+          }
+
+          return trim(preg_replace('/\s+/u', ' ', strip_tags($__pjdFlat($value))));
+      }
+
+      if ($value instanceof \Stringable) {
+          return trim(preg_replace('/\s+/u', ' ', strip_tags((string) $value)));
+      }
+
+      return '';
   };
 
   $__pjdMissing = function ($value) use ($__pjdClean) {
@@ -259,14 +323,14 @@
       default => $project->status,
   };
 
-  $normalizaFuente = function ($text) {
-      $text = Str::ascii((string) $text);
+  $normalizaFuente = function ($text) use ($__pjdClean) {
+      $text = Str::ascii($__pjdClean($text));
       $text = mb_strtolower($text, 'UTF-8');
       $text = preg_replace('/[^a-z0-9]+/', ' ', $text);
       return trim(preg_replace('/\s+/', ' ', $text));
   };
 
-  $resolverCita = function ($citas, $key, $value = null, $label = null) use ($normalizaFuente) {
+  $resolverCita = function ($citas, $key, $value = null, $label = null) use ($normalizaFuente, $__pjdClean) {
       if (!is_array($citas) || empty($citas)) return null;
 
       $tieneEvidencia = function ($c) {
@@ -299,7 +363,7 @@
           }
       }
 
-      $needle = $normalizaFuente(trim(($value ?? '').' '.($label ?? '')));
+      $needle = $normalizaFuente(trim($__pjdClean($value) . ' ' . $__pjdClean($label)));
       $words = array_values(array_unique(array_filter(explode(' ', $needle), fn($w) => mb_strlen($w) >= 4)));
       if (count($words) < 2) return null;
 
