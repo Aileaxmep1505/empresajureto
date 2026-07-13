@@ -505,21 +505,194 @@
 
 <div class="pjd-pane" data-pane="matriz">
   @php
-    $mxSections = collect(data_get($sd, 'matriz.secciones', []))
-      ->filter(fn ($section) => is_array($section))
-      ->values()
-      ->all()
+    $mxClean = null;
 
-    $mxItems = collect($mxSections)->flatMap(fn($section) => $section['items'])->values();
+    $mxClean = function ($value) use (&$mxClean) {
+      if (is_null($value)) {
+        return '';
+      }
+
+      if (is_bool($value)) {
+        return $value ? 'Sí' : 'No';
+      }
+
+      if (is_scalar($value)) {
+        return trim(preg_replace('/\\s+/u', ' ', strip_tags((string) $value)));
+      }
+
+      if ($value instanceof \\Stringable) {
+        return trim(preg_replace('/\\s+/u', ' ', strip_tags((string) $value)));
+      }
+
+      if (is_object($value)) {
+        $value = (array) $value;
+      }
+
+      if (is_array($value)) {
+        foreach ([
+          'respuesta',
+          'answer',
+          'valor',
+          'value',
+          'texto',
+          'descripcion',
+          'description',
+          'pregunta',
+          'question',
+          'titulo',
+          'title',
+          'nombre',
+          'label',
+          'riesgo',
+          'risk',
+        ] as $key) {
+          if (!array_key_exists($key, $value)) {
+            continue;
+          }
+
+          $candidate = $mxClean($value[$key]);
+
+          if ($candidate !== '') {
+            return $candidate;
+          }
+        }
+
+        $parts = [];
+
+        foreach ($value as $key => $item) {
+          if (in_array((string) $key, [
+            'fuente',
+            'pagina',
+            'cita',
+            'source',
+            'page',
+            'quote',
+            'metadata',
+          ], true)) {
+            continue;
+          }
+
+          $part = $mxClean($item);
+
+          if ($part !== '') {
+            $parts[] = $part;
+          }
+        }
+
+        return trim(implode(' ', array_unique($parts)));
+      }
+
+      return '';
+    };
+
+    $mxNormalizeRisk = function ($value) use ($mxClean) {
+      $risk = mb_strtoupper($mxClean($value), 'UTF-8');
+
+      return in_array($risk, ['ALTO', 'MEDIO', 'BAJO', 'NULO'], true)
+        ? $risk
+        : 'NULO';
+    };
+
+    $mxRawSections = data_get($sd, 'matriz.secciones', []);
+
+    $mxSections = collect(is_array($mxRawSections) ? $mxRawSections : [])
+      ->filter(fn ($section) => is_array($section))
+      ->map(function ($section, $sectionIndex) use ($mxClean, $mxNormalizeRisk) {
+        $rawItems = $section['items'] ?? [];
+
+        $items = collect(is_array($rawItems) ? $rawItems : [])
+          ->filter(fn ($item) => is_array($item))
+          ->map(function ($item, $itemIndex) use ($mxClean, $mxNormalizeRisk) {
+            return [
+              'question' => $mxClean(
+                $item['question']
+                  ?? $item['pregunta']
+                  ?? $item['requisito']
+                  ?? ('Concepto ' . ($itemIndex + 1))
+              ),
+              'answer' => $mxClean(
+                $item['answer']
+                  ?? $item['respuesta']
+                  ?? $item['descripcion']
+                  ?? $item['value']
+                  ?? 'Sin información'
+              ),
+              'risk' => $mxNormalizeRisk(
+                $item['risk']
+                  ?? $item['riesgo']
+                  ?? 'NULO'
+              ),
+              'fuente' => $mxClean($item['fuente'] ?? $item['source'] ?? ''),
+              'pagina' => $mxClean($item['pagina'] ?? $item['page'] ?? ''),
+              'cita' => $mxClean($item['cita'] ?? $item['quote'] ?? ''),
+            ];
+          })
+          ->values()
+          ->all();
+
+        $icons = collect($section['icons'] ?? [])
+          ->map(fn ($icon) => mb_strtolower($mxClean($icon), 'UTF-8'))
+          ->filter(fn ($icon) => in_array($icon, ['red', 'yellow', 'green'], true))
+          ->values()
+          ->all();
+
+        if (empty($icons)) {
+          $risks = collect($items)->pluck('risk');
+
+          if ($risks->contains('ALTO')) {
+            $icons[] = 'red';
+          }
+
+          if ($risks->contains('MEDIO')) {
+            $icons[] = 'yellow';
+          }
+
+          if ($risks->contains(fn ($risk) => in_array($risk, ['BAJO', 'NULO'], true))) {
+            $icons[] = 'green';
+          }
+        }
+
+        return [
+          'title' => $mxClean(
+            $section['title']
+              ?? $section['titulo']
+              ?? ('Sección ' . ($sectionIndex + 1))
+          ),
+          'items' => $items,
+          'icons' => array_values(array_unique($icons)),
+        ];
+      })
+      ->filter(fn ($section) => !empty($section['items']))
+      ->values()
+      ->all();
+
+    $mxItems = collect($mxSections)
+      ->flatMap(fn ($section) => $section['items'] ?? [])
+      ->values();
+
     $mxAlto = $mxItems->where('risk', 'ALTO')->count();
     $mxMedio = $mxItems->where('risk', 'MEDIO')->count();
-    $mxBajoNulo = $mxItems->filter(fn($it) => in_array($it['risk'], ['BAJO', 'NULO'], true))->count();
-    $mxGeneralRisk = $mxAlto > 0 ? 'ALTO' : ($mxMedio > 0 ? 'MEDIO' : 'BAJO');
 
-    $mxComment = 'La matriz de cumplimiento integra '.$mxItems->count().' conceptos evaluables. Se detectan '.$mxAlto.' puntos de riesgo alto, '.$mxMedio.' puntos de riesgo medio y '.$mxBajoNulo.' puntos con riesgo bajo o nulo. La recomendación es validar primero experiencia previa, contenido nacional, registros obligatorios, subcontratación, garantías, causales de desechamiento y documentación legal-financiera antes de avanzar con la propuesta.';
+    $mxBajoNulo = $mxItems
+      ->filter(fn ($item) => in_array($item['risk'] ?? 'NULO', ['BAJO', 'NULO'], true))
+      ->count();
 
-    $mxRiskClass = function ($risk) {
-      return match($risk) {
+    $mxGeneralRisk = $mxAlto > 0
+      ? 'ALTO'
+      : ($mxMedio > 0 ? 'MEDIO' : ($mxItems->isNotEmpty() ? 'BAJO' : 'NULO'));
+
+    $mxComment = 'La matriz de cumplimiento integra '
+      . $mxItems->count()
+      . ' conceptos evaluables. Se detectan '
+      . $mxAlto
+      . ' puntos de riesgo alto, '
+      . $mxMedio
+      . ' puntos de riesgo medio y '
+      . $mxBajoNulo
+      . ' puntos con riesgo bajo o nulo. La recomendación es validar primero experiencia previa, contenido nacional, registros obligatorios, subcontratación, garantías, causales de desechamiento y documentación legal-financiera antes de avanzar con la propuesta.';
+
+    $mxRiskClass = function ($risk) use ($mxNormalizeRisk) {
+      return match($mxNormalizeRisk($risk)) {
         'ALTO' => 'is-alto',
         'MEDIO' => 'is-medio',
         'BAJO' => 'is-bajo',
@@ -573,14 +746,14 @@
     </section>
 
     <div class="pjd-mx-stack">
-      @foreach($mxSections as $section)
+      @forelse($mxSections as $section)
         <div class="pjd-mx-card">
           <div class="pjd-mx-card-head" data-mx-toggle role="button" tabindex="0" aria-expanded="false">
             <h3 class="pjd-mx-card-title">
-              {{ $section['title'] }}
+              {{ $section['title'] ?? 'Sección sin título' }}
               <span class="pjd-mx-sparkle" aria-hidden="true">{!! $mxSparkle !!}</span>
               <span class="pjd-mx-indicators" aria-hidden="true">
-                @foreach($section['icons'] as $ic)
+                @foreach(($section['icons'] ?? []) as $ic)
                   @if($ic === 'red')
                     <svg class="is-red" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg>
                   @elseif($ic === 'yellow')
@@ -596,19 +769,19 @@
 
           <div class="pjd-mx-card-body">
             <div class="pjd-mx-list">
-              @foreach($section['items'] as $it)
-                @php $riskClass = $mxRiskClass($it['risk']); @endphp
+              @foreach(($section['items'] ?? []) as $it)
+                @php $riskClass = $mxRiskClass($it['risk'] ?? 'NULO'); @endphp
                 <article class="pjd-mx-row">
                   <div class="pjd-mx-row-main">
-                    <h4 class="pjd-mx-row-title">{{ mb_strtoupper($it['question']) }}</h4>
-                    <p class="pjd-mx-row-text">{!! nl2br(e($it['answer'])) !!}</p>
+                    <h4 class="pjd-mx-row-title">{{ mb_strtoupper($it['question'] ?? 'Sin pregunta', 'UTF-8') }}</h4>
+                    <p class="pjd-mx-row-text">{!! nl2br(e($it['answer'] ?? 'Sin información')) !!}</p>
                   </div>
 
                   <select class="pjd-mx-risk {{ $riskClass }}" aria-label="Riesgo">
-                    <option @selected($it['risk'] === 'ALTO')>ALTO</option>
-                    <option @selected($it['risk'] === 'MEDIO')>MEDIO</option>
-                    <option @selected($it['risk'] === 'BAJO')>BAJO</option>
-                    <option @selected($it['risk'] === 'NULO')>NULO</option>
+                    <option @selected(($it['risk'] ?? 'NULO') === 'ALTO')>ALTO</option>
+                    <option @selected(($it['risk'] ?? 'NULO') === 'MEDIO')>MEDIO</option>
+                    <option @selected(($it['risk'] ?? 'NULO') === 'BAJO')>BAJO</option>
+                    <option @selected(($it['risk'] ?? 'NULO') === 'NULO')>NULO</option>
                   </select>
 
                   <button type="button" class="pjd-mx-trash" title="Eliminar visual" aria-label="Eliminar requisito"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button>
@@ -622,7 +795,7 @@
                     <div class="pjd-mx-cita">
                       <h5 class="pjd-mx-extra-title">Cita del documento</h5>
                       <ul class="pjd-mx-cita-list">
-                        <li>{{ $it['answer'] }}</li>
+                        <li>{{ $it['cita'] ?: ($it['answer'] ?? 'Sin cita textual') }}</li>
                       </ul>
                     </div>
 
