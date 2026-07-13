@@ -3130,9 +3130,87 @@
 
 @section('content')
 @php
-  $sd = $project->structured_data ?? [];
-  $ficha  = $sd['ficha'] ?? [];
-  $fechas = $sd['fechas_clave'] ?? [];
+  $sd = is_array($project->structured_data ?? null)
+      ? $project->structured_data
+      : [];
+
+  $ficha = is_array(data_get($sd, 'ficha'))
+      ? data_get($sd, 'ficha')
+      : [];
+
+  $fechas = is_array(data_get($sd, 'fechas_clave'))
+      ? data_get($sd, 'fechas_clave')
+      : [];
+
+  /*
+   |--------------------------------------------------------------------------
+   | Conversor seguro para datos generados por IA
+   |--------------------------------------------------------------------------
+   | Algunos valores pueden llegar como texto simple o como un arreglo con
+   | respuesta, valor, fecha, descripcion y evidencia. Esta función siempre
+   | devuelve una cadena y evita que Blade intente escapar un arreglo.
+   */
+  $textValue = static function ($value, string $default = '—'): string {
+      if ($value === null) {
+          return $default;
+      }
+
+      if (is_string($value) || is_numeric($value)) {
+          $text = trim((string) $value);
+
+          return $text !== '' ? $text : $default;
+      }
+
+      if (is_bool($value)) {
+          return $value ? 'Sí' : 'No';
+      }
+
+      if ($value instanceof \Stringable) {
+          $text = trim((string) $value);
+
+          return $text !== '' ? $text : $default;
+      }
+
+      if (is_array($value)) {
+          foreach ([
+              'respuesta',
+              'valor',
+              'fecha',
+              'texto',
+              'descripcion',
+              'nombre',
+              'titulo',
+              'label',
+              'content',
+          ] as $key) {
+              if (!array_key_exists($key, $value)) {
+                  continue;
+              }
+
+              $candidate = $value[$key];
+
+              if (is_string($candidate) || is_numeric($candidate)) {
+                  $text = trim((string) $candidate);
+
+                  if ($text !== '') {
+                      return $text;
+                  }
+              }
+          }
+
+          foreach ($value as $candidate) {
+              if (is_string($candidate) || is_numeric($candidate)) {
+                  $text = trim((string) $candidate);
+
+                  if ($text !== '') {
+                      return $text;
+                  }
+              }
+          }
+      }
+
+      return $default;
+  };
   $docs   = $project->documents;
   $notas  = isset($notes) ? collect($notes) : collect($project->notes ?? []);
   $tareas = isset($tasks) ? collect($tasks) : collect($project->tasks ?? []);
@@ -3981,19 +4059,19 @@
       <div class="pdb-ref-body">
         <div class="pdb-field">
           <div class="pdb-field-lbl">Tipo de evento</div>
-          <div class="pdb-field-val">{{ $ficha['tipo_evento'] ?? '—' }}</div>
+          <div class="pdb-field-val">{{ $textValue(data_get($ficha, 'tipo_evento'), '—') }}</div>
         </div>
         <div class="pdb-field">
           <div class="pdb-field-lbl">Organismo</div>
-          <div class="pdb-field-val">{{ $ficha['organismo'] ?? '—' }}</div>
+          <div class="pdb-field-val">{{ $textValue(data_get($ficha, 'organismo'), '—') }}</div>
         </div>
         <div class="pdb-field">
           <div class="pdb-field-lbl">¿Cuál es el objeto de la licitación?</div>
-          <div class="pdb-field-val">{{ $ficha['objeto'] ?? $ficha['objeto_licitacion'] ?? 'No se encontró información sobre objeto' }}</div>
+          <div class="pdb-field-val">{{ $textValue(data_get($ficha, 'objeto', data_get($ficha, 'objeto_licitacion')), 'No se encontró información sobre objeto') }}</div>
         </div>
         <div class="pdb-field">
           <div class="pdb-field-lbl">¿Cuál es el medio de participación?</div>
-          <div class="pdb-field-val">{{ $ficha['medio_participacion'] ?? $ficha['medio_de_participacion'] ?? $ficha['tipo_evento'] ?? '—' }}</div>
+          <div class="pdb-field-val">{{ $textValue(data_get($ficha, 'medio_participacion', data_get($ficha, 'medio_de_participacion', data_get($ficha, 'tipo_evento'))), '—') }}</div>
         </div>
       </div>
     </div>
@@ -4038,7 +4116,8 @@
       <div class="pdb-date-list">
         @foreach($fechasRows as $r)
           @php
-            $val = $fechas[$r['k']] ?? null;
+            $valRaw = data_get($fechas, $r['k']);
+            $val = $textValue($valRaw, '');
             [$badgeCls, $badgeTxt] = $badgeFor($val);
           @endphp
           <div class="pdb-date-row">
@@ -4051,7 +4130,7 @@
             </div>
             <div class="pdb-date-body">
               <div class="pdb-date-title">{{ $r['label'] }}</div>
-              <div class="pdb-date-sub">{{ $val ?: 'Sin dato' }}</div>
+              <div class="pdb-date-sub">{{ $textValue($val, 'Sin dato') }}</div>
             </div>
             @if($val)
               <span class="pdb-date-badge {{ $badgeCls }}">{{ $badgeTxt }}</span>
