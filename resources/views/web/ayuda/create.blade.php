@@ -387,7 +387,7 @@
 
                 <div class="saved-chat-row {{ (int)$activeTicketId === (int)$saved->id ? 'active' : '' }}">
                   <a class="saved-chat"
-                     href="{{ route('help.show', $saved) }}">
+                     href="{{ url('/ayuda/t/' . $saved->id) }}">
                     <span class="saved-chat-title">
                       {{ \Illuminate\Support\Str::limit($saved->chat_title ?? $saved->subject ?? 'Consulta de ayuda', 34) }}
                     </span>
@@ -400,9 +400,9 @@
                   </a>
 
                   <form class="saved-chat-delete-form"
-                        action="{{ route('help.destroy', $saved) }}"
+                        action="{{ url('/ayuda/t/' . $saved->id) }}"
                         method="POST"
-                        onsubmit="return confirm('Â¿Borrar este chat?');">
+                        onsubmit="return confirm('ï¿½?Borrar este chat?');">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="saved-chat-delete" title="Borrar chat">Ã—</button>
@@ -1266,7 +1266,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <style>
 /* =========================================================
    JURETO IMMERSIVE HELP UI
-   Visual only. No toca lógica IA / carrito / tickets.
+   Visual only. No toca lï¿½gica IA / carrito / tickets.
 ========================================================= */
 
 :root {
@@ -1291,7 +1291,7 @@ body {
   color: var(--jureto-ink);
 }
 
-/* Red tipo moléculas / conexiones */
+/* Red tipo molï¿½culas / conexiones */
 body::before {
   content: "";
   position: fixed;
@@ -1342,7 +1342,7 @@ aside {
   backdrop-filter: blur(14px);
 }
 
-/* Títulos con esencia del logo */
+/* Tï¿½tulos con esencia del logo */
 h1, h2, h3,
 .help-title,
 .chat-title,
@@ -1396,7 +1396,7 @@ button:hover,
   border-color: var(--jureto-blue-2) !important;
 }
 
-/* Botón principal azul Jureto */
+/* Botï¿½n principal azul Jureto */
 button[type="submit"],
 .btn-primary,
 .bg-blue-600,
@@ -1474,7 +1474,7 @@ body::after {
 
 
 <style>
-/* FIX REAL: barra #composerInput con tamaño actual y contorno luminoso */
+/* FIX REAL: barra #composerInput con tamaï¿½o actual y contorno luminoso */
 #helpdesk #composerWrap {
   position: relative !important;
 }
@@ -1565,7 +1565,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 <style>
-/* Movimiento visible de la línea iluminada del composer */
+/* Movimiento visible de la lï¿½nea iluminada del composer */
 #helpdesk #composerInput {
   background:
     linear-gradient(135deg, #07111f, #0b1628) padding-box,
@@ -1608,7 +1608,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 <style>
-/* FIX: permitir agrandar caja sin perder línea animada */
+/* FIX: permitir agrandar caja sin perder lï¿½nea animada */
 #helpdesk #composerWrap.is-expanded #composerInput {
   height: 130px !important;
   min-height: 130px !important;
@@ -1619,7 +1619,7 @@ document.addEventListener('DOMContentLoaded', function () {
   line-height: 1.55 !important;
 }
 
-/* Tamaño normal cuando NO está expandida */
+/* Tamaï¿½o normal cuando NO estï¿½ expandida */
 #helpdesk #composerWrap:not(.is-expanded) #composerInput {
   height: 42px !important;
   min-height: 42px !important;
@@ -1656,7 +1656,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <style>
 /* =====================================================
-   JURETO: línea animada en chats pasados y botones
+   JURETO: lï¿½nea animada en chats pasados y botones
 ===================================================== */
 
 @property --jureto-border-angle {
@@ -1753,7 +1753,7 @@ document.addEventListener('DOMContentLoaded', function () {
     inset 0 0 12px rgba(255,255,255,.08) !important;
 }
 
-/* Botón fantasma: conservar blanco pero con línea animada */
+/* Botï¿½n fantasma: conservar blanco pero con lï¿½nea animada */
 #helpdesk .btn-ghost,
 #helpdesk #escalarBtn {
   color: #2563eb !important;
@@ -1770,7 +1770,7 @@ document.addEventListener('DOMContentLoaded', function () {
     ) border-box !important;
 }
 
-/* Hover más premium */
+/* Hover mï¿½s premium */
 #helpdesk .btn:hover,
 #helpdesk #sendBtn:hover,
 #helpdesk #escalarBtn:hover,
@@ -1797,7 +1797,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 <style>
-/* FIX: que + Nuevo y agrandar caja sigan viéndose como botones */
+/* FIX: que + Nuevo y agrandar caja sigan viï¿½ndose como botones */
 #helpdesk #expandComposerBtn,
 #helpdesk .mini-expand {
   width: 38px !important;
@@ -1832,7 +1832,7 @@ document.addEventListener('DOMContentLoaded', function () {
     inset 0 0 10px rgba(21,155,255,.06) !important;
 }
 
-/* Botón + Nuevo */
+/* Botï¿½n + Nuevo */
 #helpdesk a[href="{{ route('help.create') }}"],
 #helpdesk a[href*="/ayuda"]:has(+ *),
 #helpdesk .saved-chats-head a,
@@ -1883,9 +1883,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <style>
 /* FIX: dejar el buscador superior como estaba */
-#helpdesk input[placeholder*="Qué quieres encontrar"],
+#helpdesk input[placeholder*="Quï¿½ quieres encontrar"],
 #helpdesk input[placeholder*="quieres encontrar"],
-input[placeholder*="Qué quieres encontrar"],
+input[placeholder*="Quï¿½ quieres encontrar"],
 input[placeholder*="quieres encontrar"] {
   animation: none !important;
   background: transparent !important;
@@ -1899,19 +1899,19 @@ input[placeholder*="quieres encontrar"] {
   max-height: unset !important;
 }
 
-/* Evitar que el efecto de botones afecte el botón AI del buscador */
-#helpdesk input[placeholder*="Qué quieres encontrar"] ~ button,
+/* Evitar que el efecto de botones afecte el botï¿½n AI del buscador */
+#helpdesk input[placeholder*="Quï¿½ quieres encontrar"] ~ button,
 #helpdesk input[placeholder*="quieres encontrar"] ~ button,
-input[placeholder*="Qué quieres encontrar"] ~ button,
+input[placeholder*="Quï¿½ quieres encontrar"] ~ button,
 input[placeholder*="quieres encontrar"] ~ button {
   animation: none !important;
   transform: none !important;
   box-shadow: none !important;
 }
 
-/* Si el contenedor del buscador recibió borde animado, apagarlo */
-#helpdesk input[placeholder*="Qué quieres encontrar"]::before,
-#helpdesk input[placeholder*="Qué quieres encontrar"]::after,
+/* Si el contenedor del buscador recibiï¿½ borde animado, apagarlo */
+#helpdesk input[placeholder*="Quï¿½ quieres encontrar"]::before,
+#helpdesk input[placeholder*="Quï¿½ quieres encontrar"]::after,
 #helpdesk input[placeholder*="quieres encontrar"]::before,
 #helpdesk input[placeholder*="quieres encontrar"]::after {
   display: none !important;
@@ -1921,9 +1921,9 @@ input[placeholder*="quieres encontrar"] ~ button {
 
 <style>
 /* RESTAURAR BUSCADOR SUPERIOR BLANCO */
-#helpdesk input[placeholder*="Qué quieres encontrar"],
+#helpdesk input[placeholder*="Quï¿½ quieres encontrar"],
 #helpdesk input[placeholder*="quieres encontrar"],
-input[placeholder*="Qué quieres encontrar"],
+input[placeholder*="Quï¿½ quieres encontrar"],
 input[placeholder*="quieres encontrar"] {
   background: transparent !important;
   background-image: none !important;
@@ -1940,24 +1940,24 @@ input[placeholder*="quieres encontrar"] {
 }
 
 /* Contenedor blanco del buscador */
-#helpdesk input[placeholder*="Qué quieres encontrar"]:parent,
+#helpdesk input[placeholder*="Quï¿½ quieres encontrar"]:parent,
 #helpdesk input[placeholder*="quieres encontrar"]:parent {
   background: #ffffff !important;
 }
 
-/* Apagar efectos en el input y en su botón AI */
-#helpdesk input[placeholder*="Qué quieres encontrar"],
-#helpdesk input[placeholder*="Qué quieres encontrar"] + *,
+/* Apagar efectos en el input y en su botï¿½n AI */
+#helpdesk input[placeholder*="Quï¿½ quieres encontrar"],
+#helpdesk input[placeholder*="Quï¿½ quieres encontrar"] + *,
 #helpdesk input[placeholder*="quieres encontrar"],
 #helpdesk input[placeholder*="quieres encontrar"] + * {
   animation: none !important;
   filter: none !important;
 }
 
-/* Botón AI del buscador como antes */
-#helpdesk input[placeholder*="Qué quieres encontrar"] ~ button,
+/* Botï¿½n AI del buscador como antes */
+#helpdesk input[placeholder*="Quï¿½ quieres encontrar"] ~ button,
 #helpdesk input[placeholder*="quieres encontrar"] ~ button,
-input[placeholder*="Qué quieres encontrar"] ~ button,
+input[placeholder*="Quï¿½ quieres encontrar"] ~ button,
 input[placeholder*="quieres encontrar"] ~ button {
   width: 42px !important;
   height: 42px !important;
@@ -1973,10 +1973,10 @@ input[placeholder*="quieres encontrar"] ~ button {
   font-weight: 900 !important;
 }
 
-/* Buscar el contenedor más cercano y devolverlo visualmente */
-#helpdesk form:has(input[placeholder*="Qué quieres encontrar"]),
-#helpdesk div:has(> input[placeholder*="Qué quieres encontrar"]),
-#helpdesk div:has(input[placeholder*="Qué quieres encontrar"]) {
+/* Buscar el contenedor mï¿½s cercano y devolverlo visualmente */
+#helpdesk form:has(input[placeholder*="Quï¿½ quieres encontrar"]),
+#helpdesk div:has(> input[placeholder*="Quï¿½ quieres encontrar"]),
+#helpdesk div:has(input[placeholder*="Quï¿½ quieres encontrar"]) {
   background: #ffffff !important;
   border: 1px solid rgba(15,23,42,.08) !important;
   border-radius: 999px !important;
@@ -2045,7 +2045,7 @@ input[placeholder*="quieres encontrar"] ~ button {
 document.addEventListener('DOMContentLoaded', function () {
   function restoreSearchBar() {
     const input = Array.from(document.querySelectorAll('input')).find(function (el) {
-      return (el.getAttribute('placeholder') || '').toLowerCase().includes('qué quieres encontrar') ||
+      return (el.getAttribute('placeholder') || '').toLowerCase().includes('quï¿½ quieres encontrar') ||
              (el.getAttribute('placeholder') || '').toLowerCase().includes('que quieres encontrar') ||
              (el.getAttribute('placeholder') || '').toLowerCase().includes('quieres encontrar');
     });
@@ -2094,7 +2094,7 @@ document.addEventListener('DOMContentLoaded', function () {
    JURETO: burbujas del chat flotantes / glass
 ===================================================== */
 
-/* Separación general para que respiren */
+/* Separaciï¿½n general para que respiren */
 #helpdesk .chat {
   padding: 18px 14px 24px !important;
 }
@@ -2164,7 +2164,7 @@ document.addEventListener('DOMContentLoaded', function () {
     inset 0 1px 0 rgba(255,255,255,.70) !important;
 }
 
-/* Meta más limpio */
+/* Meta mï¿½s limpio */
 #helpdesk .msg .bubble .meta {
   position: relative !important;
   z-index: 2 !important;
@@ -2178,7 +2178,7 @@ document.addEventListener('DOMContentLoaded', function () {
   z-index: 2 !important;
 }
 
-/* Pequeña sombra bajo cada burbuja */
+/* Pequeï¿½a sombra bajo cada burbuja */
 #helpdesk .msg {
   filter: drop-shadow(0 12px 16px rgba(15,23,42,.06)) !important;
 }
@@ -2258,7 +2258,7 @@ document.addEventListener('DOMContentLoaded', function () {
   box-shadow: 0 10px 24px rgba(15,23,42,.06) !important;
 }
 
-/* Al enfocar, línea luminosa suave */
+/* Al enfocar, lï¿½nea luminosa suave */
 #helpdesk #newTicketForm textarea[name="message"]:focus,
 #helpdesk form.new textarea[name="message"]:focus {
   animation: juretoComposerRotateLine 1.5s linear infinite !important;
@@ -2364,7 +2364,7 @@ document.addEventListener('DOMContentLoaded', function () {
   filter: drop-shadow(0 0 5px rgba(239,68,68,.28)) !important;
 }
 
-/* Sin caja ni antes/después */
+/* Sin caja ni antes/despuï¿½s */
 #helpdesk .saved-chat-row button::before,
 #helpdesk .saved-chat-row button::after,
 #helpdesk .saved-chat-row form button::before,
@@ -2452,9 +2452,9 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('#helpdesk .saved-chat-row button').forEach(function (btn) {
       const text = (btn.textContent || '').trim();
 
-      if (text === '×' || text === 'x' || text === 'X' || text.includes('×')) {
+      if (text === 'ï¿½' || text === 'x' || text === 'X' || text.includes('ï¿½')) {
         btn.classList.add('jureto-delete-x-only');
-        btn.textContent = '×';
+        btn.textContent = 'ï¿½';
 
         btn.removeAttribute('style');
       }
@@ -2545,7 +2545,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 <style>
-/* JURETO: fondo seguro con movimiento más visible */
+/* JURETO: fondo seguro con movimiento mï¿½s visible */
 #helpdesk .jureto-safe-fluid-bg::before {
   inset: -35% !important;
   opacity: .95 !important;
@@ -2569,7 +2569,7 @@ document.addEventListener('DOMContentLoaded', function () {
   will-change: background-position !important;
 }
 
-/* Movimiento más amplio y notorio */
+/* Movimiento mï¿½s amplio y notorio */
 @keyframes juretoSafeFluidMoveVisible {
   0% {
     transform: translate3d(-8%, -5%, 0) scale(1.04) rotate(0deg);
@@ -2605,7 +2605,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 <style>
-/* JURETO: fondo con tono más fuerte para notar mejor el movimiento */
+/* JURETO: fondo con tono mï¿½s fuerte para notar mejor el movimiento */
 #helpdesk .jureto-safe-fluid-bg::before {
   opacity: 1 !important;
   filter: blur(16px) saturate(185%) contrast(1.08) !important;
@@ -2636,7 +2636,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 <style>
-/* TEST VISIBLE: confirmar que la vista sí está actualizando */
+/* TEST VISIBLE: confirmar que la vista sï¿½ estï¿½ actualizando */
 #helpdesk {
   outline: 6px solid #159bff !important;
   box-shadow: inset 0 0 120px rgba(0,132,255,.35) !important;
@@ -2780,7 +2780,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 <style>
-/* JURETO: fondo azul pastel un poco más alto */
+/* JURETO: fondo azul pastel un poco mï¿½s alto */
 #helpdesk {
   background:
     radial-gradient(circle at 18% 18%, rgba(96,165,250,.30), transparent 30%),
@@ -2868,7 +2868,7 @@ document.addEventListener('DOMContentLoaded', function () {
   -webkit-backdrop-filter: blur(14px) saturate(135%) !important;
 }
 
-/* 3) Botón principal más vivo */
+/* 3) Botï¿½n principal mï¿½s vivo */
 #helpdesk #sendBtn,
 #helpdesk #newTicketForm button[type="submit"] {
   background:
@@ -2882,7 +2882,7 @@ document.addEventListener('DOMContentLoaded', function () {
   text-shadow: 0 1px 0 rgba(0,0,0,.14) !important;
 }
 
-/* 4) Botón secundario claro y limpio */
+/* 4) Botï¿½n secundario claro y limpio */
 #helpdesk #escalarBtn,
 #helpdesk .btn-ghost {
   background:
@@ -2895,7 +2895,7 @@ document.addEventListener('DOMContentLoaded', function () {
     inset 0 1px 0 rgba(255,255,255,.90) !important;
 }
 
-/* 5) Botón agrandar caja claro, sin deformarse */
+/* 5) Botï¿½n agrandar caja claro, sin deformarse */
 #helpdesk #expandComposerBtn,
 #helpdesk .mini-expand {
   background:

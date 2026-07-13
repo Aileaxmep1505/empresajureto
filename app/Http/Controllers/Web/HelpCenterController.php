@@ -69,7 +69,7 @@ $aiText = $automationText ?: $this->ai->helpdeskReply($r->message, $ticket, $his
             'sender_type' => 'ai',
             'sender_id'   => null,
             'body'        => $aiBody,
-            'meta'        => $aiMeta, // <- si el modelo devolviÃƒÂ³ AI_META, lo guardamos
+            'meta'        => $aiMeta, // <- si el modelo devolvió AI_META, lo guardamos
             'is_solution' => false,
         ]);
 
@@ -196,7 +196,7 @@ $aiText = $automationText ?: $this->ai->helpdeskReply($r->message, $ticket, $his
             'ticket_id'   => $ticket->id,
             'sender_type' => 'system',
             'sender_id'   => null,
-            'body'        => "Tu caso fue escalado a un asesor humano. Te contactaremos aquÃƒÂ­ mismo en cuanto tome el caso.",
+            'body'        => "Tu caso fue escalado a un asesor humano. Te contactaremos aquí mismo en cuanto tome el caso.",
             'meta'        => ['escalated_by' => Auth::id()],
             'is_solution' => false,
         ]);
@@ -370,15 +370,15 @@ private function handleTrackingAutomation(string $message): ?string
     $isTracking = str_contains($text, 'seguimiento')
         || str_contains($text, 'rastreo')
         || str_contains($text, 'guia')
-        || str_contains($text, 'guía')
+        || str_contains($text, 'gu?a')
         || str_contains($text, 'paqueteria')
-        || str_contains($text, 'paquetería')
+        || str_contains($text, 'paqueter?a')
         || str_contains($text, 'envio')
-        || str_contains($text, 'envío')
+        || str_contains($text, 'env?o')
         || str_contains($text, 'donde va')
-        || str_contains($text, 'dónde va')
+        || str_contains($text, 'd?nde va')
         || str_contains($text, 'linea del tiempo')
-        || str_contains($text, 'línea del tiempo')
+        || str_contains($text, 'l?nea del tiempo')
         || str_contains($text, 'timeline')
         || str_contains($text, 'paquete');
 
@@ -398,10 +398,10 @@ private function handleTrackingAutomation(string $message): ?string
     $order = $query->latest()->first();
 
     if (!$order) {
-        return 'No encontré un pedido asociado a tu cuenta para revisar el seguimiento. ¿Me compartes el número de pedido?';
+        return 'No encontr? un pedido asociado a tu cuenta para revisar el seguimiento. ?Me compartes el n?mero de pedido?';
     }
 
-    $carrier = $order->shipping_name ?: 'Paquetería no registrada';
+    $carrier = $order->shipping_name ?: 'Paqueter?a no registrada';
     $service = $order->shipping_service ?: 'Servicio no registrado';
     $guide   = $order->shipping_code ?: null;
     $eta     = $order->shipping_eta ?: null;
@@ -410,14 +410,14 @@ private function handleTrackingAutomation(string $message): ?string
     $timeline = $this->buildTrackingTimeline($order);
 
     $msg = "Claro. Este es el seguimiento de tu pedido #{$order->id}:\n\n";
-    $msg .= "- Paquetería: {$carrier}\n";
+    $msg .= "- Paqueter?a: {$carrier}\n";
     $msg .= "- Servicio: {$service}\n";
     $msg .= "- Estatus: {$status}\n";
 
     if ($guide) {
-        $msg .= "- Guía / código de rastreo: {$guide}\n";
+        $msg .= "- Gu?a / c?digo de rastreo: {$guide}\n";
     } else {
-        $msg .= "- Guía / código de rastreo: aún no registrado en el sistema\n";
+        $msg .= "- Gu?a / c?digo de rastreo: a?n no registrado en el sistema\n";
     }
 
     if ($eta) {
@@ -428,7 +428,7 @@ private function handleTrackingAutomation(string $message): ?string
         $msg .= "- Link de rastreo: {$order->shipping_tracking_url}\n";
     }
 
-    $msg .= "\n\nLínea del tiempo del paquete:\n";
+    $msg .= "\n\nL?nea del tiempo del paquete:\n";
 
     foreach ($timeline as $i => $event) {
         $num = $i + 1;
@@ -437,12 +437,12 @@ private function handleTrackingAutomation(string $message): ?string
         $eventStatus = $event['status'] ?? 'pending';
 
         $icon = match ($eventStatus) {
-            'done' => '✅',
-            'current' => '🚚',
-            default => '⏳',
+            'done' => '?',
+            'current' => '??',
+            default => '?',
         };
 
-        $msg .= "{$num}. {$icon} {$title} — {$date}\n";
+        $msg .= "{$num}. {$icon} {$title} ? {$date}\n";
     }
 
     if ($order->relationLoaded('items') && $order->items->count()) {
@@ -453,9 +453,9 @@ private function handleTrackingAutomation(string $message): ?string
     }
 
     if (env('ENVIA_TRACKING_TEST_MODE', true)) {
-        $msg .= "\n\nNota: este seguimiento está en modo prueba. Cuando se active el modo real, esta misma línea del tiempo se alimentará con eventos reales de la paquetería.";
+        $msg .= "\n\nNota: este seguimiento est? en modo prueba. Cuando se active el modo real, esta misma l?nea del tiempo se alimentar? con eventos reales de la paqueter?a.";
     } else {
-        $msg .= "\n\nNota: este seguimiento usa información real registrada por la paquetería o proveedor logístico.";
+        $msg .= "\n\nNota: este seguimiento usa informaci?n real registrada por la paqueter?a o proveedor log?stico.";
     }
 
     return $msg;
@@ -490,13 +490,13 @@ private function buildTestTrackingTimeline($order): array
             'status' => $isPaid ? 'done' : 'pending',
         ],
         [
-            'title' => $hasGuide ? 'Guía asignada' : 'Guía pendiente',
+            'title' => $hasGuide ? 'Gu?a asignada' : 'Gu?a pendiente',
             'date' => $hasGuide ? $order->shipping_code : 'Pendiente',
             'status' => $hasGuide ? 'done' : 'pending',
         ],
         [
-            'title' => $hasGuide ? 'En tránsito' : 'En preparación',
-            'date' => $hasGuide ? 'Pendiente de actualización por paquetería' : 'Esperando generación o carga de guía',
+            'title' => $hasGuide ? 'En tr?nsito' : 'En preparaci?n',
+            'date' => $hasGuide ? 'Pendiente de actualizaci?n por paqueter?a' : 'Esperando generaci?n o carga de gu?a',
             'status' => $hasGuide ? 'current' : 'pending',
         ],
         [
@@ -516,7 +516,7 @@ private function buildRealTrackingTimeline($order): array
      *
      * [
      *   ['title' => 'Recolectado', 'date' => '...', 'status' => 'done'],
-     *   ['title' => 'En tránsito', 'date' => '...', 'status' => 'current'],
+     *   ['title' => 'En tr?nsito', 'date' => '...', 'status' => 'current'],
      * ]
      *
      * Asi no se cambia la IA ni la vista, solo la fuente de datos.
@@ -539,7 +539,7 @@ private function buildRealTrackingTimeline($order): array
         if (is_array($rawEvents) && count($rawEvents) > 0) {
             foreach ($rawEvents as $event) {
                 $events[] = [
-                    'title' => $event['title'] ?? $event['status'] ?? $event['description'] ?? 'Movimiento de paquetería',
+                    'title' => $event['title'] ?? $event['status'] ?? $event['description'] ?? 'Movimiento de paqueter?a',
                     'date' => $event['date'] ?? $event['datetime'] ?? $event['created_at'] ?? 'Sin fecha',
                     'status' => $event['timeline_status'] ?? $event['status_type'] ?? 'done',
                 ];
@@ -560,13 +560,13 @@ private function buildRealTrackingTimeline($order): array
             'status' => 'done',
         ],
         [
-            'title' => !empty($order->shipping_code) ? 'Guía registrada' : 'Guía no registrada',
+            'title' => !empty($order->shipping_code) ? 'Gu?a registrada' : 'Gu?a no registrada',
             'date' => !empty($order->shipping_code) ? $order->shipping_code : 'Pendiente',
             'status' => !empty($order->shipping_code) ? 'done' : 'pending',
         ],
         [
             'title' => $order->shipment_status ?: 'Sin movimientos registrados',
-            'date' => $order->shipping_eta ?: 'Pendiente de actualización',
+            'date' => $order->shipping_eta ?: 'Pendiente de actualizaci?n',
             'status' => !empty($order->shipment_status) ? 'current' : 'pending',
         ],
     ];
@@ -584,10 +584,10 @@ private function handleCommerceAutomation(string $message): ?string
 
     $mentionsProducts = str_contains($text, 'producto')
         || str_contains($text, 'productos')
-        || str_contains($text, 'catÃƒÂ¡logo')
+        || str_contains($text, 'catálogo')
         || str_contains($text, 'catalogo')
         || str_contains($text, 'tienda')
-        || str_contains($text, 'almacÃƒÂ©n')
+        || str_contains($text, 'almacén')
         || str_contains($text, 'almacen')
         || str_contains($text, 'existencia')
         || str_contains($text, 'existencias')
@@ -599,7 +599,7 @@ private function handleCommerceAutomation(string $message): ?string
         || str_contains($text, 'ofertas')
         || str_contains($text, 'descuento')
         || str_contains($text, 'descuentos')
-        || str_contains($text, 'promociÃƒÂ³n')
+        || str_contains($text, 'promoción')
         || str_contains($text, 'promocion')
         || str_contains($text, 'promociones');
 
@@ -619,7 +619,7 @@ private function handleCommerceAutomation(string $message): ?string
             return $this->aiServicesSummary();
         }
 
-        if (str_contains($text, 'existencia') || str_contains($text, 'existencias') || str_contains($text, 'stock') || str_contains($text, 'disponible') || str_contains($text, 'disponibles') || str_contains($text, 'almacÃƒÂ©n') || str_contains($text, 'almacen')) {
+        if (str_contains($text, 'existencia') || str_contains($text, 'existencias') || str_contains($text, 'stock') || str_contains($text, 'disponible') || str_contains($text, 'disponibles') || str_contains($text, 'almacén') || str_contains($text, 'almacen')) {
             return $this->aiCatalogStockSummary();
         }
 
@@ -628,7 +628,7 @@ private function handleCommerceAutomation(string $message): ?string
 
     $hasImplicitCommerceAction = str_contains($text, 'agrega')
         || str_contains($text, 'agregar')
-        || str_contains($text, 'aÃƒÂ±ade')
+        || str_contains($text, 'añade')
         || str_contains($text, 'anade')
         || str_contains($text, 'pon ')
         || str_contains($text, 'mete ')
@@ -660,11 +660,11 @@ private function handleCommerceAutomation(string $message): ?string
         session(['ai.commerce_context' => 'favorites']);
     }
 
-    $wantsAdd = str_contains($text, 'agrega') || str_contains($text, 'agregar') || str_contains($text, 'aÃƒÂ±ade') || str_contains($text, 'anade') || str_contains($text, 'pon ') || str_contains($text, 'mete ') || str_contains($text, 'guarda');
+    $wantsAdd = str_contains($text, 'agrega') || str_contains($text, 'agregar') || str_contains($text, 'añade') || str_contains($text, 'anade') || str_contains($text, 'pon ') || str_contains($text, 'mete ') || str_contains($text, 'guarda');
     $wantsRemove = str_contains($text, 'quita') || str_contains($text, 'quitar') || str_contains($text, 'elimina') || str_contains($text, 'eliminar') || str_contains($text, 'borra') || str_contains($text, 'borrar');
-    $wantsView = str_contains($text, 'quÃƒÂ© hay') || str_contains($text, 'que hay') || str_contains($text, 'ver') || str_contains($text, 'muestra') || str_contains($text, 'tengo') || str_contains($text, 'lista');
+    $wantsView = str_contains($text, 'qué hay') || str_contains($text, 'que hay') || str_contains($text, 'ver') || str_contains($text, 'muestra') || str_contains($text, 'tengo') || str_contains($text, 'lista');
     $wantsMove = str_contains($text, 'mueve') || str_contains($text, 'mover') || str_contains($text, 'pasa') || str_contains($text, 'pasar');
-    $wantsClear = str_contains($text, 'vaciar') || str_contains($text, 'vacÃƒÂ­a') || str_contains($text, 'vacia') || str_contains($text, 'elimina todos') || str_contains($text, 'borra todos');
+    $wantsClear = str_contains($text, 'vaciar') || str_contains($text, 'vacía') || str_contains($text, 'vacia') || str_contains($text, 'elimina todos') || str_contains($text, 'borra todos');
     $allFavs = str_contains($text, 'todos mis favoritos') || str_contains($text, 'todos los favoritos') || str_contains($text, 'todo lo de favoritos');
 
     if ($mentionsCart && $wantsView && !$wantsAdd && !$wantsRemove && !$wantsClear) {
@@ -677,13 +677,13 @@ private function handleCommerceAutomation(string $message): ?string
 
     if ($mentionsFav && $mentionsCart && $wantsAdd && $allFavs) {
         $items = $this->aiFavoriteItems($user);
-        if ($items->isEmpty()) return 'No encontrÃƒÂ© productos guardados en tus favoritos.';
+        if ($items->isEmpty()) return 'No encontré productos guardados en tus favoritos.';
 
         foreach ($items as $item) {
             $this->aiPutItemInCart($item, 1);
         }
 
-        return 'Listo, agreguÃƒÂ© todos tus favoritos al carrito. ' . $this->aiCartSummary();
+        return 'Listo, agregué todos tus favoritos al carrito. ' . $this->aiCartSummary();
     }
 
     if ($mentionsFav && $mentionsCart && ($wantsAdd || $wantsMove)) {
@@ -747,11 +747,11 @@ private function aiCatalogSummary(): string
     $items = $query->orderBy('name')->limit(20)->get();
 
     if ($items->isEmpty()) {
-        return 'Por el momento no encontrÃƒÂ© productos publicados en la tienda.';
+        return 'Por el momento no encontré productos publicados en la tienda.';
     }
 
     $list = $items->map(function ($item) {
-        return '- ' . $item->name . ' Ã¢â‚¬â€ $' . number_format((float)($item->sale_price ?? $item->price ?? 0), 2) . ' MXN';
+        return '- ' . $item->name . ' — $' . number_format((float)($item->sale_price ?? $item->price ?? 0), 2) . ' MXN';
     })->implode("\n");
 
     return "Estos son algunos productos disponibles en la tienda:\n\n" . $list . "\n\nPuedo ayudarte a agregar cualquiera al carrito o guardarlo en favoritos.";
@@ -789,17 +789,17 @@ private function aiCatalogStockSummary(): string
     $items = $query->orderBy('name')->limit(20)->get();
 
     if ($items->isEmpty()) {
-        return 'Por el momento no encontrÃƒÂ© productos con existencia disponible.';
+        return 'Por el momento no encontré productos con existencia disponible.';
     }
 
     $hasStock = \Schema::hasColumn('catalog_items', 'stock');
 
     $list = $items->map(function ($item) use ($hasStock) {
-        $stockText = $hasStock ? (' Ã¢â‚¬â€ stock: ' . (int)($item->stock ?? 0)) : '';
-        return '- ' . $item->name . ' Ã¢â‚¬â€ $' . number_format((float)($item->sale_price ?? $item->price ?? 0), 2) . ' MXN' . $stockText;
+        $stockText = $hasStock ? (' — stock: ' . (int)($item->stock ?? 0)) : '';
+        return '- ' . $item->name . ' — $' . number_format((float)($item->sale_price ?? $item->price ?? 0), 2) . ' MXN' . $stockText;
     })->implode("\n");
 
-    return "Estos productos aparecen disponibles en catÃƒÂ¡logo/almacÃƒÂ©n:\n\n" . $list . "\n\nPuedo ayudarte a agregar alguno al carrito o guardarlo en favoritos.";
+    return "Estos productos aparecen disponibles en catálogo/almacén:\n\n" . $list . "\n\nPuedo ayudarte a agregar alguno al carrito o guardarlo en favoritos.";
 }
 
 private function aiOffersSummary(): string
@@ -838,13 +838,13 @@ private function aiOffersSummary(): string
     $items = $query->orderBy('name')->limit(20)->get();
 
     if ($items->isEmpty()) {
-        return 'Por el momento no encontrÃƒÂ© ofertas activas.';
+        return 'Por el momento no encontré ofertas activas.';
     }
 
     $list = $items->map(function ($item) {
         $price = number_format((float)($item->price ?? 0), 2);
         $sale = number_format((float)($item->sale_price ?? $item->price ?? 0), 2);
-        return '- ' . $item->name . ' Ã¢â‚¬â€ antes $' . $price . ', ahora $' . $sale . ' MXN';
+        return '- ' . $item->name . ' — antes $' . $price . ', ahora $' . $sale . ' MXN';
     })->implode("\n");
 
     return "Estas son algunas ofertas disponibles:\n\n" . $list . "\n\nPuedo ayudarte a agregar alguna al carrito o guardarla en favoritos.";
@@ -853,12 +853,12 @@ private function aiOffersSummary(): string
 private function aiServicesSummary(): string
 {
     return "Estos son los servicios que ofrecemos:\n\n" .
-        "- AsesorÃƒÂ­a en equipamiento de oficina.\n" .
-        "- Mantenimiento bÃƒÂ¡sico de equipos.\n" .
+        "- Asesoría en equipamiento de oficina.\n" .
+        "- Mantenimiento básico de equipos.\n" .
         "- Impresoras y redes locales.\n" .
         "- Tienda para instituciones educativas.\n" .
         "- Venta por mayoreo.\n\n" .
-        "TambiÃƒÂ©n puedo ayudarte a buscar productos, revisar ofertas, agregar al carrito o consultar tus favoritos.";
+        "También puedo ayudarte a buscar productos, revisar ofertas, agregar al carrito o consultar tus favoritos.";
 }
 
 private function aiFavoriteItems($user)
@@ -884,7 +884,7 @@ private function aiFavoritesSummary($user): string
     }
 
     $list = $items->map(function ($item) {
-        return '- ' . $item->name . ' Ã¢â‚¬â€ $' . number_format((float)($item->sale_price ?? $item->price ?? 0), 2) . ' MXN';
+        return '- ' . $item->name . ' — $' . number_format((float)($item->sale_price ?? $item->price ?? 0), 2) . ' MXN';
     })->implode("\n");
 
     return "Tus favoritos son:\n\n" . $list;
@@ -903,13 +903,13 @@ private function aiSearchFavorites($user, string $text): string
             || str_contains(mb_strtolower((string)($item->sku ?? '')), $query);
     })->values();
 
-    if ($matches->isEmpty()) return 'No encontrÃƒÂ© "' . $query . '" dentro de tus favoritos.';
+    if ($matches->isEmpty()) return 'No encontré "' . $query . '" dentro de tus favoritos.';
 
     $list = $matches->map(function ($item) {
-        return '- ' . $item->name . ' Ã¢â‚¬â€ $' . number_format((float)($item->sale_price ?? $item->price ?? 0), 2) . ' MXN';
+        return '- ' . $item->name . ' — $' . number_format((float)($item->sale_price ?? $item->price ?? 0), 2) . ' MXN';
     })->implode("\n");
 
-    return "SÃƒÂ­, encontrÃƒÂ© esto en tus favoritos:\n\n" . $list;
+    return "Sí, encontré esto en tus favoritos:\n\n" . $list;
 }
 
 private function aiAddFavoriteToCart($user, string $text, bool $move = false): string
@@ -927,14 +927,14 @@ private function aiAddFavoriteToCart($user, string $text, bool $move = false): s
         );
     })->values();
 
-    if ($matches->isEmpty()) return 'No encontrÃƒÂ© "' . $query . '" dentro de tus favoritos.';
+    if ($matches->isEmpty()) return 'No encontré "' . $query . '" dentro de tus favoritos.';
 
     if ($matches->count() > 1) {
         $list = $matches->take(5)->map(function ($item, $i) {
-            return ($i + 1) . '. ' . $item->name . ' Ã¢â‚¬â€ $' . number_format((float)($item->sale_price ?? $item->price ?? 0), 2) . ' MXN';
+            return ($i + 1) . '. ' . $item->name . ' — $' . number_format((float)($item->sale_price ?? $item->price ?? 0), 2) . ' MXN';
         })->implode("\n");
 
-        return "EncontrÃƒÂ© varios favoritos parecidos. Ã‚Â¿CuÃƒÂ¡l quieres agregar?\n\n" . $list;
+        return "Encontré varios favoritos parecidos. ¿Cuál quieres agregar?\n\n" . $list;
     }
 
     $item = $matches->first();
@@ -942,10 +942,10 @@ private function aiAddFavoriteToCart($user, string $text, bool $move = false): s
 
     if ($move) {
         \DB::table('favorites')->where('user_id', $user->id)->where('catalog_item_id', $item->id)->delete();
-        return 'Listo, movÃƒÂ­ "' . $item->name . '" de favoritos al carrito. ' . $this->aiCartSummary();
+        return 'Listo, moví "' . $item->name . '" de favoritos al carrito. ' . $this->aiCartSummary();
     }
 
-    return 'Listo, agreguÃƒÂ© ' . $qty . ' pieza(s) de "' . $item->name . '" al carrito. El producto sigue en favoritos. ' . $this->aiCartSummary();
+    return 'Listo, agregué ' . $qty . ' pieza(s) de "' . $item->name . '" al carrito. El producto sigue en favoritos. ' . $this->aiCartSummary();
 }
 
 private function aiAddMultipleProductsToCart(string $text): ?string
@@ -988,7 +988,7 @@ private function aiAddMultipleProductsToCart(string $text): ?string
         $item = $catalogQuery->first();
 
         if (!$item) {
-            return 'No encontrÃƒÂ© un producto que coincida con "' . $query . '".';
+            return 'No encontré un producto que coincida con "' . $query . '".';
         }
 
         $this->aiPutItemInCart($item, $qty);
@@ -999,7 +999,7 @@ private function aiAddMultipleProductsToCart(string $text): ?string
         return null;
     }
 
-    return "Listo, agreguÃƒÂ© al carrito:\n\n" . implode("\n", $added) . "\n\n" . $this->aiCartSummary();
+    return "Listo, agregué al carrito:\n\n" . implode("\n", $added) . "\n\n" . $this->aiCartSummary();
 }
 private function aiAddProductToCart(string $text): string
 {
@@ -1007,7 +1007,7 @@ private function aiAddProductToCart(string $text): string
     $qty = $this->aiParseQuantity($text);
 
     if ($query === '') {
-        return 'Dime quÃƒÂ© producto quieres agregar al carrito.';
+        return 'Dime qué producto quieres agregar al carrito.';
     }
 
     $words = collect(preg_split('/\s+/u', mb_strtolower($query)))
@@ -1034,18 +1034,18 @@ private function aiAddProductToCart(string $text): string
         ->get();
 
     if ($matches->isEmpty()) {
-        return 'No encontrÃƒÂ© un producto que coincida con "' . $query . '".';
+        return 'No encontré un producto que coincida con "' . $query . '".';
     }
 
     if ($matches->count() > 1) {
         $names = $matches->take(5)->map(fn($p) => '- ' . $p->name)->implode("\n");
-        return "EncontrÃƒÂ© varios productos parecidos. Ã‚Â¿CuÃƒÂ¡l quieres agregar?\n\n" . $names;
+        return "Encontré varios productos parecidos. ¿Cuál quieres agregar?\n\n" . $names;
     }
 
     $item = $matches->first();
     $this->aiPutItemInCart($item, $qty);
 
-    return 'Listo, agreguÃƒÂ© ' . $qty . ' pieza(s) de "' . $item->name . '" al carrito. ' . $this->aiCartSummary();
+    return 'Listo, agregué ' . $qty . ' pieza(s) de "' . $item->name . '" al carrito. ' . $this->aiCartSummary();
 }
 
 
@@ -1054,7 +1054,7 @@ private function aiDecreaseProductsFromCart(string $text): string
     $cart = session('cart', []);
 
     if (empty($cart)) {
-        return 'Tu carrito ya estÃƒÂ¡ vacÃƒÂ­o.';
+        return 'Tu carrito ya está vacío.';
     }
 
     $text = mb_strtolower(trim($text));
@@ -1083,7 +1083,7 @@ private function aiDecreaseProductsFromCart(string $text): string
         $query = $this->aiCleanProductQuery($text);
 
         if ($query === '') {
-            return 'Dime quÃƒÂ© producto quieres quitar del carrito.';
+            return 'Dime qué producto quieres quitar del carrito.';
         }
 
         $ops[] = [
@@ -1119,7 +1119,7 @@ private function aiDecreaseProductsFromCart(string $text): string
         }
 
         if ($foundKey === null) {
-            $messages[] = 'No encontrÃƒÂ© "' . $op['query'] . '" en tu carrito.';
+            $messages[] = 'No encontré "' . $op['query'] . '" en tu carrito.';
             continue;
         }
 
@@ -1129,10 +1129,10 @@ private function aiDecreaseProductsFromCart(string $text): string
 
         if ($newQty <= 0) {
             unset($cart[$foundKey]);
-            $messages[] = 'QuitÃƒÂ© "' . ($foundRow['name'] ?? 'Producto') . '" del carrito.';
+            $messages[] = 'Quité "' . ($foundRow['name'] ?? 'Producto') . '" del carrito.';
         } else {
             $cart[$foundKey]['qty'] = $newQty;
-            $messages[] = 'ActualicÃƒÂ© "' . ($foundRow['name'] ?? 'Producto') . '" de ' . $currentQty . ' a ' . $newQty . ' pieza(s).';
+            $messages[] = 'Actualicé "' . ($foundRow['name'] ?? 'Producto') . '" de ' . $currentQty . ' a ' . $newQty . ' pieza(s).';
         }
     }
 
@@ -1146,38 +1146,38 @@ private function aiRemoveProductFromCart(string $text): string
     $query = $this->aiCleanProductQuery($text);
     $cart = session('cart', []);
 
-    if (empty($cart)) return 'Tu carrito ya estÃƒÂ¡ vacÃƒÂ­o.';
+    if (empty($cart)) return 'Tu carrito ya está vacío.';
 
     foreach ($cart as $key => $row) {
         if ($query !== '' && str_contains(mb_strtolower((string)($row['name'] ?? '')), $query)) {
             unset($cart[$key]);
             session(['cart' => $cart]);
-            return 'Listo, quitÃƒÂ© "' . ($row['name'] ?? 'Producto') . '" del carrito. ' . $this->aiCartSummary();
+            return 'Listo, quité "' . ($row['name'] ?? 'Producto') . '" del carrito. ' . $this->aiCartSummary();
         }
     }
 
-    return 'No encontrÃƒÂ© "' . $query . '" en tu carrito.';
+    return 'No encontré "' . $query . '" en tu carrito.';
 }
 
 private function aiAddProductToFavorites($user, string $text): string
 {
     $query = $this->aiCleanProductQuery($text);
 
-    if ($query === '') return 'Dime quÃƒÂ© producto quieres guardar en favoritos.';
+    if ($query === '') return 'Dime qué producto quieres guardar en favoritos.';
 
     $matches = \App\Models\CatalogItem::where('name', 'like', '%' . $query . '%')
         ->orWhere('sku', 'like', '%' . $query . '%')
         ->limit(5)
         ->get();
 
-    if ($matches->isEmpty()) return 'No encontrÃƒÂ© un producto que coincida con "' . $query . '".';
+    if ($matches->isEmpty()) return 'No encontré un producto que coincida con "' . $query . '".';
 
     if ($matches->count() > 1) {
         $list = $matches->map(function ($item, $i) {
-            return ($i + 1) . '. ' . $item->name . ' Ã¢â‚¬â€ $' . number_format((float)($item->sale_price ?? $item->price ?? 0), 2) . ' MXN';
+            return ($i + 1) . '. ' . $item->name . ' — $' . number_format((float)($item->sale_price ?? $item->price ?? 0), 2) . ' MXN';
         })->implode("\n");
 
-        return "EncontrÃƒÂ© varios productos parecidos. Ã‚Â¿CuÃƒÂ¡l quieres guardar en favoritos?\n\n" . $list;
+        return "Encontré varios productos parecidos. ¿Cuál quieres guardar en favoritos?\n\n" . $list;
     }
 
     $item = $matches->first();
@@ -1187,7 +1187,7 @@ private function aiAddProductToFavorites($user, string $text): string
         ['updated_at' => now(), 'created_at' => now()]
     );
 
-    return 'Listo, guardÃƒÂ© "' . $item->name . '" en tus favoritos.';
+    return 'Listo, guardé "' . $item->name . '" en tus favoritos.';
 }
 
 private function aiRemoveProductFromFavorites($user, string $text): string
@@ -1201,21 +1201,21 @@ private function aiRemoveProductFromFavorites($user, string $text): string
         return $query !== '' && str_contains(mb_strtolower((string)$item->name), $query);
     })->values();
 
-    if ($matches->isEmpty()) return 'No encontrÃƒÂ© "' . $query . '" dentro de tus favoritos.';
+    if ($matches->isEmpty()) return 'No encontré "' . $query . '" dentro de tus favoritos.';
 
     if ($matches->count() > 1) {
         $list = $matches->take(5)->map(function ($item, $i) {
             return ($i + 1) . '. ' . $item->name;
         })->implode("\n");
 
-        return "EncontrÃƒÂ© varios favoritos parecidos. Ã‚Â¿CuÃƒÂ¡l quieres quitar?\n\n" . $list;
+        return "Encontré varios favoritos parecidos. ¿Cuál quieres quitar?\n\n" . $list;
     }
 
     $item = $matches->first();
 
     \DB::table('favorites')->where('user_id', $user->id)->where('catalog_item_id', $item->id)->delete();
 
-    return 'Listo, quitÃƒÂ© "' . $item->name . '" de tus favoritos.';
+    return 'Listo, quité "' . $item->name . '" de tus favoritos.';
 }
 
 private function aiPutItemInCart($item, int $qtyToAdd = 1): void
@@ -1247,12 +1247,12 @@ private function aiCartSummary(): string
 {
     $cart = collect(session('cart', []));
 
-    if ($cart->isEmpty()) return 'Tu carrito estÃƒÂ¡ vacÃƒÂ­o.';
+    if ($cart->isEmpty()) return 'Tu carrito está vacío.';
 
     $count = $cart->sum(fn($row) => (int)($row['qty'] ?? 1));
     $subtotal = $cart->sum(fn($row) => ((float)($row['price'] ?? 0)) * ((int)($row['qty'] ?? 1)));
 
-    $items = $cart->map(fn($row) => '- ' . ($row['name'] ?? 'Producto') . ' x' . ((int)($row['qty'] ?? 1)) . ' Ã¢â‚¬â€ $' . number_format(((float)($row['price'] ?? 0)) * ((int)($row['qty'] ?? 1)), 2) . ' MXN')->implode("\n");
+    $items = $cart->map(fn($row) => '- ' . ($row['name'] ?? 'Producto') . ' x' . ((int)($row['qty'] ?? 1)) . ' — $' . number_format(((float)($row['price'] ?? 0)) * ((int)($row['qty'] ?? 1)), 2) . ' MXN')->implode("\n");
 
     return "Tu carrito tiene {$count} producto(s):\n\n{$items}\n\nSubtotal aproximado: $" . number_format($subtotal, 2) . ' MXN.';
 }
@@ -1269,18 +1269,18 @@ private function aiParseQuantity(string $text): int
 private function aiCleanProductQuery(string $text): string
 {
     $remove = [
-        'puedes', 'podrias', 'podrÃƒÂ­as', 'por favor', 'favor',
-        'agrega', 'agregar', 'aÃƒÂ±ade', 'anade', 'pon', 'mete',
+        'puedes', 'podrias', 'podrías', 'por favor', 'favor',
+        'agrega', 'agregar', 'añade', 'anade', 'pon', 'mete',
         'guarda', 'guardar', 'quita', 'quitar', 'elimina', 'eliminar',
         'borra', 'borrar', 'mueve', 'mover', 'pasa', 'pasar',
         'a mi carrito', 'al carrito', 'en mi carrito', 'del carrito', 'carrito',
         'de mis favoritos', 'de mi favorito', 'de favoritos', 'mis favoritos',
         'a favoritos', 'en favoritos', 'favoritos', 'favorito',
         'guardados', 'preferidos',
-        'mÃƒÂ¡s de', 'mas de', 'mÃƒÂ¡s', 'mas', 'otros', 'otras', 'otro', 'otra', 'sÃƒÂºmale', 'sumale', 'aumenta', 'incrementa', 'de',
+        'más de', 'mas de', 'más', 'mas', 'otros', 'otras', 'otro', 'otra', 'súmale', 'sumale', 'aumenta', 'incrementa', 'de',
         'mis', 'mi', 'producto', 'productos', 'paquetes', 'paquete', 'piezas', 'pieza',
-        'tengo', 'hay', 'ver', 'muestra', 'enseÃƒÂ±a', 'cuales', 'cuÃƒÂ¡les',
-        '?', 'Ã‚Â¿'
+        'tengo', 'hay', 'ver', 'muestra', 'enseña', 'cuales', 'cuáles',
+        '?', '¿'
     ];
 
     usort($remove, fn($a, $b) => mb_strlen($b) <=> mb_strlen($a));
