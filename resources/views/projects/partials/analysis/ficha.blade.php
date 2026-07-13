@@ -770,43 +770,231 @@
 <div class="pjd-pane is-active" data-pane="ficha">
   @php
     $totalChecklistFx = count($checklist ?? []);
-    $cumpleChecklistFx = collect($checklist ?? [])->filter(fn($it) => ($it['cumplimiento'] ?? null) === 'Cumple' || ($it['status'] ?? null) === 'Aprobado')->count();
-    $cumplimientoFx = $totalChecklistFx > 0 ? (int) round(($cumpleChecklistFx / $totalChecklistFx) * 100) : (int) data_get($sd, 'resumen.cumplimiento', data_get($sd, 'cumplimiento_porcentaje', 0));
+
+    $cumpleChecklistFx = collect($checklist ?? [])
+        ->filter(function ($it) {
+            if (!is_array($it)) {
+                return false;
+            }
+
+            return ($it['cumplimiento'] ?? null) === 'Cumple'
+                || ($it['status'] ?? null) === 'Aprobado';
+        })
+        ->count();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Conversor seguro para valores generados por IA
+    |--------------------------------------------------------------------------
+    | Convierte texto, números, objetos y arreglos estructurados a una cadena.
+    | Prioriza claves de contenido y excluye metadatos como fuente/página/cita.
+    */
+    $fxClean = null;
+
+    $fxClean = function ($value) use (&$fxClean) {
+        if (is_null($value)) {
+            return null;
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Sí' : 'No';
+        }
+
+        if (is_scalar($value)) {
+            $text = trim(
+                preg_replace(
+                    '/\s+/u',
+                    ' ',
+                    strip_tags((string) $value)
+                )
+            );
+
+            return $text !== '' ? $text : null;
+        }
+
+        if ($value instanceof \Stringable) {
+            $text = trim(
+                preg_replace(
+                    '/\s+/u',
+                    ' ',
+                    strip_tags((string) $value)
+                )
+            );
+
+            return $text !== '' ? $text : null;
+        }
+
+        if (is_object($value)) {
+            $value = (array) $value;
+        }
+
+        if (is_array($value)) {
+            foreach ([
+                'respuesta',
+                'valor',
+                'resultado',
+                'nivel',
+                'riesgo',
+                'recomendacion',
+                'fecha',
+                'texto',
+                'descripcion',
+                'nombre',
+                'titulo',
+                'label',
+                'content',
+            ] as $key) {
+                if (!array_key_exists($key, $value)) {
+                    continue;
+                }
+
+                $candidate = $fxClean($value[$key]);
+
+                if ($candidate !== null && $candidate !== '') {
+                    return $candidate;
+                }
+            }
+
+            $parts = [];
+
+            foreach ($value as $key => $item) {
+                if (in_array((string) $key, [
+                    'fuente',
+                    'pagina',
+                    'cita',
+                    'source',
+                    'page',
+                    'quote',
+                    'evidencia',
+                    'metadata',
+                ], true)) {
+                    continue;
+                }
+
+                $part = $fxClean($item);
+
+                if ($part !== null && $part !== '') {
+                    $parts[] = $part;
+                }
+            }
+
+            $text = trim(implode(' ', array_unique($parts)));
+
+            return $text !== '' ? $text : null;
+        }
+
+        return null;
+    };
+
+    $fxUpper = function ($value, string $fallback) use ($fxClean): string {
+        $clean = $fxClean($value) ?: $fallback;
+
+        return mb_strtoupper($clean, 'UTF-8');
+    };
+
+    $cumplimientoFallback = $fxClean(
+        data_get(
+            $sd,
+            'resumen.cumplimiento',
+            data_get($sd, 'cumplimiento_porcentaje', 0)
+        )
+    );
+
+    $cumplimientoFallback = is_numeric($cumplimientoFallback)
+        ? (int) $cumplimientoFallback
+        : 0;
+
+    $cumplimientoFx = $totalChecklistFx > 0
+        ? (int) round(($cumpleChecklistFx / $totalChecklistFx) * 100)
+        : $cumplimientoFallback;
+
     $cumplimientoFx = max(0, min(100, $cumplimientoFx));
 
-    $riesgoFx = strtoupper((string) data_get($sd, 'dictamen.riesgo', data_get($sd, 'riesgo_general', data_get($sd, 'riesgo', 'ALTO'))));
-    $recomendacionFx = strtoupper((string) data_get($sd, 'dictamen.recomendacion', data_get($sd, 'recomendacion', 'NO')));
-    $plazosFx = strtoupper((string) data_get($sd, 'metricas.plazos', data_get($sd, 'riesgos.plazos', 'MEDIO')));
-    $matrizFx = strtoupper((string) data_get($sd, 'metricas.matriz', data_get($sd, 'riesgos.matriz', 'ALTO')));
-    $financieroFx = strtoupper((string) data_get($sd, 'metricas.financiero', data_get($sd, 'riesgos.financiero', 'ALTO')));
-    $interesFx = strtoupper((string) data_get($sd, 'metricas.interes', data_get($sd, 'interes', 'ALTO')));
+    $riesgoFx = $fxUpper(
+        data_get(
+            $sd,
+            'dictamen.riesgo',
+            data_get(
+                $sd,
+                'riesgo_general',
+                data_get($sd, 'riesgo', 'ALTO')
+            )
+        ),
+        'ALTO'
+    );
 
-    $fxClean = function ($value) {
-        if (is_null($value)) return null;
-        if (is_array($value) || is_object($value)) {
-            $value = collect((array) $value)
-                ->map(function ($item) {
-                    if (is_array($item) || is_object($item)) return trim(collect((array) $item)->filter()->implode(' '));
-                    return trim((string) $item);
-                })
-                ->filter()
-                ->implode(' ');
-        }
-        $value = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $value)));
-        return $value !== '' ? $value : null;
-    };
+    $recomendacionFx = $fxUpper(
+        data_get(
+            $sd,
+            'dictamen.recomendacion',
+            data_get($sd, 'recomendacion', 'NO')
+        ),
+        'NO'
+    );
+
+    $plazosFx = $fxUpper(
+        data_get(
+            $sd,
+            'metricas.plazos',
+            data_get($sd, 'riesgos.plazos', 'MEDIO')
+        ),
+        'MEDIO'
+    );
+
+    $matrizFx = $fxUpper(
+        data_get(
+            $sd,
+            'metricas.matriz',
+            data_get($sd, 'riesgos.matriz', 'ALTO')
+        ),
+        'ALTO'
+    );
+
+    $financieroFx = $fxUpper(
+        data_get(
+            $sd,
+            'metricas.financiero',
+            data_get($sd, 'riesgos.financiero', 'ALTO')
+        ),
+        'ALTO'
+    );
+
+    $interesFx = $fxUpper(
+        data_get(
+            $sd,
+            'metricas.interes',
+            data_get($sd, 'interes', 'ALTO')
+        ),
+        'ALTO'
+    );
 
     $fxFirst = function (array $paths, $fallback = null) use ($sd, $fxClean) {
         foreach ($paths as $path) {
             $value = $fxClean(data_get($sd, $path));
-            if ($value) return $value;
+
+            if ($value !== null && $value !== '') {
+                return $value;
+            }
         }
+
         return $fxClean($fallback);
     };
 
-    $objetoFx = $ficha['objeto_licitacion'] ?? $ficha['objeto'] ?? null;
-    $organismoFx = $ficha['organismo'] ?? null;
-    $tipoEventoFx = $ficha['tipo_evento'] ?? null;
+    $objetoFx = $fxClean(
+        $ficha['objeto_licitacion']
+            ?? $ficha['objeto']
+            ?? null
+    );
+
+    $organismoFx = $fxClean(
+        $ficha['organismo']
+            ?? null
+    );
+
+    $tipoEventoFx = $fxClean(
+        $ficha['tipo_evento']
+            ?? null
+    );
 
     $executiveObjectFx = $fxFirst([
       'resumen_ejecutivo.objeto_dictamen',
@@ -870,25 +1058,62 @@
     ], 'El proyecto presenta riesgos que deben revisarse antes de participar: requisitos obligatorios, evidencia documental, plazos, alcances, restricciones técnicas y condiciones financieras.');
 
     $fichaRows = [
-      ['key'=>'ficha.numero_licitacion',   'question'=>'¿Cuál es el número de la licitación?', 'val'=>$ficha['numero_licitacion'] ?? null],
-      ['key'=>'ficha.tipo_evento',         'question'=>'¿Cuál es el tipo de procedimiento y su modalidad?', 'val'=>$ficha['tipo_evento'] ?? null],
-      ['key'=>'ficha.organismo',           'question'=>'¿Cuál es el organismo y el área convocante específica?', 'val'=>$ficha['organismo'] ?? null],
-      ['key'=>'ficha.objeto_licitacion',   'question'=>'¿Cuál es el objeto exacto de la licitación?', 'val'=>$ficha['objeto_licitacion'] ?? $ficha['objeto'] ?? null],
-      ['key'=>'ficha.medio_participacion', 'question'=>'¿Cuál es el medio de participación (electrónica, presencial, mixta)?', 'val'=>$ficha['medio_participacion'] ?? null],
-      ['key'=>'ficha.moneda_pago',         'question'=>'¿En qué moneda se realizará el pago?', 'val'=>$ficha['moneda_pago'] ?? null],
-      ['key'=>'ficha.condiciones_pago',    'question'=>'¿Cuáles son las condiciones y forma de pago?', 'val'=>$ficha['condiciones_pago'] ?? null],
+      [
+        'key' => 'ficha.numero_licitacion',
+        'question' => '¿Cuál es el número de la licitación?',
+        'val' => $fxClean($ficha['numero_licitacion'] ?? null),
+      ],
+      [
+        'key' => 'ficha.tipo_evento',
+        'question' => '¿Cuál es el tipo de procedimiento y su modalidad?',
+        'val' => $tipoEventoFx,
+      ],
+      [
+        'key' => 'ficha.organismo',
+        'question' => '¿Cuál es el organismo y el área convocante específica?',
+        'val' => $organismoFx,
+      ],
+      [
+        'key' => 'ficha.objeto_licitacion',
+        'question' => '¿Cuál es el objeto exacto de la licitación?',
+        'val' => $objetoFx,
+      ],
+      [
+        'key' => 'ficha.medio_participacion',
+        'question' => '¿Cuál es el medio de participación (electrónica, presencial, mixta)?',
+        'val' => $fxClean($ficha['medio_participacion'] ?? null),
+      ],
+      [
+        'key' => 'ficha.moneda_pago',
+        'question' => '¿En qué moneda se realizará el pago?',
+        'val' => $fxClean($ficha['moneda_pago'] ?? null),
+      ],
+      [
+        'key' => 'ficha.condiciones_pago',
+        'question' => '¿Cuáles son las condiciones y forma de pago?',
+        'val' => $fxClean($ficha['condiciones_pago'] ?? null),
+      ],
     ];
 
     $fechaValue = function (array $keys, $fallback = null) use ($fechas, $sd, $fxClean) {
       foreach ($keys as $key) {
         $value = $fxClean(data_get($fechas, $key));
-        if ($value) return $value;
+
+        if ($value !== null && $value !== '') {
+            return $value;
+        }
 
         $value = $fxClean(data_get($sd, 'fechas_clave.' . $key));
-        if ($value) return $value;
+
+        if ($value !== null && $value !== '') {
+            return $value;
+        }
 
         $value = $fxClean(data_get($sd, 'hitos_licitacion.' . $key));
-        if ($value) return $value;
+
+        if ($value !== null && $value !== '') {
+            return $value;
+        }
       }
 
       return $fxClean($fallback);
@@ -947,7 +1172,8 @@
       ],
     ];
 
-    $fechasSinDato = collect($fechasRows)->every(fn($r) => blank($r['val'] ?? null));
+    $fechasSinDato = collect($fechasRows)
+        ->every(fn ($row) => blank($row['val'] ?? null));
   @endphp
 
   <div class="pjd-fx-shell pjd-fx-workspace">
