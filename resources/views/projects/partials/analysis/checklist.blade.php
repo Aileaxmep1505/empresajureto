@@ -69,7 +69,7 @@
   --pjd-primary: #2563eb;
   --pjd-primary-hover: #1d4ed8;
   --pjd-bg-hover: #f9fafb;
-  
+
   --pjd-c-pendiente: #f59e0b;
   --pjd-c-revisar: #3b82f6;
   --pjd-c-cumple: #22c55e;
@@ -92,25 +92,25 @@
 }
 
 /* =======================================
-   CONTADORES SUPERIORES
+   CONTADORES SUPERIORES (COMPACTOS)
    ======================================= */
 .pjd-cl-stats-container {
   display: flex;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 12px;
+  margin-bottom: 20px;
+  align-items: stretch;
 }
-/* GRID ESTRICTO para eliminar scrollbars */
 .pjd-cl-stats-row {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
   flex: 1;
 }
 .pjd-cl-stat-card {
-  min-width: 0; /* Permite que el grid encoja las tarjetas si es necesario */
+  min-width: 0;
   border: 1px solid var(--pjd-border);
   border-radius: 8px;
-  padding: 16px 8px;
+  padding: 10px 8px;          /* antes 16px 8px */
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -119,17 +119,28 @@
   border-color: var(--pjd-primary);
   box-shadow: 0 0 0 1px var(--pjd-primary);
 }
-.pjd-cl-stat-num { font-size: 20px; font-weight: 600; color: var(--pjd-text-main); text-align: center; margin-bottom: 4px; line-height: 1; }
+.pjd-cl-stat-num {
+  font-size: 18px;            /* antes 20px */
+  font-weight: 600;
+  color: var(--pjd-text-main);
+  text-align: center;
+  margin-bottom: 2px;         /* antes 4px */
+  line-height: 1;
+}
 .is-active .pjd-cl-stat-num { color: var(--pjd-primary); }
-.pjd-cl-stat-label { 
-  font-size: 12px; color: var(--pjd-text-muted); text-align: center; 
-  margin-bottom: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.pjd-cl-stat-label {
+  font-size: 11px;            /* antes 12px */
+  line-height: 1.2;
+  color: var(--pjd-text-muted);
+  text-align: center;
+  margin-bottom: 6px;         /* antes 12px */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 .pjd-cl-stat-footer { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: auto; }
-.pjd-cl-stat-bar-bg { width: 32px; height: 4px; background: #f3f4f6; border-radius: 2px; overflow: hidden; }
+.pjd-cl-stat-bar-bg { width: 30px; height: 4px; background: #f3f4f6; border-radius: 2px; overflow: hidden; }
 .pjd-cl-stat-bar-fill { height: 100%; border-radius: 2px; }
-.pjd-cl-stat-pct { font-size: 11px; font-weight: 500; color: var(--pjd-text-muted); }
+.pjd-cl-stat-pct { font-size: 11px; line-height: 1; font-weight: 500; color: var(--pjd-text-muted); }
 .is-active .pjd-cl-stat-pct { color: var(--pjd-primary); }
 
 /* Colores de las barras */
@@ -142,23 +153,24 @@
 .stat-nocumple .pjd-cl-stat-pct { color: var(--pjd-c-nocumple); }
 .stat-total .pjd-cl-stat-bar-fill { background: var(--pjd-primary); width: 100%; }
 
+/* Botones laterales ajustados a la nueva altura */
 .pjd-cl-top-actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  justify-content: flex-start;
+  gap: 6px;
+  justify-content: space-between;
   flex-shrink: 0;
 }
 .pjd-cl-icon-btn {
-  width: 38px; height: 38px; border: 1px solid var(--pjd-border); background: #fff;
+  width: 34px; height: 34px; border: 1px solid var(--pjd-border); background: #fff;
   border-radius: 8px; display: flex; align-items: center; justify-content: center;
-  color: var(--pjd-text-muted); cursor: pointer; padding: 0; margin: 0;
+  color: var(--pjd-text-muted); cursor: pointer; padding: 0; margin: 0; flex: 1;
 }
 .pjd-cl-icon-btn:hover { background: var(--pjd-bg-hover); color: var(--pjd-text-main); }
-.pjd-cl-icon-btn svg { width: 16px; height: 16px; }
+.pjd-cl-icon-btn svg { width: 15px; height: 15px; }
 
 /* =======================================
-   TOOLBAR (REPRODUCIDO EXACTAMENTE)
+   TOOLBAR
    ======================================= */
 .pjd-cl-toolbar-row {
   display: flex; gap: 12px; margin-bottom: 12px; align-items: center; flex-wrap: wrap;
@@ -205,24 +217,24 @@
 }
 .pjd-cl-dropdown-menu.show { display: block; }
 .pjd-col-option {
-  display: flex; align-items: center; gap: 10px; padding: 8px 16px; font-size: 14px; 
+  display: flex; align-items: center; gap: 10px; padding: 8px 16px; font-size: 14px;
   color: var(--pjd-text-main); cursor: pointer; transition: background 0.15s; margin: 0;
 }
 .pjd-col-option:hover { background: var(--pjd-bg-hover); }
 .pjd-col-option input[type="checkbox"] { width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: var(--pjd-primary); }
 
 /* =======================================
-   TABLA (ESTILO EXACTO)
+   TABLA
    ======================================= */
-.pjd-cl-table-container { 
-  border: 1px solid var(--pjd-border); border-radius: 8px; overflow-x: auto; 
+.pjd-cl-table-container {
+  border: 1px solid var(--pjd-border); border-radius: 8px; overflow-x: auto;
 }
-.pjd-cl-table { 
+.pjd-cl-table {
   width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; margin: 0; table-layout: auto;
 }
 .pjd-cl-table th {
   background: #ffffff; padding: 12px 16px; border-bottom: 1px solid var(--pjd-border);
-  border-right: 1px solid var(--pjd-border); color: #374151; font-weight: 600; white-space: normal; /* Corregido scroll infinito */
+  border-right: 1px solid var(--pjd-border); color: #374151; font-weight: 600; white-space: normal;
 }
 .pjd-cl-table th:last-child { border-right: none; }
 .pjd-cl-table th .th-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -230,14 +242,14 @@
 .pjd-cl-table th .th-grip { color: #d1d5db; width: 14px; height: 14px; flex-shrink: 0; }
 .pjd-cl-table th .th-sort { color: #9ca3af; width: 16px; height: 16px; flex-shrink: 0; }
 
-.pjd-cl-table td { 
-  padding: 14px 16px; border-bottom: 1px solid var(--pjd-border); vertical-align: middle; 
+.pjd-cl-table td {
+  padding: 14px 16px; border-bottom: 1px solid var(--pjd-border); vertical-align: middle;
 }
 .pjd-cl-table tbody tr:hover td { background: var(--pjd-bg-hover); }
 
 /* Elementos de celda */
-.pjd-cl-checkbox { 
-  width: 16px; height: 16px; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; margin: 0; 
+.pjd-cl-checkbox {
+  width: 16px; height: 16px; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; margin: 0;
 }
 .pjd-cl-chevron-btn {
   background: none; border: none; color: var(--pjd-primary); cursor: pointer; padding: 0;
@@ -254,7 +266,7 @@
 .pjd-cl-detail-content { padding: 24px; background: #f9fafb; border-left: 4px solid var(--pjd-primary); }
 
 /* =======================================
-   MODAL DE AYUDA (CLASIFICACIONES)
+   MODAL DE AYUDA
    ======================================= */
 .pjd-modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(17, 24, 39, 0.5); z-index: 9999; align-items: center; justify-content: center; }
 .pjd-modal-overlay.show { display: flex; }
@@ -285,7 +297,7 @@
 </style>
 
 <div class="pjd-cl-wrapper">
-  
+
   <div class="pjd-cl-stats-container">
     <div class="pjd-cl-stats-row">
       <div class="pjd-cl-stat-card">
@@ -352,7 +364,7 @@
     <button type="button" class="pjd-cl-help-btn pjd-js-open-help" aria-label="Ayuda">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
     </button>
-    
+
     <div class="pjd-cl-search-container">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input type="text" placeholder="Buscar por requisito, formato o des...">
@@ -365,7 +377,7 @@
       </svg>
       Reanalisis
     </button>
-    
+
     <button type="button" class="pjd-cl-btn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Nuevo
@@ -399,16 +411,16 @@
       <thead>
         <tr>
           <th style="width: 48px; text-align: center;"><input type="checkbox" class="pjd-cl-checkbox"></th>
-          
+
           <th style="width: 48px; text-align: center;">
             <svg class="th-grip" style="margin: 0 auto; display: block;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
           </th>
-          
+
           <th>
             <div class="th-inner">
               <div class="th-left">
                 <svg class="th-grip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
-                Requisito 
+                Requisito
               </div>
               <svg class="th-sort" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>
             </div>
@@ -438,7 +450,8 @@
         @forelse($checklistData as $item)
           <tr>
             <td style="text-align: center;"><input type="checkbox" class="pjd-cl-checkbox"></td>
-            <td></td> <td style="display: flex; align-items: center;">
+            <td></td>
+            <td style="display: flex; align-items: center;">
               <button type="button" class="pjd-cl-chevron-btn pjd-js-toggle-row">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
@@ -469,7 +482,7 @@
     <button type="button" class="pjd-modal-close pjd-js-close-help">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
-    
+
     <div class="pjd-modal-header">
       <div class="pjd-modal-title-group">
         <svg class="pjd-modal-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
@@ -515,7 +528,7 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-  
+
   // 1. Expandir Filas (Chevron)
   document.querySelectorAll('.pjd-js-toggle-row').forEach(btn => {
     btn.addEventListener('click', function() {
@@ -542,12 +555,10 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   });
 
-  // Evitar que clics dentro del menú lo cierren
   document.querySelectorAll('.pjd-cl-dropdown-menu').forEach(menu => {
     menu.addEventListener('click', function(e) { e.stopPropagation(); });
   });
 
-  // Cerrar dropdowns al hacer clic fuera
   document.addEventListener('click', function() {
     document.querySelectorAll('.pjd-cl-dropdown-menu.show').forEach(menu => {
       menu.classList.remove('show');
