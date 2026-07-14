@@ -439,6 +439,354 @@ body.pjd-cl-body-locked {
   display: block;
 }
 
+
+/* ============================================================
+   EXTENSIONES FUNCIONALES DEL MISMO DISEÑO
+   ============================================================ */
+#pjdChecklistPane .pjd-cl-table {
+  min-width: 1780px;
+}
+
+#pjdChecklistPane .pjd-cl-table th,
+#pjdChecklistPane .pjd-cl-table td {
+  white-space: nowrap;
+}
+
+#pjdChecklistPane .pjd-cl-table th {
+  position: relative;
+}
+
+#pjdChecklistPane .pjd-cl-table .pjd-cl-main-cell {
+  min-width: 420px;
+  max-width: 520px;
+  white-space: normal;
+}
+
+#pjdChecklistPane .pjd-cl-table .pjd-cl-main-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#pjdChecklistPane .pjd-cl-inline-select {
+  min-width: 145px;
+  height: 34px;
+  padding: 0 30px 0 9px;
+  border: 0;
+  background-color: transparent;
+  color: var(--pjd-text-main);
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+}
+
+#pjdChecklistPane .pjd-cl-inline-select:focus {
+  background: #fff;
+  border: 1px solid var(--pjd-primary);
+  border-radius: 7px;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, .12);
+}
+
+#pjdChecklistPane .pjd-cl-status-select {
+  font-weight: 500;
+}
+
+#pjdChecklistPane .pjd-cl-status-select.is-pending {
+  color: #d97706;
+}
+
+#pjdChecklistPane .pjd-cl-status-select.is-review {
+  color: #2563eb;
+}
+
+#pjdChecklistPane .pjd-cl-status-select.is-success {
+  color: #16a34a;
+}
+
+#pjdChecklistPane .pjd-cl-status-select.is-danger {
+  color: #ef4444;
+}
+
+#pjdChecklistPane .pjd-cl-responsible-select {
+  min-width: 170px;
+}
+
+#pjdChecklistPane .pjd-cl-priority-select {
+  min-width: 130px;
+  color: var(--pjd-text-muted);
+}
+
+#pjdChecklistPane .pjd-cl-date-input {
+  width: 138px;
+  height: 34px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--pjd-text-main);
+  font-size: 13px;
+  outline: none;
+}
+
+#pjdChecklistPane .pjd-cl-date-input:focus {
+  border: 1px solid var(--pjd-primary);
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, .12);
+}
+
+#pjdChecklistPane .pjd-cl-attachment-cell {
+  text-align: center;
+}
+
+#pjdChecklistPane .pjd-cl-attachment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 56px;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--pjd-primary);
+  cursor: pointer;
+}
+
+#pjdChecklistPane .pjd-cl-attachment-btn:hover {
+  background: #eff6ff;
+}
+
+#pjdChecklistPane .pjd-cl-attachment-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+#pjdChecklistPane .pjd-cl-attachment-count {
+  min-width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#pjdChecklistPane .pjd-cl-options-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+#pjdChecklistPane .pjd-cl-options-btn {
+  width: 34px;
+  height: 32px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--pjd-primary);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#pjdChecklistPane .pjd-cl-options-btn:hover {
+  background: #eff6ff;
+}
+
+#pjdChecklistPane .pjd-cl-row-menu {
+  position: fixed;
+  z-index: 10020;
+  display: none;
+  width: 190px;
+  padding: 8px;
+  border: 1px solid var(--pjd-border);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .16);
+}
+
+#pjdChecklistPane .pjd-cl-row-menu.show {
+  display: block;
+}
+
+#pjdChecklistPane .pjd-cl-row-menu button {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--pjd-text-main);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+#pjdChecklistPane .pjd-cl-row-menu button:hover {
+  background: var(--pjd-bg-hover);
+}
+
+#pjdChecklistPane .pjd-cl-row-menu button.is-danger {
+  color: #ef4444;
+}
+
+#pjdChecklistPane .pjd-cl-row-menu svg {
+  width: 17px;
+  height: 17px;
+  color: var(--pjd-primary);
+}
+
+#pjdChecklistPane .pjd-cl-row-menu .is-danger svg {
+  color: #ef4444;
+}
+
+#pjdChecklistPane .pjd-cl-edit-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10030;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(17, 24, 39, .38);
+  backdrop-filter: blur(2px);
+}
+
+#pjdChecklistPane .pjd-cl-edit-modal.show {
+  display: flex;
+}
+
+#pjdChecklistPane .pjd-cl-edit-card {
+  width: min(640px, 100%);
+  max-height: calc(100vh - 44px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--pjd-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 22px 55px rgba(15, 23, 42, .18);
+}
+
+#pjdChecklistPane .pjd-cl-edit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+#pjdChecklistPane .pjd-cl-edit-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+#pjdChecklistPane .pjd-cl-edit-close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--pjd-text-muted);
+  cursor: pointer;
+  font-size: 20px;
+}
+
+#pjdChecklistPane .pjd-cl-edit-close:hover {
+  background: var(--pjd-bg-hover);
+}
+
+#pjdChecklistPane .pjd-cl-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+#pjdChecklistPane .pjd-cl-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#pjdChecklistPane .pjd-cl-edit-field.is-full {
+  grid-column: 1 / -1;
+}
+
+#pjdChecklistPane .pjd-cl-edit-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+#pjdChecklistPane .pjd-cl-edit-field input,
+#pjdChecklistPane .pjd-cl-edit-field textarea,
+#pjdChecklistPane .pjd-cl-edit-field select {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid var(--pjd-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--pjd-text-main);
+  outline: none;
+  font-size: 14px;
+}
+
+#pjdChecklistPane .pjd-cl-edit-field textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+#pjdChecklistPane .pjd-cl-edit-field input:focus,
+#pjdChecklistPane .pjd-cl-edit-field textarea:focus,
+#pjdChecklistPane .pjd-cl-edit-field select:focus {
+  border-color: var(--pjd-primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, .12);
+}
+
+#pjdChecklistPane .pjd-cl-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 18px;
+}
+
+#pjdChecklistPane .pjd-cl-edit-actions button {
+  min-height: 38px;
+  padding: 0 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#pjdChecklistPane .pjd-cl-edit-cancel {
+  border: 1px solid var(--pjd-border);
+  background: #fff;
+  color: var(--pjd-text-main);
+}
+
+#pjdChecklistPane .pjd-cl-edit-save {
+  border: 1px solid var(--pjd-primary);
+  background: var(--pjd-primary);
+  color: #fff;
+}
+
+@media (max-width: 720px) {
+  #pjdChecklistPane .pjd-cl-edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #pjdChecklistPane .pjd-cl-edit-field.is-full {
+    grid-column: auto;
+  }
+}
+
 </style>
 
 <div class="pjd-pane" data-pane="checklist" id="pjdChecklistPane">
@@ -553,75 +901,225 @@ body.pjd-cl-body-locked {
     </div>
   </div>
 
+  
   <div class="pjd-cl-table-container">
     <table class="pjd-cl-table">
       <thead>
         <tr>
-          <th style="width: 48px; text-align: center;"><input type="checkbox" class="pjd-cl-checkbox"></th>
-
-          <th style="width: 48px; text-align: center;">
-            <svg class="th-grip" style="margin: 0 auto; display: block;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+          <th style="width:48px;text-align:center;">
+            <input type="checkbox" class="pjd-cl-checkbox pjd-js-select-all">
           </th>
-
+          <th style="width:48px;text-align:center;">
+            <svg class="th-grip" style="margin:0 auto;display:block;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
+              <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
+            </svg>
+          </th>
           <th>
-            <div class="th-inner">
-              <div class="th-left">
-                <svg class="th-grip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
-                Requisito
-              </div>
-              <svg class="th-sort" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>
-            </div>
+            <div class="th-inner"><div class="th-left">Requisito</div><span>⇅</span></div>
           </th>
-
           <th>
-            <div class="th-inner">
-              <div class="th-left">
-                <svg class="th-grip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
-                Formato
-              </div>
-              <svg class="th-sort" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>
-            </div>
+            <div class="th-inner"><div class="th-left">Formato</div><span>⇅</span></div>
           </th>
-
           <th>
-            <div class="th-inner">
-              <div class="th-left">
-                <svg class="th-grip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
-                Categoría
-              </div>
-            </div>
+            <div class="th-inner"><div class="th-left">Categoría</div><span>⇅</span></div>
           </th>
+          <th>
+            <div class="th-inner"><div class="th-left">Aplicación</div><span>⇅</span></div>
+          </th>
+          <th>
+            <div class="th-inner"><div class="th-left">Obligatorio</div><span>⇅</span></div>
+          </th>
+          <th>
+            <div class="th-inner"><div class="th-left">Cumplimiento</div><span>⇅</span></div>
+          </th>
+          <th>
+            <div class="th-inner"><div class="th-left">Status</div><span>⇅</span></div>
+          </th>
+          <th>
+            <div class="th-inner"><div class="th-left">Responsable</div><span>⇅</span></div>
+          </th>
+          <th>
+            <div class="th-inner"><div class="th-left">Adjuntos</div><span>⇅</span></div>
+          </th>
+          <th>
+            <div class="th-inner"><div class="th-left">Prioridad</div><span>⇅</span></div>
+          </th>
+          <th>
+            <div class="th-inner"><div class="th-left">Fecha</div><span>⇅</span></div>
+          </th>
+          <th style="text-align:center;">Opciones</th>
         </tr>
       </thead>
+
       <tbody>
         @forelse($checklistData as $item)
-          <tr data-checklist-row="{{ $item['id'] }}">
-            <td style="text-align: center;"><input type="checkbox" class="pjd-cl-checkbox"></td>
-            <td></td>
-            <td style="display: flex; align-items: center;">
-              <button type="button" class="pjd-cl-chevron-btn pjd-js-toggle-row" data-item-id="{{ $item['id'] }}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
-              {{ Str::limit($item['requisito'], 60) }}
-            </td>
-            <td class="pjd-text-gray" style="text-align: center;">{{ $item['formato'] === 'No aplica' ? '-' : $item['formato'] }}</td>
-            <td class="pjd-text-gray">{{ Str::limit($item['categoria'], 25) }}</td>
-          </tr>
-          <tr class="pjd-cl-detail-row" data-detail-id="{{ $item['id'] }}">
-            <td colspan="5" style="padding:0;">
-              <div class="pjd-cl-detail-content">
+          @php
+            $cumplimientoClass = match($item['cumplimiento']) {
+              'Cumple' => 'is-success',
+              'No Cumple' => 'is-danger',
+              'Parcial' => 'is-review',
+              default => 'is-pending',
+            };
 
+            $statusClass = match($item['status']) {
+              'Aprobado' => 'is-success',
+              'En revisión' => 'is-review',
+              default => 'is-pending',
+            };
+
+            $attachmentCount = count($item['adjuntos'] ?? []);
+          @endphp
+
+          <tr
+            data-checklist-row="{{ $item['id'] }}"
+            data-item='@json($item)'
+          >
+            <td style="text-align:center;">
+              <input type="checkbox" class="pjd-cl-checkbox pjd-js-row-check">
+            </td>
+
+            <td style="text-align:center;">
+              <button
+                type="button"
+                class="pjd-cl-chevron-btn pjd-js-toggle-row"
+                data-item-id="{{ $item['id'] }}"
+                aria-label="Abrir detalle"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
+            </td>
+
+            <td class="pjd-cl-main-cell">
+              <span class="pjd-cl-main-text" title="{{ $item['requisito'] }}">
+                {{ $item['requisito'] }}
+              </span>
+            </td>
+
+            <td class="pjd-text-gray">
+              {{ $item['formato'] === 'No aplica' ? 'No aplica' : $item['formato'] }}
+            </td>
+
+            <td class="pjd-text-gray" title="{{ $item['categoria'] }}">
+              {{ Str::limit($item['categoria'], 24) }}
+            </td>
+
+            <td class="pjd-text-gray">
+              {{ $item['aplicabilidad'] ?: 'Único' }}
+            </td>
+
+            <td style="text-align:center;color:#169447;font-weight:500;">
+              {{ $item['obligatorio'] ?: 'Sí' }}
+            </td>
+
+            <td>
+              <select
+                class="pjd-cl-inline-select pjd-cl-status-select {{ $cumplimientoClass }} pjd-js-cumplimiento"
+                data-item-id="{{ $item['id'] }}"
+              >
+                <option value="-" @selected(in_array($item['cumplimiento'], ['-', '', 'Pendiente'], true))>Sin revisar</option>
+                <option value="Parcial" @selected($item['cumplimiento'] === 'Parcial')>Revisar</option>
+                <option value="Cumple" @selected($item['cumplimiento'] === 'Cumple')>Cumple</option>
+                <option value="No Cumple" @selected($item['cumplimiento'] === 'No Cumple')>No cumple</option>
+              </select>
+            </td>
+
+            <td>
+              <select
+                class="pjd-cl-inline-select pjd-cl-status-select {{ $statusClass }} pjd-js-status"
+                data-item-id="{{ $item['id'] }}"
+              >
+                <option value="Pendiente" @selected($item['status'] === 'Pendiente')>Pendiente</option>
+                <option value="En revisión" @selected($item['status'] === 'En revisión')>En revisión</option>
+                <option value="Aprobado" @selected($item['status'] === 'Aprobado')>Aprobado</option>
+              </select>
+            </td>
+
+            <td>
+              <select
+                class="pjd-cl-inline-select pjd-cl-responsible-select pjd-js-responsable"
+                data-item-id="{{ $item['id'] }}"
+              >
+                <option value="">Sin asignar</option>
+                @foreach($checklistUsers as $user)
+                  <option value="{{ $user->id }}" @selected((string) $item['responsable_id'] === (string) $user->id)>
+                    {{ $user->name ?: $user->email }}
+                  </option>
+                @endforeach
+              </select>
+            </td>
+
+            <td class="pjd-cl-attachment-cell">
+              <button
+                type="button"
+                class="pjd-cl-attachment-btn pjd-js-attach"
+                data-item-id="{{ $item['id'] }}"
+                title="Adjuntar documento"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <path d="M14 2v6h6"/>
+                  <path d="M12 18v-6"/>
+                  <path d="m9 15 3-3 3 3"/>
+                </svg>
+                <span class="pjd-cl-attachment-count">{{ $attachmentCount }}</span>
+              </button>
+            </td>
+
+            <td>
+              <select
+                class="pjd-cl-inline-select pjd-cl-priority-select pjd-js-priority"
+                data-item-id="{{ $item['id'] }}"
+              >
+                <option value="Media" @selected(!in_array($item['prioridad'], ['Alta','Baja'], true))>Sin prioridad</option>
+                <option value="Alta" @selected($item['prioridad'] === 'Alta')>Alta</option>
+                <option value="Media" @selected($item['prioridad'] === 'Media')>Media</option>
+                <option value="Baja" @selected($item['prioridad'] === 'Baja')>Baja</option>
+              </select>
+            </td>
+
+            <td>
+              <input
+                type="date"
+                class="pjd-cl-date-input pjd-js-date"
+                data-item-id="{{ $item['id'] }}"
+                value="{{ $item['fecha_limite'] }}"
+              >
+            </td>
+
+            <td style="text-align:center;">
+              <div class="pjd-cl-options-wrap">
+                <button
+                  type="button"
+                  class="pjd-cl-options-btn pjd-js-options"
+                  data-item-id="{{ $item['id'] }}"
+                  aria-label="Opciones"
+                >•••</button>
+              </div>
+            </td>
+          </tr>
+
+          <tr class="pjd-cl-detail-row" data-detail-id="{{ $item['id'] }}">
+            <td colspan="14" style="padding:0;">
+              <div class="pjd-cl-detail-content">
                 <div class="pjd-cl-detail-label">Descripción:</div>
+
                 <p class="pjd-cl-detail-meta">
-                  Archivo: {{ $item['formato'] !== 'No aplica' ? $item['formato'] : 'No aplica' }}<br>
-                  Fuente: {{ $item['fuente'] ?: 'No aplica' }}<br>
-                  Página de extracción: {{ $item['pagina'] ?: 'No aplica' }}<br>
-                  @if($item['cita'])Cita: {{ $item['cita'] }}@endif
+                  {{ $item['descripcion'] ?: 'Sin descripción adicional.' }}<br>
+                  <strong>Archivo:</strong> {{ $item['formato'] ?: 'No aplica' }}<br>
+                  <strong>Fuente:</strong> {{ $item['fuente'] ?: 'No aplica' }}<br>
+                  <strong>Página de extracción:</strong> {{ $item['pagina'] ?: 'No aplica' }}
+                  @if($item['cita'])
+                    <br><strong>Cita:</strong> {{ $item['cita'] }}
+                  @endif
                 </p>
 
                 <hr class="pjd-cl-detail-sep">
 
                 <div class="pjd-cl-detail-label">Atributos:</div>
+
                 <div class="pjd-cl-detail-attrs">
                   <div class="pjd-cl-detail-attr-row">
                     <span class="pjd-cl-detail-attr-label">Prioridad:</span>
@@ -631,10 +1129,17 @@ body.pjd-cl-body-locked {
                       <button type="button" class="pjd-cl-priority-btn {{ $item['prioridad'] === 'Baja' ? 'is-active' : '' }}" data-item-id="{{ $item['id'] }}" data-priority="Baja">Baja</button>
                     </div>
                   </div>
+
                   <div class="pjd-cl-detail-attr-row" style="justify-content:flex-end;">
                     <span class="pjd-cl-detail-attr-label">📅 Fecha límite:</span>
-                    <input type="date" class="pjd-cl-detail-date" data-item-id="{{ $item['id'] }}" value="{{ $item['fecha_limite'] }}">
+                    <input
+                      type="date"
+                      class="pjd-cl-detail-date pjd-js-date"
+                      data-item-id="{{ $item['id'] }}"
+                      value="{{ $item['fecha_limite'] }}"
+                    >
                   </div>
+
                   <div class="pjd-cl-detail-attr-row">
                     <span class="pjd-cl-detail-attr-label">Responsable:</span>
                     <select class="pjd-cl-detail-select pjd-js-responsable" data-item-id="{{ $item['id'] }}">
@@ -646,6 +1151,7 @@ body.pjd-cl-body-locked {
                       @endforeach
                     </select>
                   </div>
+
                   <div class="pjd-cl-detail-attr-row">
                     <span class="pjd-cl-detail-attr-label">Revisor:</span>
                     <select class="pjd-cl-detail-select pjd-js-revisor" data-item-id="{{ $item['id'] }}">
@@ -658,17 +1164,104 @@ body.pjd-cl-body-locked {
                     </select>
                   </div>
                 </div>
-
               </div>
             </td>
           </tr>
         @empty
-          <tr><td colspan="5" style="padding: 40px 20px; text-align: center; color: var(--pjd-text-muted);">Sin registros.</td></tr>
+          <tr>
+            <td colspan="14" style="padding:40px 20px;text-align:center;color:var(--pjd-text-muted);">
+              Sin registros.
+            </td>
+          </tr>
         @endforelse
       </tbody>
     </table>
   </div>
-</div>
+
+  <input type="file" class="pjd-js-hidden-attachment" multiple hidden>
+
+  <div class="pjd-cl-row-menu pjd-js-row-menu">
+    <button type="button" data-row-action="edit">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 20h9"/>
+        <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/>
+      </svg>
+      Editar
+    </button>
+
+    <button type="button" data-row-action="duplicate">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="9" y="9" width="13" height="13" rx="2"/>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+      </svg>
+      Duplicar
+    </button>
+
+    <button type="button" class="is-danger" data-row-action="delete">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 6h18"/>
+        <path d="M8 6V4h8v2"/>
+        <path d="M19 6l-1 14H6L5 6"/>
+      </svg>
+      Eliminar
+    </button>
+  </div>
+
+  <div class="pjd-cl-edit-modal pjd-js-edit-modal">
+    <form class="pjd-cl-edit-card pjd-js-edit-form">
+      <div class="pjd-cl-edit-header">
+        <h3 class="pjd-cl-edit-title">Editar requisito</h3>
+        <button type="button" class="pjd-cl-edit-close pjd-js-edit-close">×</button>
+      </div>
+
+      <input type="hidden" name="id">
+
+      <div class="pjd-cl-edit-grid">
+        <div class="pjd-cl-edit-field is-full">
+          <label>Requisito</label>
+          <input type="text" name="requisito" required>
+        </div>
+
+        <div class="pjd-cl-edit-field">
+          <label>Formato</label>
+          <input type="text" name="formato">
+        </div>
+
+        <div class="pjd-cl-edit-field">
+          <label>Categoría</label>
+          <input type="text" name="categoria">
+        </div>
+
+        <div class="pjd-cl-edit-field">
+          <label>Aplicación</label>
+          <input type="text" name="aplicabilidad">
+        </div>
+
+        <div class="pjd-cl-edit-field">
+          <label>Obligatorio</label>
+          <select name="obligatorio">
+            <option value="Sí">Sí</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+
+        <div class="pjd-cl-edit-field is-full">
+          <label>Descripción</label>
+          <textarea name="descripcion"></textarea>
+        </div>
+
+        <div class="pjd-cl-edit-field is-full">
+          <label>Criterio de cumplimiento</label>
+          <textarea name="criterio_cumplimiento"></textarea>
+        </div>
+      </div>
+
+      <div class="pjd-cl-edit-actions">
+        <button type="button" class="pjd-cl-edit-cancel pjd-js-edit-close">Cancelar</button>
+        <button type="submit" class="pjd-cl-edit-save">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
 
 <div class="pjd-modal-overlay pjd-js-help-modal">
   <div class="pjd-modal">
@@ -734,12 +1327,16 @@ document.addEventListener('DOMContentLoaded', function () {
   const $$ = (selector) => Array.from(pane.querySelectorAll(selector));
 
   const checklistUrl = @json(route('projects.checklist', $project));
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || @json(csrf_token());
+  const attachmentUrl = @json(route('projects.checklist.attach', $project));
+  const csrfToken =
+    document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+    || @json(csrf_token());
 
+  let activeItemId = null;
   let saving = false;
 
   const notify = function (message, type = 'success') {
-    let toast = pane.querySelector('.pjd-cl-backend-toast');
+    let toast = document.querySelector('.pjd-cl-backend-toast');
 
     if (!toast) {
       toast = document.createElement('div');
@@ -748,7 +1345,7 @@ document.addEventListener('DOMContentLoaded', function () {
         'position:fixed',
         'right:20px',
         'bottom:20px',
-        'z-index:10050',
+        'z-index:10100',
         'max-width:360px',
         'padding:11px 14px',
         'border-radius:8px',
@@ -756,8 +1353,7 @@ document.addEventListener('DOMContentLoaded', function () {
         'background:#fff',
         'box-shadow:0 12px 28px rgba(0,0,0,.14)',
         'font-size:13px',
-        'font-weight:600',
-        'color:#111827'
+        'font-weight:600'
       ].join(';');
 
       document.body.appendChild(toast);
@@ -769,14 +1365,15 @@ document.addEventListener('DOMContentLoaded', function () {
     toast.style.display = 'block';
 
     clearTimeout(toast._timer);
+
     toast._timer = setTimeout(function () {
       toast.style.display = 'none';
-    }, 3200);
+    }, 3000);
   };
 
-  const requestChecklist = async function (payload) {
+  const requestJson = async function (payload) {
     if (saving) {
-      return null;
+      throw new Error('Espera a que termine el guardado anterior.');
     }
 
     saving = true;
@@ -800,7 +1397,11 @@ document.addEventListener('DOMContentLoaded', function () {
       });
 
       if (!response.ok || data.ok === false) {
-        throw new Error(data.message || data.error || 'No se pudo guardar el cambio.');
+        throw new Error(
+          data.message
+          || data.error
+          || 'No se pudo guardar el cambio.'
+        );
       }
 
       return data;
@@ -810,46 +1411,171 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   };
 
+  const getRow = function (id) {
+    return pane.querySelector(
+      '[data-checklist-row="' + CSS.escape(String(id)) + '"]'
+    );
+  };
+
+  const getItem = function (id) {
+    const row = getRow(id);
+
+    if (!row) {
+      return {};
+    }
+
+    try {
+      return JSON.parse(row.dataset.item || '{}');
+    } catch (error) {
+      return {};
+    }
+  };
+
   const updateItem = async function (id, changes) {
-    const row = pane.querySelector('[data-checklist-row="' + CSS.escape(String(id)) + '"]');
-    const requirement = row
-      ? row.querySelector('td:nth-child(3)')?.innerText.trim()
-      : '';
+    const item = Object.assign({}, getItem(id), changes);
 
-    const item = Object.assign({
-      requisito: requirement || 'Requisito',
-      descripcion: '',
-      formato: 'No aplica',
-      categoria: 'Legal-Administrativo',
-      aplicabilidad: 'Único',
-      obligatorio: 'Sí',
-      cumplimiento: '-',
-      status: 'Pendiente',
-      prioridad: 'Media'
-    }, changes);
+    if (!item.requisito) {
+      item.requisito =
+        getRow(id)?.querySelector('.pjd-cl-main-text')?.textContent.trim()
+        || 'Requisito';
+    }
 
-    return requestChecklist({
+    return requestJson({
       action: 'update',
       id: id,
       item: item
     });
   };
 
-  /* Filas desplegables */
+  const reloadSoon = function () {
+    window.setTimeout(function () {
+      window.location.reload();
+    }, 450);
+  };
+
+  const closeRowMenu = function () {
+    const menu = $('.pjd-js-row-menu');
+
+    if (menu) {
+      menu.classList.remove('show');
+    }
+
+    activeItemId = null;
+  };
+
+  /* Expandir detalle */
   $$('.pjd-js-toggle-row').forEach(function (button) {
     button.addEventListener('click', function () {
       const row = button.closest('tr');
-      const detailRow = row ? row.nextElementSibling : null;
+      const detail = row ? row.nextElementSibling : null;
 
       button.classList.toggle('open');
 
-      if (detailRow && detailRow.classList.contains('pjd-cl-detail-row')) {
-        detailRow.classList.toggle('open');
+      if (detail && detail.classList.contains('pjd-cl-detail-row')) {
+        detail.classList.toggle('open');
       }
     });
   });
 
-  /* Prioridad: cambio visual + guardado real */
+  /* Seleccionar todo */
+  const selectAll = $('.pjd-js-select-all');
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function () {
+      $$('.pjd-js-row-check').forEach(function (checkbox) {
+        checkbox.checked = selectAll.checked;
+      });
+    });
+  }
+
+  /* Cambiar cumplimiento */
+  $$('.pjd-js-cumplimiento').forEach(function (select) {
+    select.addEventListener('change', async function () {
+      try {
+        await updateItem(select.dataset.itemId, {
+          cumplimiento: select.value
+        });
+
+        notify('Cumplimiento guardado.');
+        reloadSoon();
+      } catch (error) {
+        notify(error.message, 'error');
+      }
+    });
+  });
+
+  /* Cambiar status */
+  $$('.pjd-js-status').forEach(function (select) {
+    select.addEventListener('change', async function () {
+      try {
+        await updateItem(select.dataset.itemId, {
+          status: select.value
+        });
+
+        notify('Status guardado.');
+        reloadSoon();
+      } catch (error) {
+        notify(error.message, 'error');
+      }
+    });
+  });
+
+  /* Responsable */
+  $$('.pjd-js-responsable').forEach(function (select) {
+    select.addEventListener('change', async function () {
+      const option = select.options[select.selectedIndex];
+
+      try {
+        await updateItem(select.dataset.itemId, {
+          responsable_id: select.value || null,
+          responsable: select.value
+            ? option.textContent.trim()
+            : ''
+        });
+
+        notify('Responsable guardado.');
+      } catch (error) {
+        notify(error.message, 'error');
+      }
+    });
+  });
+
+  /* Revisor */
+  $$('.pjd-js-revisor').forEach(function (select) {
+    select.addEventListener('change', async function () {
+      const option = select.options[select.selectedIndex];
+
+      try {
+        await updateItem(select.dataset.itemId, {
+          revisor_id: select.value || null,
+          revisor: select.value
+            ? option.textContent.trim()
+            : ''
+        });
+
+        notify('Revisor guardado.');
+      } catch (error) {
+        notify(error.message, 'error');
+      }
+    });
+  });
+
+  /* Prioridad de tabla */
+  $$('.pjd-js-priority').forEach(function (select) {
+    select.addEventListener('change', async function () {
+      try {
+        await updateItem(select.dataset.itemId, {
+          prioridad: select.value
+        });
+
+        notify('Prioridad guardada.');
+      } catch (error) {
+        notify(error.message, 'error');
+      }
+    });
+  });
+
+  /* Prioridad del detalle */
   $$('.pjd-cl-priority-group').forEach(function (group) {
     group.querySelectorAll('.pjd-cl-priority-btn').forEach(function (button) {
       button.addEventListener('click', async function () {
@@ -867,76 +1593,301 @@ document.addEventListener('DOMContentLoaded', function () {
             prioridad: priority
           });
 
+          const tableSelect = pane.querySelector(
+            '.pjd-js-priority[data-item-id="'
+            + CSS.escape(String(id))
+            + '"]'
+          );
+
+          if (tableSelect) {
+            tableSelect.value = priority;
+          }
+
           notify('Prioridad guardada.');
         } catch (error) {
           notify(error.message, 'error');
-          window.location.reload();
         }
       });
     });
   });
 
-  /* Fecha límite: guardado real */
-  $$('.pjd-cl-detail-date[data-item-id]').forEach(function (input) {
+  /* Fecha */
+  $$('.pjd-js-date').forEach(function (input) {
     input.addEventListener('change', async function () {
       try {
         await updateItem(input.dataset.itemId, {
           fecha_limite: input.value || null
         });
 
-        notify('Fecha límite guardada.');
+        $$('.pjd-js-date[data-item-id="'
+          + CSS.escape(String(input.dataset.itemId))
+          + '"]').forEach(function (other) {
+            other.value = input.value;
+          });
+
+        notify('Fecha guardada.');
       } catch (error) {
         notify(error.message, 'error');
       }
     });
   });
 
-  /* Responsable: guardado real */
-  $$('.pjd-js-responsable[data-item-id]').forEach(function (select) {
-    select.addEventListener('change', async function () {
-      const selected = select.options[select.selectedIndex];
+  /* Adjuntar archivos */
+  const hiddenAttachment = $('.pjd-js-hidden-attachment');
+  let attachmentItemId = null;
+
+  $$('.pjd-js-attach').forEach(function (button) {
+    button.addEventListener('click', function () {
+      attachmentItemId = button.dataset.itemId;
+
+      if (hiddenAttachment) {
+        hiddenAttachment.value = '';
+        hiddenAttachment.click();
+      }
+    });
+  });
+
+  if (hiddenAttachment) {
+    hiddenAttachment.addEventListener('change', async function () {
+      if (!attachmentItemId || !hiddenAttachment.files.length) {
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('id', attachmentItemId);
+
+      Array.from(hiddenAttachment.files).forEach(function (file) {
+        formData.append('files[]', file);
+      });
 
       try {
-        await updateItem(select.dataset.itemId, {
-          responsable_id: select.value || null,
-          responsable: select.value ? selected.textContent.trim() : ''
+        const response = await fetch(attachmentUrl, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: formData
         });
 
-        notify('Responsable guardado.');
+        const data = await response.json().catch(function () {
+          return {};
+        });
+
+        if (!response.ok || data.ok === false) {
+          throw new Error(
+            data.message
+            || data.error
+            || 'No se pudieron adjuntar los archivos.'
+          );
+        }
+
+        notify('Documento adjuntado correctamente.');
+        reloadSoon();
       } catch (error) {
         notify(error.message, 'error');
       }
     });
+  }
+
+  /* Menú de opciones */
+  const rowMenu = $('.pjd-js-row-menu');
+
+  $$('.pjd-js-options').forEach(function (button) {
+    button.addEventListener('click', function (event) {
+      event.stopPropagation();
+
+      activeItemId = button.dataset.itemId;
+
+      if (!rowMenu) {
+        return;
+      }
+
+      const rect = button.getBoundingClientRect();
+      const menuWidth = 190;
+      const left = Math.max(
+        10,
+        Math.min(
+          window.innerWidth - menuWidth - 10,
+          rect.right - menuWidth
+        )
+      );
+
+      const estimatedHeight = 150;
+      const top = rect.bottom + estimatedHeight > window.innerHeight
+        ? Math.max(10, rect.top - estimatedHeight)
+        : rect.bottom + 6;
+
+      rowMenu.style.left = left + 'px';
+      rowMenu.style.top = top + 'px';
+      rowMenu.classList.add('show');
+    });
   });
 
-  /* Revisor: guardado real */
-  $$('.pjd-js-revisor[data-item-id]').forEach(function (select) {
-    select.addEventListener('change', async function () {
-      const selected = select.options[select.selectedIndex];
+  document.addEventListener('click', function (event) {
+    if (
+      rowMenu
+      && !rowMenu.contains(event.target)
+      && !event.target.closest('.pjd-js-options')
+    ) {
+      closeRowMenu();
+    }
+  });
+
+  /* Modal editar */
+  const editModal = $('.pjd-js-edit-modal');
+  const editForm = $('.pjd-js-edit-form');
+
+  const closeEditModal = function () {
+    if (editModal) {
+      editModal.classList.remove('show');
+    }
+  };
+
+  $$('.pjd-js-edit-close').forEach(function (button) {
+    button.addEventListener('click', closeEditModal);
+  });
+
+  if (editModal) {
+    editModal.addEventListener('click', function (event) {
+      if (event.target === editModal) {
+        closeEditModal();
+      }
+    });
+  }
+
+  const openEditModal = function (id) {
+    if (!editModal || !editForm) {
+      return;
+    }
+
+    const item = getItem(id);
+
+    editForm.elements.id.value = id;
+    editForm.elements.requisito.value = item.requisito || '';
+    editForm.elements.formato.value = item.formato || 'No aplica';
+    editForm.elements.categoria.value =
+      item.categoria || 'Legal-Administrativo';
+    editForm.elements.aplicabilidad.value =
+      item.aplicabilidad || 'Único';
+    editForm.elements.obligatorio.value =
+      item.obligatorio || 'Sí';
+    editForm.elements.descripcion.value =
+      item.descripcion || '';
+    editForm.elements.criterio_cumplimiento.value =
+      item.criterio_cumplimiento || '';
+
+    editModal.classList.add('show');
+  };
+
+  if (rowMenu) {
+    rowMenu.querySelectorAll('[data-row-action]').forEach(function (button) {
+      button.addEventListener('click', async function () {
+        const action = button.dataset.rowAction;
+        const id = activeItemId;
+
+        closeRowMenu();
+
+        if (!id) {
+          return;
+        }
+
+        if (action === 'edit') {
+          openEditModal(id);
+          return;
+        }
+
+        if (action === 'duplicate') {
+          try {
+            await requestJson({
+              action: 'duplicate',
+              id: id
+            });
+
+            notify('Requisito duplicado.');
+            reloadSoon();
+          } catch (error) {
+            notify(error.message, 'error');
+          }
+
+          return;
+        }
+
+        if (action === 'delete') {
+          const item = getItem(id);
+
+          if (!window.confirm(
+            '¿Eliminar el requisito "' + (item.requisito || '') + '"?'
+          )) {
+            return;
+          }
+
+          try {
+            await requestJson({
+              action: 'delete',
+              id: id
+            });
+
+            notify('Requisito eliminado.');
+            reloadSoon();
+          } catch (error) {
+            notify(error.message, 'error');
+          }
+        }
+      });
+    });
+  }
+
+  if (editForm) {
+    editForm.addEventListener('submit', async function (event) {
+      event.preventDefault();
+
+      const id = editForm.elements.id.value;
+      const current = getItem(id);
+
+      const item = Object.assign({}, current, {
+        requisito: editForm.elements.requisito.value.trim(),
+        formato: editForm.elements.formato.value.trim() || 'No aplica',
+        categoria:
+          editForm.elements.categoria.value.trim()
+          || 'Legal-Administrativo',
+        aplicabilidad:
+          editForm.elements.aplicabilidad.value.trim()
+          || 'Único',
+        obligatorio: editForm.elements.obligatorio.value,
+        descripcion: editForm.elements.descripcion.value.trim(),
+        criterio_cumplimiento:
+          editForm.elements.criterio_cumplimiento.value.trim()
+      });
 
       try {
-        await updateItem(select.dataset.itemId, {
-          revisor_id: select.value || null,
-          revisor: select.value ? selected.textContent.trim() : ''
+        await requestJson({
+          action: 'update',
+          id: id,
+          item: item
         });
 
-        notify('Revisor guardado.');
+        closeEditModal();
+        notify('Requisito actualizado.');
+        reloadSoon();
       } catch (error) {
         notify(error.message, 'error');
       }
     });
-  });
+  }
 
-  /* Dropdowns locales */
+  /* Dropdowns de toolbar */
   $$('.pjd-js-toggle-menu').forEach(function (button) {
     button.addEventListener('click', function (event) {
       event.stopPropagation();
 
       const menu = button.nextElementSibling;
 
-      $$('.pjd-cl-dropdown-menu.show').forEach(function (openedMenu) {
-        if (openedMenu !== menu) {
-          openedMenu.classList.remove('show');
+      $$('.pjd-cl-dropdown-menu.show').forEach(function (opened) {
+        if (opened !== menu) {
+          opened.classList.remove('show');
         }
       });
 
@@ -952,27 +1903,19 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  document.addEventListener('click', function (event) {
-    if (!pane.contains(event.target)) {
-      $$('.pjd-cl-dropdown-menu.show').forEach(function (menu) {
-        menu.classList.remove('show');
-      });
-    }
-  });
-
-  /* Modal de ayuda */
+  /* Ayuda */
   const helpModal = $('.pjd-js-help-modal');
-  const openHelpButton = $('.pjd-js-open-help');
-  const closeHelpButton = $('.pjd-js-close-help');
+  const openHelp = $('.pjd-js-open-help');
+  const closeHelp = $('.pjd-js-close-help');
 
-  if (openHelpButton && helpModal) {
-    openHelpButton.addEventListener('click', function () {
+  if (openHelp && helpModal) {
+    openHelp.addEventListener('click', function () {
       helpModal.classList.add('show');
     });
   }
 
-  if (closeHelpButton && helpModal) {
-    closeHelpButton.addEventListener('click', function () {
+  if (closeHelp && helpModal) {
+    closeHelp.addEventListener('click', function () {
       helpModal.classList.remove('show');
     });
   }
@@ -985,24 +1928,129 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  /* Descargar CSV con el mismo botón y el mismo diseño */
+  /* Buscar */
+  const search = $('#pjdClSearch');
+
+  if (search) {
+    search.addEventListener('input', function () {
+      const query = search.value.toLowerCase().trim();
+
+      $$('[data-checklist-row]').forEach(function (row) {
+        const matches = row.innerText.toLowerCase().includes(query);
+        const detail = row.nextElementSibling;
+
+        row.style.display = matches ? '' : 'none';
+
+        if (
+          detail
+          && detail.classList.contains('pjd-cl-detail-row')
+          && !matches
+        ) {
+          detail.classList.remove('open');
+        }
+      });
+    });
+  }
+
+  /* Nuevo */
+  const newButton = $('.pjd-js-nuevo');
+
+  if (newButton) {
+    newButton.addEventListener('click', async function () {
+      const requirement = window.prompt('Nombre del nuevo requisito:');
+
+      if (!requirement || !requirement.trim()) {
+        return;
+      }
+
+      try {
+        await requestJson({
+          action: 'create',
+          item: {
+            requisito: requirement.trim(),
+            descripcion: '',
+            criterio_cumplimiento: '',
+            formato: 'No aplica',
+            categoria: 'Legal-Administrativo',
+            aplicabilidad: 'Único',
+            obligatorio: 'Sí',
+            cumplimiento: '-',
+            status: 'Pendiente',
+            prioridad: 'Media'
+          }
+        });
+
+        notify('Requisito creado.');
+        reloadSoon();
+      } catch (error) {
+        notify(error.message, 'error');
+      }
+    });
+  }
+
+  /* Reanálisis */
+  const reanalysisButton = $('.pjd-js-reanalisis');
+
+  if (reanalysisButton) {
+    reanalysisButton.addEventListener('click', async function () {
+      if (!window.confirm(
+        '¿Volver a analizar los documentos y actualizar el checklist?'
+      )) {
+        return;
+      }
+
+      const original = reanalysisButton.innerHTML;
+      reanalysisButton.disabled = true;
+      reanalysisButton.textContent = 'Analizando...';
+
+      try {
+        await requestJson({
+          regenerate: true
+        });
+
+        notify('Checklist reanalizado.');
+        reloadSoon();
+      } catch (error) {
+        notify(error.message, 'error');
+        reanalysisButton.disabled = false;
+        reanalysisButton.innerHTML = original;
+      }
+    });
+  }
+
+  /* Descargar CSV */
   const downloadButton = $('[aria-label="Descargar"]');
 
   if (downloadButton) {
     downloadButton.addEventListener('click', function () {
-      const rows = [['Requisito', 'Formato', 'Categoría']];
+      const rows = [[
+        'Requisito',
+        'Formato',
+        'Categoría',
+        'Aplicación',
+        'Obligatorio',
+        'Cumplimiento',
+        'Status',
+        'Responsable',
+        'Prioridad',
+        'Fecha'
+      ]];
 
-      $$('.pjd-cl-table tbody tr:not(.pjd-cl-detail-row)').forEach(function (row) {
+      $$('[data-checklist-row]').forEach(function (row) {
         const cells = row.querySelectorAll('td');
 
-        if (cells.length < 5 || row.querySelector('td[colspan]')) {
-          return;
-        }
-
         rows.push([
-          cells[2].innerText.trim(),
-          cells[3].innerText.trim(),
-          cells[4].innerText.trim()
+          cells[2]?.innerText.trim() || '',
+          cells[3]?.innerText.trim() || '',
+          cells[4]?.innerText.trim() || '',
+          cells[5]?.innerText.trim() || '',
+          cells[6]?.innerText.trim() || '',
+          row.querySelector('.pjd-js-cumplimiento')?.value || '',
+          row.querySelector('.pjd-js-status')?.value || '',
+          row.querySelector('.pjd-js-responsable option:checked')
+            ?.textContent.trim() || '',
+          row.querySelector('.pjd-js-priority')?.value || '',
+          row.querySelector('.pjd-js-date')?.value || ''
         ]);
       });
 
@@ -1029,7 +2077,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  /* Expandir o contraer */
+  /* Expandir vista */
   const expandButton = $('[data-cl-expand-view]');
 
   const setExpanded = function (expanded) {
@@ -1037,10 +2085,15 @@ document.addEventListener('DOMContentLoaded', function () {
     document.body.classList.toggle('pjd-cl-body-locked', expanded);
 
     if (expandButton) {
-      expandButton.classList.toggle('is-active', expanded);
-      expandButton.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-      expandButton.setAttribute('aria-label', expanded ? 'Contraer vista' : 'Expandir vista');
-      expandButton.setAttribute('title', expanded ? 'Contraer vista' : 'Expandir vista');
+      expandButton.setAttribute(
+        'aria-expanded',
+        expanded ? 'true' : 'false'
+      );
+
+      expandButton.setAttribute(
+        'title',
+        expanded ? 'Contraer vista' : 'Expandir vista'
+      );
     }
 
     window.dispatchEvent(new Event('resize'));
@@ -1048,119 +2101,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (expandButton) {
     expandButton.addEventListener('click', function () {
-      setExpanded(!pane.classList.contains('pjd-cl-is-expanded'));
+      setExpanded(
+        !pane.classList.contains('pjd-cl-is-expanded')
+      );
     });
   }
 
   document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape' && pane.classList.contains('pjd-cl-is-expanded')) {
+    if (
+      event.key === 'Escape'
+      && pane.classList.contains('pjd-cl-is-expanded')
+    ) {
       setExpanded(false);
     }
   });
-
-  /* Nuevo requisito: usa el mismo botón, guarda en backend y recarga */
-  const newButton = $('.pjd-js-nuevo');
-
-  if (newButton) {
-    newButton.addEventListener('click', async function () {
-      const requisito = window.prompt('Nombre del nuevo requisito:');
-
-      if (!requisito || !requisito.trim()) {
-        return;
-      }
-
-      const formato = window.prompt('Formato (opcional):', 'No aplica') || 'No aplica';
-      const categoria = window.prompt('Categoría:', 'Legal-Administrativo') || 'Legal-Administrativo';
-
-      try {
-        await requestChecklist({
-          action: 'create',
-          item: {
-            requisito: requisito.trim(),
-            descripcion: '',
-            criterio_cumplimiento: '',
-            formato: formato.trim() || 'No aplica',
-            categoria: categoria.trim() || 'Legal-Administrativo',
-            aplicabilidad: 'Único',
-            obligatorio: 'Sí',
-            cumplimiento: '-',
-            status: 'Pendiente',
-            prioridad: 'Media'
-          }
-        });
-
-        notify('Requisito creado correctamente.');
-        window.setTimeout(function () {
-          window.location.reload();
-        }, 450);
-      } catch (error) {
-        notify(error.message, 'error');
-      }
-    });
-  }
-
-  /* Búsqueda */
-  const searchInput = $('#pjdClSearch');
-
-  if (searchInput) {
-    searchInput.addEventListener('input', function () {
-      const query = searchInput.value.toLowerCase().trim();
-
-      $$('.pjd-cl-table tbody tr:not(.pjd-cl-detail-row)').forEach(function (row) {
-        if (row.querySelector('td[colspan]')) {
-          return;
-        }
-
-        const matches = row.innerText.toLowerCase().includes(query);
-        const detailRow = row.nextElementSibling;
-
-        row.style.display = matches ? '' : 'none';
-
-        if (
-          detailRow &&
-          detailRow.classList.contains('pjd-cl-detail-row') &&
-          !matches
-        ) {
-          detailRow.classList.remove('open');
-
-          const chevron = row.querySelector('.pjd-cl-chevron-btn');
-
-          if (chevron) {
-            chevron.classList.remove('open');
-          }
-        }
-      });
-    });
-  }
-
-  /* Reanálisis real con el controlador */
-  const reanalysisButton = $('.pjd-js-reanalisis');
-
-  if (reanalysisButton) {
-    reanalysisButton.addEventListener('click', async function () {
-      if (!window.confirm('¿Deseas volver a analizar los documentos y actualizar el checklist?')) {
-        return;
-      }
-
-      const originalText = reanalysisButton.innerHTML;
-      reanalysisButton.disabled = true;
-      reanalysisButton.textContent = 'Analizando...';
-
-      try {
-        await requestChecklist({
-          regenerate: true
-        });
-
-        notify('Checklist reanalizado correctamente.');
-        window.setTimeout(function () {
-          window.location.reload();
-        }, 600);
-      } catch (error) {
-        notify(error.message, 'error');
-        reanalysisButton.disabled = false;
-        reanalysisButton.innerHTML = originalText;
-      }
-    });
-  }
 });
 </script>
