@@ -526,21 +526,207 @@
 
 <div class="pjd-pane" data-pane="financiero">
   @php
-    $finSections = collect(data_get($sd, 'financiero.secciones', []))
-      ->filter(fn ($section) => is_array($section))
-      ->values()
-      ->all()
+    $finClean = null;
 
-    $finItems = collect($finSections)->flatMap(fn($section) => $section['items'])->values();
+    $finClean = function ($value) use (&$finClean) {
+      if (is_null($value)) {
+        return '';
+      }
+
+      if (is_bool($value)) {
+        return $value ? 'Sí' : 'No';
+      }
+
+      if (is_scalar($value)) {
+        return trim(preg_replace('/\s+/u', ' ', strip_tags((string) $value)));
+      }
+
+      if (is_object($value) && method_exists($value, '__toString')) {
+        return trim(preg_replace('/\s+/u', ' ', strip_tags((string) $value)));
+      }
+
+      if (is_object($value)) {
+        $value = (array) $value;
+      }
+
+      if (is_array($value)) {
+        foreach ([
+          'respuesta',
+          'answer',
+          'valor',
+          'value',
+          'texto',
+          'descripcion',
+          'description',
+          'pregunta',
+          'question',
+          'titulo',
+          'title',
+          'nombre',
+          'label',
+          'justificacion',
+          'riesgo',
+          'risk',
+        ] as $key) {
+          if (!array_key_exists($key, $value)) {
+            continue;
+          }
+
+          $candidate = $finClean($value[$key]);
+
+          if ($candidate !== '') {
+            return $candidate;
+          }
+        }
+
+        $parts = [];
+
+        foreach ($value as $key => $item) {
+          if (in_array((string) $key, [
+            'fuente',
+            'pagina',
+            'cita',
+            'source',
+            'page',
+            'quote',
+            'metadata',
+          ], true)) {
+            continue;
+          }
+
+          $part = $finClean($item);
+
+          if ($part !== '') {
+            $parts[] = $part;
+          }
+        }
+
+        return trim(implode(' ', array_unique($parts)));
+      }
+
+      return '';
+    };
+
+    $finNormalizeRisk = function ($value) use ($finClean) {
+      $risk = mb_strtoupper($finClean($value), 'UTF-8');
+
+      return in_array($risk, ['ALTO', 'MEDIO', 'BAJO', 'NULO'], true)
+        ? $risk
+        : 'NULO';
+    };
+
+    $finRawSections = data_get($sd, 'financiero.secciones', []);
+
+    $finSections = collect(is_array($finRawSections) ? $finRawSections : [])
+      ->filter(fn ($section) => is_array($section))
+      ->map(function ($section, $sectionIndex) use ($finClean, $finNormalizeRisk) {
+        $rawItems = $section['items'] ?? [];
+
+        $items = collect(is_array($rawItems) ? $rawItems : [])
+          ->filter(fn ($item) => is_array($item))
+          ->map(function ($item, $itemIndex) use ($finClean, $finNormalizeRisk) {
+            $rawCitas = $item['citas'] ?? [];
+
+            $citas = collect(is_array($rawCitas) ? $rawCitas : [$rawCitas])
+              ->map(fn ($cita) => $finClean($cita))
+              ->filter()
+              ->values()
+              ->all();
+
+            return [
+              'question' => $finClean(
+                $item['question']
+                  ?? $item['pregunta']
+                  ?? $item['concepto']
+                  ?? ('Concepto ' . ($itemIndex + 1))
+              ),
+              'answer' => $finClean(
+                $item['answer']
+                  ?? $item['respuesta']
+                  ?? $item['descripcion']
+                  ?? $item['value']
+                  ?? 'Sin información'
+              ),
+              'justificacion' => $finClean(
+                $item['justificacion']
+                  ?? $item['justification']
+                  ?? 'La clasificación se asignó con base en el impacto financiero y operativo del concepto.'
+              ),
+              'risk' => $finNormalizeRisk(
+                $item['risk']
+                  ?? $item['riesgo']
+                  ?? 'NULO'
+              ),
+              'citas' => $citas,
+              'fuente' => $finClean($item['fuente'] ?? $item['source'] ?? ''),
+            ];
+          })
+          ->values()
+          ->all();
+
+        $icons = collect($section['icons'] ?? [])
+          ->map(fn ($icon) => mb_strtolower($finClean($icon), 'UTF-8'))
+          ->filter(fn ($icon) => in_array($icon, ['red', 'yellow', 'green'], true))
+          ->values()
+          ->all();
+
+        if (empty($icons)) {
+          $risks = collect($items)->pluck('risk');
+
+          if ($risks->contains('ALTO')) {
+            $icons[] = 'red';
+          }
+
+          if ($risks->contains('MEDIO')) {
+            $icons[] = 'yellow';
+          }
+
+          if ($risks->contains(fn ($risk) => in_array($risk, ['BAJO', 'NULO'], true))) {
+            $icons[] = 'green';
+          }
+        }
+
+        return [
+          'title' => $finClean(
+            $section['title']
+              ?? $section['titulo']
+              ?? ('Sección ' . ($sectionIndex + 1))
+          ),
+          'items' => $items,
+          'icons' => array_values(array_unique($icons)),
+        ];
+      })
+      ->filter(fn ($section) => !empty($section['items']))
+      ->values()
+      ->all();
+
+    $finItems = collect($finSections)
+      ->flatMap(fn ($section) => $section['items'] ?? [])
+      ->values();
+
     $finAlto = $finItems->where('risk', 'ALTO')->count();
     $finMedio = $finItems->where('risk', 'MEDIO')->count();
-    $finBajoNulo = $finItems->filter(fn($it) => in_array($it['risk'], ['BAJO', 'NULO'], true))->count();
-    $finGeneralRisk = $finAlto > 0 ? 'ALTO' : ($finMedio > 0 ? 'MEDIO' : 'BAJO');
 
-    $finComment = 'El análisis financiero integra '.$finItems->count().' conceptos. Se detecta '.$finAlto.' punto de riesgo alto, '.$finMedio.' punto de riesgo medio y '.$finBajoNulo.' puntos con riesgo bajo o nulo. La revisión prioritaria debe enfocarse en fianzas, capital de trabajo, plazos de pago, reposición de bienes y costo financiero antes de cerrar la propuesta económica.';
+    $finBajoNulo = $finItems
+      ->filter(fn ($item) => in_array($item['risk'] ?? 'NULO', ['BAJO', 'NULO'], true))
+      ->count();
 
-    $finRiskClass = function ($risk) {
-      return match($risk) {
+    $finGeneralRisk = $finAlto > 0
+      ? 'ALTO'
+      : ($finMedio > 0 ? 'MEDIO' : ($finItems->isNotEmpty() ? 'BAJO' : 'NULO'));
+
+    $finComment = 'El análisis financiero integra '
+      . $finItems->count()
+      . ' conceptos. Se detectan '
+      . $finAlto
+      . ' puntos de riesgo alto, '
+      . $finMedio
+      . ' puntos de riesgo medio y '
+      . $finBajoNulo
+      . ' puntos con riesgo bajo o nulo. La revisión prioritaria debe enfocarse en fianzas, capital de trabajo, plazos de pago, reposición de bienes y costo financiero antes de cerrar la propuesta económica.';
+
+    $finRiskClass = function ($risk) use ($finNormalizeRisk) {
+      return match($finNormalizeRisk($risk)) {
         'ALTO' => 'is-alto',
         'MEDIO' => 'is-medio',
         'BAJO' => 'is-bajo',
@@ -594,14 +780,14 @@
     </section>
 
     <div class="pjd-fin-stack">
-      @foreach($finSections as $section)
+      @forelse($finSections as $section)
         <div class="pjd-fin-card">
           <div class="pjd-fin-card-head" data-fin-toggle role="button" tabindex="0" aria-expanded="false">
             <h3 class="pjd-fin-card-title">
-              {{ $section['title'] }}
+              {{ $section['title'] ?? 'Sección sin título' }}
               <span class="pjd-fin-sparkle" aria-hidden="true">{!! $finSparkle !!}</span>
               <span class="pjd-fin-indicators" aria-hidden="true">
-                @foreach($section['icons'] as $ic)
+                @foreach(($section['icons'] ?? []) as $ic)
                   @if($ic === 'red')
                     <svg class="is-red" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4M12 17h.01"></path></svg>
                   @elseif($ic === 'yellow')
@@ -617,19 +803,19 @@
 
           <div class="pjd-fin-card-body">
             <div class="pjd-fin-list">
-              @foreach($section['items'] as $it)
-                @php $riskClass = $finRiskClass($it['risk']); @endphp
+              @foreach(($section['items'] ?? []) as $it)
+                @php $riskClass = $finRiskClass($it['risk'] ?? 'NULO'); @endphp
                 <article class="pjd-fin-row" data-fin-row>
                   <div class="pjd-fin-row-main">
-                    <h4 class="pjd-fin-row-title">{{ mb_strtoupper($it['question']) }}</h4>
-                    <p class="pjd-fin-row-text">{!! nl2br(e($it['answer'])) !!}</p>
+                    <h4 class="pjd-fin-row-title">{{ mb_strtoupper($it['question'] ?? 'Sin pregunta', 'UTF-8') }}</h4>
+                    <p class="pjd-fin-row-text">{!! nl2br(e($it['answer'] ?? 'Sin información')) !!}</p>
                   </div>
 
                   <select class="pjd-fin-risk {{ $riskClass }}" aria-label="Riesgo">
-                    <option @selected($it['risk'] === 'ALTO')>ALTO</option>
-                    <option @selected($it['risk'] === 'MEDIO')>MEDIO</option>
-                    <option @selected($it['risk'] === 'BAJO')>BAJO</option>
-                    <option @selected($it['risk'] === 'NULO')>NULO</option>
+                    <option @selected(($it['risk'] ?? 'NULO') === 'ALTO')>ALTO</option>
+                    <option @selected(($it['risk'] ?? 'NULO') === 'MEDIO')>MEDIO</option>
+                    <option @selected(($it['risk'] ?? 'NULO') === 'BAJO')>BAJO</option>
+                    <option @selected(($it['risk'] ?? 'NULO') === 'NULO')>NULO</option>
                   </select>
 
                   <button type="button" class="pjd-fin-trash" title="Eliminar visual" aria-label="Eliminar concepto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button>
@@ -637,13 +823,13 @@
                   <div class="pjd-fin-source">
                     <div class="pjd-fin-source-box">
                       <h5 class="pjd-fin-source-title">Justificación</h5>
-                      <p class="pjd-fin-source-text">{!! nl2br(e($it['justificacion'])) !!}</p>
+                      <p class="pjd-fin-source-text">{!! nl2br(e($it['justificacion'] ?? 'Sin justificación')) !!}</p>
                     </div>
 
                     <h5 class="pjd-fin-cita-title">Cita del documento</h5>
                     <ul class="pjd-fin-cita-list">
                       @foreach(($it['citas'] ?? []) as $cita)
-                        <li>{{ $cita }}</li>
+                        <li>{{ is_array($cita) ? ($cita['texto'] ?? $cita['cita'] ?? 'Sin cita') : $cita }}</li>
                       @endforeach
                     </ul>
 
