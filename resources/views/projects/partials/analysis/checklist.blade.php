@@ -1,3 +1,405 @@
+<style>
+/* ==========================================================================
+   VARIABLES DE COLOR Y TIPOGRAFÍA
+   ========================================================================== */
+:root {
+  --pjd-primary: #2563eb;       /* Azul primario (botones y acentos) */
+  --pjd-primary-hover: #1d4ed8;
+  --pjd-text-main: #1f2937;     /* Texto principal oscuro */
+  --pjd-text-muted: #6b7280;    /* Texto secundario gris */
+  --pjd-border: #e5e7eb;        /* Bordes sutiles */
+  --pjd-bg-light: #f9fafb;      /* Fondos grises claros (tablas) */
+  --pjd-bg-detail: #fafafa;     /* Fondo de la fila expandida */
+  
+  /* Colores de estado */
+  --pjd-c-pendiente: #f59e0b;   /* Naranja/Amarillo */
+  --pjd-c-cumple: #22c55e;      /* Verde */
+  --pjd-c-nocumple: #ef4444;    /* Rojo */
+  --pjd-c-parcial: #3b82f6;     /* Azul secundario */
+}
+
+/* ==========================================================================
+   CONTENEDOR PRINCIPAL
+   ========================================================================== */
+.pjd-checklist-wrap {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--pjd-text-main);
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* Cabecera (Título y botones superiores) */
+.pjd-checklist-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--pjd-border);
+}
+.pjd-checklist-title-block { display: flex; align-items: center; gap: 12px; }
+.pjd-checklist-title { font-size: 18px; font-weight: 600; margin: 0; }
+.pjd-checklist-title-actions { display: flex; gap: 8px; }
+.pjd-checklist-icon { background: none; border: none; cursor: pointer; color: var(--pjd-text-muted); width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; }
+.pjd-checklist-icon:hover { background: var(--pjd-bg-light); color: var(--pjd-text-main); }
+.pjd-checklist-links { display: flex; gap: 16px; }
+.pjd-checklist-link { background: none; border: none; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--pjd-text-muted); cursor: pointer; }
+.pjd-checklist-link svg { width: 16px; height: 16px; }
+.pjd-checklist-link:hover { color: var(--pjd-primary); }
+
+/* ==========================================================================
+   CONTADORES SUPERIORES (Tarjetas)
+   ========================================================================== */
+.pjd-counters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.pjd-counter {
+  flex: 1;
+  min-width: 120px;
+  border: 1px solid var(--pjd-border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  position: relative;
+}
+.pjd-counter.is-total {
+  border-color: var(--pjd-primary);
+  box-shadow: 0 0 0 1px var(--pjd-primary);
+}
+.pjd-counter-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 12px;
+}
+.pjd-counter-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--pjd-text-main);
+}
+.pjd-counter.is-total .pjd-counter-num { color: var(--pjd-primary); }
+.pjd-counter-label {
+  font-size: 12px;
+  color: var(--pjd-text-muted);
+  margin-top: 4px;
+}
+.pjd-counter-pct {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.pjd-counter-bar {
+  height: 4px;
+  background: var(--pjd-bg-light);
+  border-radius: 2px;
+  width: calc(100% - 40px);
+  overflow: hidden;
+  margin-top: auto;
+}
+.pjd-counter-bar-fill { height: 100%; border-radius: 2px; }
+
+/* Colores dinámicos de los contadores */
+.is-nocumple .pjd-counter-bar-fill { background: var(--pjd-c-nocumple); }
+.is-nocumple .pjd-counter-pct { color: var(--pjd-c-nocumple); }
+.is-cumple .pjd-counter-bar-fill { background: var(--pjd-c-cumple); }
+.is-cumple .pjd-counter-pct { color: var(--pjd-c-cumple); }
+.is-pending .pjd-counter-bar-fill { background: var(--pjd-c-pendiente); }
+.is-pending .pjd-counter-pct { color: var(--pjd-c-pendiente); }
+.is-parcial .pjd-counter-bar-fill { background: var(--pjd-c-parcial); }
+.is-parcial .pjd-counter-pct { color: var(--pjd-c-parcial); }
+.is-total .pjd-counter-bar-fill { background: var(--pjd-primary); width: 100% !important; }
+
+/* ==========================================================================
+   TOOLBAR (Búsqueda y Botones)
+   ========================================================================== */
+.pjd-cl-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+.pjd-cl-search {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.pjd-cl-search svg {
+  position: absolute;
+  left: 14px;
+  width: 18px;
+  height: 18px;
+  color: #9ca3af;
+}
+.pjd-cl-search input {
+  width: 100%;
+  padding: 10px 14px 10px 40px;
+  border: 1px solid var(--pjd-border);
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.pjd-cl-search input:focus { border-color: var(--pjd-primary); }
+
+.pjd-cl-actions {
+  display: flex;
+  gap: 8px;
+}
+.pjd-cl-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 1px solid var(--pjd-border);
+  background: #ffffff;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pjd-text-main);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.pjd-cl-btn svg { width: 16px; height: 16px; }
+.pjd-cl-btn:hover { background: var(--pjd-bg-light); }
+.pjd-cl-btn.is-primary {
+  background: var(--pjd-primary);
+  border-color: var(--pjd-primary);
+  color: #ffffff;
+}
+.pjd-cl-btn.is-primary:hover { background: var(--pjd-primary-hover); }
+
+/* ==========================================================================
+   TABLA
+   ========================================================================== */
+.pjd-cl-table-wrap {
+  border: 1px solid var(--pjd-border);
+  border-radius: 12px;
+  overflow: auto;
+}
+.pjd-cl-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+.pjd-cl-table th {
+  background: #ffffff;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--pjd-border);
+  color: var(--pjd-text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.pjd-cl-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--pjd-border);
+  vertical-align: middle;
+}
+.pjd-cl-table tbody tr:hover td {
+  background: var(--pjd-bg-light);
+}
+
+/* Iconos y columnas específicas */
+.pjd-cl-row-toggle {
+  background: none;
+  border: none;
+  color: var(--pjd-primary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+.pjd-cl-row-toggle svg { width: 18px; height: 18px; transition: transform 0.2s; }
+.pjd-cl-row-toggle.is-open svg { transform: rotate(90deg); }
+
+.pjd-cl-requisito { display: flex; align-items: center; gap: 8px; }
+.pjd-cl-requisito-text { color: var(--pjd-text-main); }
+.pjd-cl-cell-muted { color: var(--pjd-text-muted); }
+
+/* Badges de Status y Cumplimiento */
+.pjd-cl-status, .pjd-cl-cumplimiento-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: none;
+  border: none;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.pjd-cl-status svg { width: 14px; height: 14px; }
+/* Pendiente */
+.pjd-cl-status.is-pendiente, .pjd-cl-cumplimiento-btn:has(.is-parcial), .pjd-cl-cumplimiento-btn:has(span:contains('Pendiente')) {
+  color: var(--pjd-c-pendiente);
+}
+/* Aprobado / Cumple */
+.pjd-cl-status.is-aprobado, .pjd-cl-cumplimiento-btn:has(.is-cumple) {
+  color: var(--pjd-c-cumple);
+}
+/* En Revisión */
+.pjd-cl-status.is-revision {
+  color: var(--pjd-primary);
+}
+
+/* ==========================================================================
+   FILA DE DETALLE (Expandida)
+   ========================================================================== */
+.pjd-cl-detail-row td {
+  background: var(--pjd-bg-detail);
+  padding: 0;
+}
+.pjd-cl-detail-row:hover td { background: var(--pjd-bg-detail); }
+.pjd-cl-detail {
+  padding: 24px;
+  border-left: 3px solid var(--pjd-primary);
+}
+.pjd-cl-detail-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+.pjd-cl-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pjd-cl-detail-label {
+  font-weight: 600;
+  color: var(--pjd-text-main);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pjd-cl-detail-text {
+  color: var(--pjd-text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Controles dentro del Detalle (Prioridad, Fechas, etc) */
+.pjd-cl-detail-control-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.pjd-cl-priority-group {
+  display: flex;
+  gap: 8px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 20px;
+}
+.pjd-cl-priority-btn {
+  padding: 4px 16px;
+  border: none;
+  background: transparent;
+  border-radius: 16px;
+  font-size: 12px;
+  color: var(--pjd-text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.pjd-cl-priority-btn.is-active {
+  background: #ffffff;
+  color: var(--pjd-text-main);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.pjd-cl-detail-date, .pjd-cl-detail-select {
+  padding: 8px 12px;
+  border: 1px solid var(--pjd-border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--pjd-text-main);
+  outline: none;
+}
+.pjd-cl-detail-date:focus, .pjd-cl-detail-select:focus { border-color: var(--pjd-primary); }
+
+.pjd-cl-detail-link {
+  background: none;
+  border: none;
+  color: var(--pjd-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pjd-cl-detail-link svg { width: 14px; height: 14px; }
+.pjd-cl-detail-empty {
+  color: var(--pjd-text-muted);
+  font-style: italic;
+  font-size: 12px;
+  background: #f3f4f6;
+  padding: 12px;
+  border-radius: 8px;
+  margin: 0;
+}
+
+/* ==========================================================================
+   MENÚS DESPLEGABLES (Ocultos por defecto)
+   ========================================================================== */
+.pjd-cl-menu {
+  display: none;
+  position: absolute;
+  background: #fff;
+  border: 1px solid var(--pjd-border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 8px;
+  z-index: 10;
+}
+.pjd-cl-menu:not([aria-hidden="true"]) { display: block; }
+.pjd-cl-menu-title { font-size: 11px; font-weight: 600; color: var(--pjd-text-muted); text-transform: uppercase; padding: 4px 8px; margin-top: 8px; }
+.pjd-cl-menu-option { width: 100%; display: flex; justify-content: space-between; align-items: center; background: none; border: none; padding: 8px; font-size: 13px; cursor: pointer; border-radius: 4px; }
+.pjd-cl-menu-option:hover { background: var(--pjd-bg-light); }
+.pjd-cl-menu-left { display: flex; align-items: center; gap: 8px; }
+.pjd-cl-menu-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ==========================================================================
+   FORMULARIO INFERIOR (Agregar Requisito)
+   ========================================================================== */
+.pjd-cl-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  background: none;
+  border: none;
+  color: var(--pjd-primary);
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+}
+.pjd-cl-add-form { display: none; margin-top: 20px; padding: 20px; border: 1px solid var(--pjd-border); border-radius: 8px; background: var(--pjd-bg-light); }
+.pjd-cl-add-title { margin: 0 0 16px 0; font-size: 16px; }
+.pjd-cl-add-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.pjd-cl-add-field { display: flex; flex-direction: column; gap: 6px; }
+.pjd-cl-add-field.is-full { grid-column: 1 / -1; }
+.pjd-cl-add-field label { font-size: 13px; font-weight: 500; color: var(--pjd-text-main); }
+.pjd-cl-add-field input, .pjd-cl-add-field textarea { padding: 10px; border: 1px solid var(--pjd-border); border-radius: 6px; outline: none; }
+.pjd-cl-add-actions { display: flex; gap: 12px; }
+.pjd-cl-add-save { background: var(--pjd-primary); color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+.pjd-cl-add-cancel { background: none; border: 1px solid var(--pjd-border); padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+</style>
+
 @php
   /*
   |--------------------------------------------------------------------------
