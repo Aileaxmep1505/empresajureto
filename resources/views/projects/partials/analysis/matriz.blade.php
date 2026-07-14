@@ -517,11 +517,11 @@
       }
 
       if (is_scalar($value)) {
-        return trim(preg_replace('/\\s+/u', ' ', strip_tags((string) $value)));
+        return trim(preg_replace('/\s+/u', ' ', strip_tags((string) $value)));
       }
 
-      if ($value instanceof \\Stringable) {
-        return trim(preg_replace('/\\s+/u', ' ', strip_tags((string) $value)));
+      if (is_object($value) && method_exists($value, '__toString')) {
+        return trim(preg_replace('/\s+/u', ' ', strip_tags((string) $value)));
       }
 
       if (is_object($value)) {
