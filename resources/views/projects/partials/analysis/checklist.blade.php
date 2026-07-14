@@ -44,6 +44,27 @@
               'obligatorio' => $item->mandatory ? 'Sí' : 'No',
               'cumplimiento' => $item->compliance_status ?? 'Pendiente',
               'status' => $item->review_status ?? 'Pendiente',
+              'prioridad' => $item->priority ?? 'Media',
+              'fecha_limite' => optional($item->due_date)->format('Y-m-d'),
+              'responsable_id' => $item->responsible_user_id,
+              'responsable' => optional($item->responsible)->name ?? '',
+              'revisor_id' => $item->reviewer_user_id,
+              'revisor' => optional($item->reviewer)->name ?? '',
+              'criterio_cumplimiento' => $item->compliance_criteria ?? '',
+              'notas' => $item->relationLoaded('notes')
+                  ? $item->notes->map(fn ($note) => [
+                      'id' => $note->id,
+                      'body' => $note->body,
+                      'user_name' => optional($note->user)->name,
+                  ])->values()->all()
+                  : [],
+              'adjuntos' => $item->relationLoaded('attachments')
+                  ? $item->attachments->map(fn ($attachment) => [
+                      'id' => $attachment->id,
+                      'name' => $attachment->original_name,
+                      'url' => $attachment->url,
+                  ])->values()->all()
+                  : [],
               'fuente' => $item->source_name,
               'pagina' => $item->source_page,
               'cita' => $item->source_quote,
@@ -62,11 +83,36 @@
           'obligatorio' => $clText($item['obligatorio'] ?? $item['mandatory'] ?? 'Sí', 'Sí'),
           'cumplimiento' => $clText($item['cumplimiento'] ?? $item['compliance'] ?? 'Pendiente', 'Pendiente'),
           'status' => $clText($item['status'] ?? $item['review_status'] ?? 'Pendiente', 'Pendiente'),
+          'prioridad' => $clText($item['prioridad'] ?? $item['priority'] ?? 'Media', 'Media'),
+          'fecha_limite' => $clText($item['fecha_limite'] ?? $item['due_date'] ?? ''),
+          'responsable_id' => $item['responsable_id'] ?? $item['responsible_user_id'] ?? null,
+          'responsable' => $clText($item['responsable'] ?? $item['responsible'] ?? ''),
+          'revisor_id' => $item['revisor_id'] ?? $item['reviewer_user_id'] ?? null,
+          'revisor' => $clText($item['revisor'] ?? $item['reviewer'] ?? ''),
+          'criterio_cumplimiento' => $clText($item['criterio_cumplimiento'] ?? $item['compliance_criteria'] ?? ''),
+          'notas' => is_array($item['notas'] ?? null) ? $item['notas'] : [],
+          'adjuntos' => is_array($item['adjuntos'] ?? null) ? $item['adjuntos'] : [],
           'fuente' => $clText($item['fuente'] ?? $item['source'] ?? ''),
           'pagina' => $clText($item['pagina'] ?? $item['page'] ?? ''),
           'cita' => $clText($item['cita'] ?? $item['quote'] ?? ''),
       ];
   })->all();
+
+  $checklistUsers = \App\Models\User::query()
+      ->select(['id', 'name', 'email'])
+      ->orderBy('name')
+      ->get();
+
+  $clTotal = count($checklistData);
+  $clSinRevisar = collect($checklistData)->whereIn('cumplimiento', ['-', '', 'Pendiente'])->count();
+  $clPendiente = collect($checklistData)->where('status', 'Pendiente')->count();
+  $clRevisar = collect($checklistData)->where('status', 'En revisión')->count();
+  $clCumple = collect($checklistData)->where('cumplimiento', 'Cumple')->count();
+  $clNoCumple = collect($checklistData)->where('cumplimiento', 'No Cumple')->count();
+
+  $clPct = function (int $value) use ($clTotal): int {
+      return $clTotal > 0 ? (int) round(($value / $clTotal) * 100) : 0;
+  };
 @endphp
 
 <style>
@@ -401,47 +447,47 @@ body.pjd-cl-body-locked {
   <div class="pjd-cl-stats-container">
     <div class="pjd-cl-stats-row">
       <div class="pjd-cl-stat-card">
-        <div class="pjd-cl-stat-num">0</div>
+        <div class="pjd-cl-stat-num">{{ $clSinRevisar }}</div>
         <div class="pjd-cl-stat-label">Sin revisar</div>
         <div class="pjd-cl-stat-footer">
-          <div class="pjd-cl-stat-bar-bg"><div class="pjd-cl-stat-bar-fill" style="width:0%;"></div></div>
-          <span class="pjd-cl-stat-pct">0%</span>
+          <div class="pjd-cl-stat-bar-bg"><div class="pjd-cl-stat-bar-fill" style="width:{{ $clPct($clSinRevisar) }}%;"></div></div>
+          <span class="pjd-cl-stat-pct">{{ $clPct($clSinRevisar) }}%</span>
         </div>
       </div>
       <div class="pjd-cl-stat-card stat-pendiente">
-        <div class="pjd-cl-stat-num">31</div>
+        <div class="pjd-cl-stat-num">{{ $clPendiente }}</div>
         <div class="pjd-cl-stat-label">Pendiente</div>
         <div class="pjd-cl-stat-footer">
-          <div class="pjd-cl-stat-bar-bg"><div class="pjd-cl-stat-bar-fill" style="width:62%;"></div></div>
-          <span class="pjd-cl-stat-pct">62%</span>
+          <div class="pjd-cl-stat-bar-bg"><div class="pjd-cl-stat-bar-fill" style="width:{{ $clPct($clPendiente) }}%;"></div></div>
+          <span class="pjd-cl-stat-pct">{{ $clPct($clPendiente) }}%</span>
         </div>
       </div>
       <div class="pjd-cl-stat-card stat-revisar">
-        <div class="pjd-cl-stat-num">1</div>
+        <div class="pjd-cl-stat-num">{{ $clRevisar }}</div>
         <div class="pjd-cl-stat-label">Revisar</div>
         <div class="pjd-cl-stat-footer">
-          <div class="pjd-cl-stat-bar-bg"><div class="pjd-cl-stat-bar-fill" style="width:2%;"></div></div>
-          <span class="pjd-cl-stat-pct">2%</span>
+          <div class="pjd-cl-stat-bar-bg"><div class="pjd-cl-stat-bar-fill" style="width:{{ $clPct($clRevisar) }}%;"></div></div>
+          <span class="pjd-cl-stat-pct">{{ $clPct($clRevisar) }}%</span>
         </div>
       </div>
       <div class="pjd-cl-stat-card stat-cumple">
-        <div class="pjd-cl-stat-num">0</div>
+        <div class="pjd-cl-stat-num">{{ $clCumple }}</div>
         <div class="pjd-cl-stat-label">Cumple</div>
         <div class="pjd-cl-stat-footer">
-          <div class="pjd-cl-stat-bar-bg"><div class="pjd-cl-stat-bar-fill" style="width:0%;"></div></div>
-          <span class="pjd-cl-stat-pct">0%</span>
+          <div class="pjd-cl-stat-bar-bg"><div class="pjd-cl-stat-bar-fill" style="width:{{ $clPct($clCumple) }}%;"></div></div>
+          <span class="pjd-cl-stat-pct">{{ $clPct($clCumple) }}%</span>
         </div>
       </div>
       <div class="pjd-cl-stat-card stat-nocumple">
-        <div class="pjd-cl-stat-num">18</div>
+        <div class="pjd-cl-stat-num">{{ $clNoCumple }}</div>
         <div class="pjd-cl-stat-label">No cumple</div>
         <div class="pjd-cl-stat-footer">
-          <div class="pjd-cl-stat-bar-bg"><div class="pjd-cl-stat-bar-fill" style="width:36%;"></div></div>
-          <span class="pjd-cl-stat-pct">36%</span>
+          <div class="pjd-cl-stat-bar-bg"><div class="pjd-cl-stat-bar-fill" style="width:{{ $clPct($clNoCumple) }}%;"></div></div>
+          <span class="pjd-cl-stat-pct">{{ $clPct($clNoCumple) }}%</span>
         </div>
       </div>
       <div class="pjd-cl-stat-card stat-total is-active">
-        <div class="pjd-cl-stat-num">50</div>
+        <div class="pjd-cl-stat-num">{{ $clTotal }}</div>
         <div class="pjd-cl-stat-label">Total</div>
         <div class="pjd-cl-stat-footer">
           <div class="pjd-cl-stat-bar-bg"><div class="pjd-cl-stat-bar-fill" style="width:100%;"></div></div>
@@ -549,11 +595,11 @@ body.pjd-cl-body-locked {
       </thead>
       <tbody>
         @forelse($checklistData as $item)
-          <tr>
+          <tr data-checklist-row="{{ $item['id'] }}">
             <td style="text-align: center;"><input type="checkbox" class="pjd-cl-checkbox"></td>
             <td></td>
             <td style="display: flex; align-items: center;">
-              <button type="button" class="pjd-cl-chevron-btn pjd-js-toggle-row">
+              <button type="button" class="pjd-cl-chevron-btn pjd-js-toggle-row" data-item-id="{{ $item['id'] }}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
               {{ Str::limit($item['requisito'], 60) }}
@@ -561,7 +607,7 @@ body.pjd-cl-body-locked {
             <td class="pjd-text-gray" style="text-align: center;">{{ $item['formato'] === 'No aplica' ? '-' : $item['formato'] }}</td>
             <td class="pjd-text-gray">{{ Str::limit($item['categoria'], 25) }}</td>
           </tr>
-          <tr class="pjd-cl-detail-row">
+          <tr class="pjd-cl-detail-row" data-detail-id="{{ $item['id'] }}">
             <td colspan="5" style="padding:0;">
               <div class="pjd-cl-detail-content">
 
@@ -580,22 +626,36 @@ body.pjd-cl-body-locked {
                   <div class="pjd-cl-detail-attr-row">
                     <span class="pjd-cl-detail-attr-label">Prioridad:</span>
                     <div class="pjd-cl-priority-group">
-                      <button type="button" class="pjd-cl-priority-btn">Alta</button>
-                      <button type="button" class="pjd-cl-priority-btn">Media</button>
-                      <button type="button" class="pjd-cl-priority-btn">Baja</button>
+                      <button type="button" class="pjd-cl-priority-btn {{ $item['prioridad'] === 'Alta' ? 'is-active' : '' }}" data-item-id="{{ $item['id'] }}" data-priority="Alta">Alta</button>
+                      <button type="button" class="pjd-cl-priority-btn {{ $item['prioridad'] === 'Media' ? 'is-active' : '' }}" data-item-id="{{ $item['id'] }}" data-priority="Media">Media</button>
+                      <button type="button" class="pjd-cl-priority-btn {{ $item['prioridad'] === 'Baja' ? 'is-active' : '' }}" data-item-id="{{ $item['id'] }}" data-priority="Baja">Baja</button>
                     </div>
                   </div>
                   <div class="pjd-cl-detail-attr-row" style="justify-content:flex-end;">
                     <span class="pjd-cl-detail-attr-label">📅 Fecha límite:</span>
-                    <input type="date" class="pjd-cl-detail-date">
+                    <input type="date" class="pjd-cl-detail-date" data-item-id="{{ $item['id'] }}" value="{{ $item['fecha_limite'] }}">
                   </div>
                   <div class="pjd-cl-detail-attr-row">
                     <span class="pjd-cl-detail-attr-label">Responsable:</span>
-                    <select class="pjd-cl-detail-select"><option>Sin asignar</option></select>
+                    <select class="pjd-cl-detail-select pjd-js-responsable" data-item-id="{{ $item['id'] }}">
+                      <option value="">Sin asignar</option>
+                      @foreach($checklistUsers as $user)
+                        <option value="{{ $user->id }}" @selected((string) $item['responsable_id'] === (string) $user->id)>
+                          {{ $user->name ?: $user->email }}
+                        </option>
+                      @endforeach
+                    </select>
                   </div>
                   <div class="pjd-cl-detail-attr-row">
                     <span class="pjd-cl-detail-attr-label">Revisor:</span>
-                    <select class="pjd-cl-detail-select"><option>Sin asignar</option></select>
+                    <select class="pjd-cl-detail-select pjd-js-revisor" data-item-id="{{ $item['id'] }}">
+                      <option value="">Sin asignar</option>
+                      @foreach($checklistUsers as $user)
+                        <option value="{{ $user->id }}" @selected((string) $item['revisor_id'] === (string) $user->id)>
+                          {{ $user->name ?: $user->email }}
+                        </option>
+                      @endforeach
+                    </select>
                   </div>
                 </div>
 
@@ -673,6 +733,108 @@ document.addEventListener('DOMContentLoaded', function () {
   const $ = (selector) => pane.querySelector(selector);
   const $$ = (selector) => Array.from(pane.querySelectorAll(selector));
 
+  const checklistUrl = @json(route('projects.checklist', $project));
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || @json(csrf_token());
+
+  let saving = false;
+
+  const notify = function (message, type = 'success') {
+    let toast = pane.querySelector('.pjd-cl-backend-toast');
+
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.className = 'pjd-cl-backend-toast';
+      toast.style.cssText = [
+        'position:fixed',
+        'right:20px',
+        'bottom:20px',
+        'z-index:10050',
+        'max-width:360px',
+        'padding:11px 14px',
+        'border-radius:8px',
+        'border:1px solid #e5e7eb',
+        'background:#fff',
+        'box-shadow:0 12px 28px rgba(0,0,0,.14)',
+        'font-size:13px',
+        'font-weight:600',
+        'color:#111827'
+      ].join(';');
+
+      document.body.appendChild(toast);
+    }
+
+    toast.textContent = message;
+    toast.style.color = type === 'error' ? '#b91c1c' : '#15803d';
+    toast.style.borderColor = type === 'error' ? '#fecaca' : '#bbf7d0';
+    toast.style.display = 'block';
+
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(function () {
+      toast.style.display = 'none';
+    }, 3200);
+  };
+
+  const requestChecklist = async function (payload) {
+    if (saving) {
+      return null;
+    }
+
+    saving = true;
+    pane.setAttribute('aria-busy', 'true');
+
+    try {
+      const response = await fetch(checklistUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json().catch(function () {
+        return {};
+      });
+
+      if (!response.ok || data.ok === false) {
+        throw new Error(data.message || data.error || 'No se pudo guardar el cambio.');
+      }
+
+      return data;
+    } finally {
+      saving = false;
+      pane.removeAttribute('aria-busy');
+    }
+  };
+
+  const updateItem = async function (id, changes) {
+    const row = pane.querySelector('[data-checklist-row="' + CSS.escape(String(id)) + '"]');
+    const requirement = row
+      ? row.querySelector('td:nth-child(3)')?.innerText.trim()
+      : '';
+
+    const item = Object.assign({
+      requisito: requirement || 'Requisito',
+      descripcion: '',
+      formato: 'No aplica',
+      categoria: 'Legal-Administrativo',
+      aplicabilidad: 'Único',
+      obligatorio: 'Sí',
+      cumplimiento: '-',
+      status: 'Pendiente',
+      prioridad: 'Media'
+    }, changes);
+
+    return requestChecklist({
+      action: 'update',
+      id: id,
+      item: item
+    });
+  };
+
   /* Filas desplegables */
   $$('.pjd-js-toggle-row').forEach(function (button) {
     button.addEventListener('click', function () {
@@ -687,16 +849,81 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  /* Prioridad visual */
+  /* Prioridad: cambio visual + guardado real */
   $$('.pjd-cl-priority-group').forEach(function (group) {
     group.querySelectorAll('.pjd-cl-priority-btn').forEach(function (button) {
-      button.addEventListener('click', function () {
+      button.addEventListener('click', async function () {
+        const id = button.dataset.itemId;
+        const priority = button.dataset.priority;
+
         group.querySelectorAll('.pjd-cl-priority-btn').forEach(function (item) {
           item.classList.remove('is-active');
         });
 
         button.classList.add('is-active');
+
+        try {
+          await updateItem(id, {
+            prioridad: priority
+          });
+
+          notify('Prioridad guardada.');
+        } catch (error) {
+          notify(error.message, 'error');
+          window.location.reload();
+        }
       });
+    });
+  });
+
+  /* Fecha límite: guardado real */
+  $$('.pjd-cl-detail-date[data-item-id]').forEach(function (input) {
+    input.addEventListener('change', async function () {
+      try {
+        await updateItem(input.dataset.itemId, {
+          fecha_limite: input.value || null
+        });
+
+        notify('Fecha límite guardada.');
+      } catch (error) {
+        notify(error.message, 'error');
+      }
+    });
+  });
+
+  /* Responsable: guardado real */
+  $$('.pjd-js-responsable[data-item-id]').forEach(function (select) {
+    select.addEventListener('change', async function () {
+      const selected = select.options[select.selectedIndex];
+
+      try {
+        await updateItem(select.dataset.itemId, {
+          responsable_id: select.value || null,
+          responsable: select.value ? selected.textContent.trim() : ''
+        });
+
+        notify('Responsable guardado.');
+      } catch (error) {
+        notify(error.message, 'error');
+      }
+    });
+  });
+
+  /* Revisor: guardado real */
+  $$('.pjd-js-revisor[data-item-id]').forEach(function (select) {
+    select.addEventListener('change', async function () {
+      const selected = select.options[select.selectedIndex];
+
+      try {
+        await updateItem(select.dataset.itemId, {
+          revisor_id: select.value || null,
+          revisor: select.value ? selected.textContent.trim() : ''
+        });
+
+        notify('Revisor guardado.');
+      } catch (error) {
+        notify(error.message, 'error');
+      }
     });
   });
 
@@ -733,7 +960,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  /* Modal de ayuda local */
+  /* Modal de ayuda */
   const helpModal = $('.pjd-js-help-modal');
   const openHelpButton = $('.pjd-js-open-help');
   const closeHelpButton = $('.pjd-js-close-help');
@@ -758,7 +985,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  /* Descargar CSV únicamente de esta checklist */
+  /* Descargar CSV con el mismo botón y el mismo diseño */
   const downloadButton = $('[aria-label="Descargar"]');
 
   if (downloadButton) {
@@ -802,7 +1029,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  /* Expandir o contraer toda la vista del checklist */
+  /* Expandir o contraer */
   const expandButton = $('[data-cl-expand-view]');
 
   const setExpanded = function (expanded) {
@@ -831,50 +1058,48 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  /* Nueva fila visual */
+  /* Nuevo requisito: usa el mismo botón, guarda en backend y recarga */
   const newButton = $('.pjd-js-nuevo');
 
   if (newButton) {
-    newButton.addEventListener('click', function () {
-      const tbody = $('.pjd-cl-table tbody');
+    newButton.addEventListener('click', async function () {
+      const requisito = window.prompt('Nombre del nuevo requisito:');
 
-      if (!tbody) {
+      if (!requisito || !requisito.trim()) {
         return;
       }
 
-      const emptyCell = tbody.querySelector('td[colspan="5"]');
+      const formato = window.prompt('Formato (opcional):', 'No aplica') || 'No aplica';
+      const categoria = window.prompt('Categoría:', 'Legal-Administrativo') || 'Legal-Administrativo';
 
-      if (emptyCell && emptyCell.innerText.includes('Sin registros')) {
-        emptyCell.closest('tr').remove();
-      }
+      try {
+        await requestChecklist({
+          action: 'create',
+          item: {
+            requisito: requisito.trim(),
+            descripcion: '',
+            criterio_cumplimiento: '',
+            formato: formato.trim() || 'No aplica',
+            categoria: categoria.trim() || 'Legal-Administrativo',
+            aplicabilidad: 'Único',
+            obligatorio: 'Sí',
+            cumplimiento: '-',
+            status: 'Pendiente',
+            prioridad: 'Media'
+          }
+        });
 
-      const row = document.createElement('tr');
-
-      row.innerHTML =
-        '<td style="text-align:center;"><input type="checkbox" class="pjd-cl-checkbox"></td>' +
-        '<td></td>' +
-        '<td><span contenteditable="true" style="outline:none;border-bottom:1px dashed #cbd5e1;min-width:120px;display:inline-block;">Nuevo requisito</span></td>' +
-        '<td class="pjd-text-gray" style="text-align:center;" contenteditable="true">-</td>' +
-        '<td class="pjd-text-gray" contenteditable="true">Legal-Administrativo</td>';
-
-      tbody.appendChild(row);
-
-      const editable = row.querySelector('[contenteditable="true"]');
-
-      if (editable) {
-        editable.focus();
-
-        const range = document.createRange();
-        const selection = window.getSelection();
-
-        range.selectNodeContents(editable);
-        selection.removeAllRanges();
-        selection.addRange(range);
+        notify('Requisito creado correctamente.');
+        window.setTimeout(function () {
+          window.location.reload();
+        }, 450);
+      } catch (error) {
+        notify(error.message, 'error');
       }
     });
   }
 
-  /* Búsqueda solo dentro de esta tabla */
+  /* Búsqueda */
   const searchInput = $('#pjdClSearch');
 
   if (searchInput) {
@@ -908,17 +1133,33 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  /* Reanálisis: conserva el evento para el script principal del módulo */
+  /* Reanálisis real con el controlador */
   const reanalysisButton = $('.pjd-js-reanalisis');
 
   if (reanalysisButton) {
-    reanalysisButton.addEventListener('click', function () {
-      pane.dispatchEvent(new CustomEvent('pjd:checklist-reanalysis', {
-        bubbles: true,
-        detail: {
-          projectId: @json($project->id ?? null)
-        }
-      }));
+    reanalysisButton.addEventListener('click', async function () {
+      if (!window.confirm('¿Deseas volver a analizar los documentos y actualizar el checklist?')) {
+        return;
+      }
+
+      const originalText = reanalysisButton.innerHTML;
+      reanalysisButton.disabled = true;
+      reanalysisButton.textContent = 'Analizando...';
+
+      try {
+        await requestChecklist({
+          regenerate: true
+        });
+
+        notify('Checklist reanalizado correctamente.');
+        window.setTimeout(function () {
+          window.location.reload();
+        }, 600);
+      } catch (error) {
+        notify(error.message, 'error');
+        reanalysisButton.disabled = false;
+        reanalysisButton.innerHTML = originalText;
+      }
     });
   }
 });
