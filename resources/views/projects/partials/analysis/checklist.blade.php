@@ -787,6 +787,192 @@ body.pjd-cl-body-locked {
   }
 }
 
+
+/* ============================================================
+   DETALLE COMPLETO: NOTAS Y DOCUMENTOS ADJUNTOS
+   ============================================================ */
+#pjdChecklistPane .pjd-cl-detail-block {
+  padding-top: 22px;
+  margin-top: 22px;
+  border-top: 1px solid var(--pjd-border);
+}
+
+#pjdChecklistPane .pjd-cl-detail-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+#pjdChecklistPane .pjd-cl-detail-block-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--pjd-text-main);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+#pjdChecklistPane .pjd-cl-detail-block-title svg,
+#pjdChecklistPane .pjd-cl-detail-action svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+#pjdChecklistPane .pjd-cl-detail-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--pjd-primary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+#pjdChecklistPane .pjd-cl-detail-action:hover {
+  background: #eff6ff;
+}
+
+#pjdChecklistPane .pjd-cl-note-list,
+#pjdChecklistPane .pjd-cl-attachment-list {
+  display: grid;
+  gap: 10px;
+}
+
+#pjdChecklistPane .pjd-cl-note-item,
+#pjdChecklistPane .pjd-cl-attachment-empty {
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--pjd-text-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+#pjdChecklistPane .pjd-cl-note-item {
+  font-style: italic;
+}
+
+#pjdChecklistPane .pjd-cl-note-meta {
+  display: block;
+  margin-top: 7px;
+  color: #9ca3af;
+  font-size: 11px;
+  font-style: normal;
+}
+
+#pjdChecklistPane .pjd-cl-note-editor {
+  display: none;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+#pjdChecklistPane .pjd-cl-note-editor.show {
+  display: grid;
+}
+
+#pjdChecklistPane .pjd-cl-note-editor textarea {
+  width: 100%;
+  min-height: 90px;
+  padding: 12px 14px;
+  border: 1px solid var(--pjd-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--pjd-text-main);
+  outline: none;
+  resize: vertical;
+  font-size: 14px;
+}
+
+#pjdChecklistPane .pjd-cl-note-editor textarea:focus {
+  border-color: var(--pjd-primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, .12);
+}
+
+#pjdChecklistPane .pjd-cl-note-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#pjdChecklistPane .pjd-cl-note-editor-actions button {
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#pjdChecklistPane .pjd-cl-note-cancel {
+  border: 1px solid var(--pjd-border);
+  background: #fff;
+  color: var(--pjd-text-main);
+}
+
+#pjdChecklistPane .pjd-cl-note-save {
+  border: 1px solid var(--pjd-primary);
+  background: var(--pjd-primary);
+  color: #fff;
+}
+
+#pjdChecklistPane .pjd-cl-attachment-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--pjd-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+#pjdChecklistPane .pjd-cl-attachment-info {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#pjdChecklistPane .pjd-cl-attachment-info svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--pjd-primary);
+}
+
+#pjdChecklistPane .pjd-cl-attachment-name {
+  min-width: 0;
+  color: var(--pjd-text-main);
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#pjdChecklistPane .pjd-cl-attachment-open {
+  color: var(--pjd-primary);
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+#pjdChecklistPane .pjd-cl-attachment-open:hover {
+  text-decoration: underline;
+}
+
+#pjdChecklistPane .pjd-cl-saving {
+  opacity: .65;
+  pointer-events: none;
+}
+
 </style>
 
 <div class="pjd-pane" data-pane="checklist" id="pjdChecklistPane">
@@ -1131,7 +1317,7 @@ body.pjd-cl-body-locked {
                   </div>
 
                   <div class="pjd-cl-detail-attr-row" style="justify-content:flex-end;">
-                    <span class="pjd-cl-detail-attr-label">📅 Fecha límite:</span>
+                    <span class="pjd-cl-detail-attr-label">Fecha límite:</span>
                     <input
                       type="date"
                       class="pjd-cl-detail-date pjd-js-date"
@@ -1162,6 +1348,139 @@ body.pjd-cl-body-locked {
                         </option>
                       @endforeach
                     </select>
+                  </div>
+                </div>
+
+
+                <div class="pjd-cl-detail-block">
+                  <div class="pjd-cl-detail-block-head">
+                    <div class="pjd-cl-detail-block-title">
+                      Notas
+                    </div>
+
+                    <button
+                      type="button"
+                      class="pjd-cl-detail-action pjd-js-note-edit"
+                      data-item-id="{{ $item['id'] }}"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 20h9"/>
+                        <path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/>
+                      </svg>
+                      Editar
+                    </button>
+                  </div>
+
+                  <div
+                    class="pjd-cl-note-list"
+                    data-note-list="{{ $item['id'] }}"
+                  >
+                    @forelse(($item['notas'] ?? []) as $nota)
+                      <div class="pjd-cl-note-item">
+                        {{ is_array($nota) ? ($nota['body'] ?? '') : $nota }}
+
+                        @if(is_array($nota) && !empty($nota['user_name']))
+                          <span class="pjd-cl-note-meta">
+                            {{ $nota['user_name'] }}
+                            @if(!empty($nota['created_at']))
+                              · {{ $nota['created_at'] }}
+                            @endif
+                          </span>
+                        @endif
+                      </div>
+                    @empty
+                      <div class="pjd-cl-note-item is-empty">
+                        No hay notas agregadas.
+                      </div>
+                    @endforelse
+                  </div>
+
+                  <div
+                    class="pjd-cl-note-editor"
+                    data-note-editor="{{ $item['id'] }}"
+                  >
+                    <textarea
+                      placeholder="Escribe una nota para este requisito..."
+                    ></textarea>
+
+                    <div class="pjd-cl-note-editor-actions">
+                      <button
+                        type="button"
+                        class="pjd-cl-note-cancel pjd-js-note-cancel"
+                        data-item-id="{{ $item['id'] }}"
+                      >
+                        Cancelar
+                      </button>
+
+                      <button
+                        type="button"
+                        class="pjd-cl-note-save pjd-js-note-save"
+                        data-item-id="{{ $item['id'] }}"
+                      >
+                        Guardar nota
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pjd-cl-detail-block">
+                  <div class="pjd-cl-detail-block-head">
+                    <div class="pjd-cl-detail-block-title">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <path d="M14 2v6h6"/>
+                      </svg>
+                      Documentos Adjuntos
+                    </div>
+
+                    <button
+                      type="button"
+                      class="pjd-cl-detail-action pjd-js-attach"
+                      data-item-id="{{ $item['id'] }}"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 3v12"/>
+                        <path d="m7 8 5-5 5 5"/>
+                        <path d="M5 21h14a2 2 0 0 0 2-2v-4"/>
+                        <path d="M3 15v4a2 2 0 0 0 2 2"/>
+                      </svg>
+                      Adjuntar
+                    </button>
+                  </div>
+
+                  <div
+                    class="pjd-cl-attachment-list"
+                    data-attachment-list="{{ $item['id'] }}"
+                  >
+                    @forelse(($item['adjuntos'] ?? []) as $adjunto)
+                      <div class="pjd-cl-attachment-item">
+                        <div class="pjd-cl-attachment-info">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <path d="M14 2v6h6"/>
+                          </svg>
+
+                          <span class="pjd-cl-attachment-name">
+                            {{ is_array($adjunto) ? ($adjunto['name'] ?? 'Documento') : $adjunto }}
+                          </span>
+                        </div>
+
+                        @if(is_array($adjunto) && !empty($adjunto['url']))
+                          <a
+                            href="{{ $adjunto['url'] }}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="pjd-cl-attachment-open"
+                          >
+                            Abrir
+                          </a>
+                        @endif
+                      </div>
+                    @empty
+                      <div class="pjd-cl-attachment-empty">
+                        No hay documentos adjuntos.
+                      </div>
+                    @endforelse
                   </div>
                 </div>
               </div>
@@ -1431,6 +1750,65 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   };
 
+
+  const setItem = function (id, item) {
+    const row = getRow(id);
+
+    if (row) {
+      row.dataset.item = JSON.stringify(item || {});
+    }
+  };
+
+  const syncItemFromResponse = function (id, response, fallbackChanges = {}) {
+    const current = getItem(id);
+    const updated = response && response.item
+      ? response.item
+      : Object.assign({}, current, fallbackChanges);
+
+    setItem(id, updated);
+
+    return updated;
+  };
+
+  const syncCounters = function (payload) {
+    if (!payload || !payload.counters) {
+      return;
+    }
+
+    const counters = payload.counters;
+    const mapping = {
+      sin_revisar: 0,
+      pendiente: 1,
+      revision: 2,
+      cumple: 3,
+      no_cumple: 4,
+      total: 5
+    };
+
+    const cards = $$('.pjd-cl-stat-card');
+
+    Object.keys(mapping).forEach(function (key) {
+      const card = cards[mapping[key]];
+
+      if (!card || typeof counters[key] === 'undefined') {
+        return;
+      }
+
+      const number = card.querySelector('.pjd-cl-stat-num');
+      const fill = card.querySelector('.pjd-cl-stat-bar-fill');
+      const pct = card.querySelector('.pjd-cl-stat-pct');
+      const total = Number(counters.total || 0);
+      const value = Number(counters[key] || 0);
+      const percent = key === 'total'
+        ? 100
+        : (total > 0 ? Math.round((value / total) * 100) : 0);
+
+      if (number) number.textContent = value;
+      if (fill) fill.style.width = percent + '%';
+      if (pct) pct.textContent = percent + '%';
+    });
+  };
+
   const updateItem = async function (id, changes) {
     const item = Object.assign({}, getItem(id), changes);
 
@@ -1440,17 +1818,16 @@ document.addEventListener('DOMContentLoaded', function () {
         || 'Requisito';
     }
 
-    return requestJson({
+    const response = await requestJson({
       action: 'update',
       id: id,
       item: item
     });
-  };
 
-  const reloadSoon = function () {
-    window.setTimeout(function () {
-      window.location.reload();
-    }, 450);
+    syncItemFromResponse(id, response, changes);
+    syncCounters(response.payload);
+
+    return response;
   };
 
   const closeRowMenu = function () {
@@ -1496,8 +1873,23 @@ document.addEventListener('DOMContentLoaded', function () {
           cumplimiento: select.value
         });
 
+        const item = getItem(select.dataset.itemId);
+        item.cumplimiento = select.value;
+        setItem(select.dataset.itemId, item);
+
+        select.classList.remove('is-pending', 'is-review', 'is-success', 'is-danger');
+
+        if (select.value === 'Cumple') {
+          select.classList.add('is-success');
+        } else if (select.value === 'No Cumple') {
+          select.classList.add('is-danger');
+        } else if (select.value === 'Parcial') {
+          select.classList.add('is-review');
+        } else {
+          select.classList.add('is-pending');
+        }
+
         notify('Cumplimiento guardado.');
-        reloadSoon();
       } catch (error) {
         notify(error.message, 'error');
       }
@@ -1512,8 +1904,21 @@ document.addEventListener('DOMContentLoaded', function () {
           status: select.value
         });
 
+        const item = getItem(select.dataset.itemId);
+        item.status = select.value;
+        setItem(select.dataset.itemId, item);
+
+        select.classList.remove('is-pending', 'is-review', 'is-success');
+
+        if (select.value === 'Aprobado') {
+          select.classList.add('is-success');
+        } else if (select.value === 'En revisión') {
+          select.classList.add('is-review');
+        } else {
+          select.classList.add('is-pending');
+        }
+
         notify('Status guardado.');
-        reloadSoon();
       } catch (error) {
         notify(error.message, 'error');
       }
@@ -1632,6 +2037,101 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  /* Notas: abrir editor, cancelar y guardar sin recargar */
+  $$('.pjd-js-note-edit').forEach(function (button) {
+    button.addEventListener('click', function () {
+      const id = button.dataset.itemId;
+      const editor = pane.querySelector(
+        '[data-note-editor="' + CSS.escape(String(id)) + '"]'
+      );
+
+      if (editor) {
+        editor.classList.add('show');
+        editor.querySelector('textarea')?.focus();
+      }
+    });
+  });
+
+  $$('.pjd-js-note-cancel').forEach(function (button) {
+    button.addEventListener('click', function () {
+      const id = button.dataset.itemId;
+      const editor = pane.querySelector(
+        '[data-note-editor="' + CSS.escape(String(id)) + '"]'
+      );
+
+      if (editor) {
+        editor.classList.remove('show');
+        const textarea = editor.querySelector('textarea');
+        if (textarea) textarea.value = '';
+      }
+    });
+  });
+
+  $$('.pjd-js-note-save').forEach(function (button) {
+    button.addEventListener('click', async function () {
+      const id = button.dataset.itemId;
+      const editor = pane.querySelector(
+        '[data-note-editor="' + CSS.escape(String(id)) + '"]'
+      );
+      const textarea = editor?.querySelector('textarea');
+      const body = textarea?.value.trim() || '';
+
+      if (!body) {
+        notify('Escribe una nota antes de guardar.', 'error');
+        return;
+      }
+
+      button.classList.add('pjd-cl-saving');
+
+      try {
+        const response = await requestJson({
+          action: 'note',
+          id: id,
+          body: body
+        });
+
+        const list = pane.querySelector(
+          '[data-note-list="' + CSS.escape(String(id)) + '"]'
+        );
+
+        if (list) {
+          list.querySelector('.is-empty')?.remove();
+
+          const note = response.note || {};
+          const item = document.createElement('div');
+          item.className = 'pjd-cl-note-item';
+          item.textContent = note.body || body;
+
+          if (note.user_name || note.created_at) {
+            const meta = document.createElement('span');
+            meta.className = 'pjd-cl-note-meta';
+            meta.textContent = [
+              note.user_name || '',
+              note.created_at || ''
+            ].filter(Boolean).join(' · ');
+
+            item.appendChild(meta);
+          }
+
+          list.appendChild(item);
+        }
+
+        syncItemFromResponse(id, response, {});
+        syncCounters(response.payload);
+
+        textarea.value = '';
+        editor.classList.remove('show');
+
+        notify('Nota guardada.');
+      } catch (error) {
+        notify(error.message, 'error');
+      } finally {
+        button.classList.remove('pjd-cl-saving');
+      }
+    });
+  });
+
+
   /* Adjuntar archivos */
   const hiddenAttachment = $('.pjd-js-hidden-attachment');
   let attachmentItemId = null;
@@ -1684,8 +2184,63 @@ document.addEventListener('DOMContentLoaded', function () {
           );
         }
 
+        const list = pane.querySelector(
+          '[data-attachment-list="' + CSS.escape(String(attachmentItemId)) + '"]'
+        );
+
+        if (list) {
+          list.querySelector('.pjd-cl-attachment-empty')?.remove();
+
+          (data.attachments || []).forEach(function (attachment) {
+            const row = document.createElement('div');
+            row.className = 'pjd-cl-attachment-item';
+
+            const info = document.createElement('div');
+            info.className = 'pjd-cl-attachment-info';
+            info.innerHTML =
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'
+              + '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>'
+              + '<path d="M14 2v6h6"/>'
+              + '</svg>';
+
+            const name = document.createElement('span');
+            name.className = 'pjd-cl-attachment-name';
+            name.textContent = attachment.name || 'Documento';
+            info.appendChild(name);
+
+            row.appendChild(info);
+
+            if (attachment.url) {
+              const link = document.createElement('a');
+              link.href = attachment.url;
+              link.target = '_blank';
+              link.rel = 'noopener noreferrer';
+              link.className = 'pjd-cl-attachment-open';
+              link.textContent = 'Abrir';
+              row.appendChild(link);
+            }
+
+            list.appendChild(row);
+          });
+        }
+
+        const countBadge = pane.querySelector(
+          '.pjd-js-attach[data-item-id="'
+          + CSS.escape(String(attachmentItemId))
+          + '"] .pjd-cl-attachment-count'
+        );
+
+        if (countBadge) {
+          countBadge.textContent = String(
+            Number(countBadge.textContent || 0)
+            + (data.attachments || []).length
+          );
+        }
+
+        syncItemFromResponse(attachmentItemId, data, {});
+        syncCounters(data.payload);
+
         notify('Documento adjuntado correctamente.');
-        reloadSoon();
       } catch (error) {
         notify(error.message, 'error');
       }
@@ -1806,9 +2361,8 @@ document.addEventListener('DOMContentLoaded', function () {
               id: id
             });
 
-            notify('Requisito duplicado.');
-            reloadSoon();
-          } catch (error) {
+            notify('Requisito duplicado. Aparecerá al volver a abrir esta vista.');
+              } catch (error) {
             notify(error.message, 'error');
           }
 
@@ -1830,9 +2384,18 @@ document.addEventListener('DOMContentLoaded', function () {
               id: id
             });
 
+            const row = getRow(id);
+            const detail = row?.nextElementSibling;
+
+            row?.remove();
+
+            if (detail && detail.classList.contains('pjd-cl-detail-row')) {
+              detail.remove();
+            }
+
+            syncCounters((await Promise.resolve({ payload: null })).payload);
             notify('Requisito eliminado.');
-            reloadSoon();
-          } catch (error) {
+              } catch (error) {
             notify(error.message, 'error');
           }
         }
@@ -1870,8 +2433,26 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         closeEditModal();
+
+        const row = getRow(id);
+        const title = row?.querySelector('.pjd-cl-main-text');
+
+        if (title) {
+          title.textContent = item.requisito;
+          title.setAttribute('title', item.requisito);
+        }
+
+        if (row) {
+          const cells = row.querySelectorAll('td');
+
+          if (cells[3]) cells[3].textContent = item.formato;
+          if (cells[4]) cells[4].textContent = item.categoria;
+          if (cells[5]) cells[5].textContent = item.aplicabilidad;
+          if (cells[6]) cells[6].textContent = item.obligatorio;
+        }
+
+        setItem(id, item);
         notify('Requisito actualizado.');
-        reloadSoon();
       } catch (error) {
         notify(error.message, 'error');
       }
@@ -1980,8 +2561,7 @@ document.addEventListener('DOMContentLoaded', function () {
           }
         });
 
-        notify('Requisito creado.');
-        reloadSoon();
+        notify('Requisito creado. Aparecerá al volver a abrir esta vista.');
       } catch (error) {
         notify(error.message, 'error');
       }
@@ -2008,8 +2588,7 @@ document.addEventListener('DOMContentLoaded', function () {
           regenerate: true
         });
 
-        notify('Checklist reanalizado.');
-        reloadSoon();
+        notify('Checklist reanalizado correctamente.');
       } catch (error) {
         notify(error.message, 'error');
         reanalysisButton.disabled = false;
