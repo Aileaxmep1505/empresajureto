@@ -70,7 +70,7 @@
 @endphp
 
 <style>
-:root {
+#pjdChecklistPane {
   --pjd-border: #e5e7eb;
   --pjd-text-main: #111827;
   --pjd-text-muted: #6b7280;
@@ -337,8 +337,65 @@
 .pjd-card-cumple .pjd-badge { color: var(--pjd-c-cumple); border-color: #bbf7d0; }
 .pjd-card-nocumple { border-top-color: var(--pjd-c-nocumple); }
 .pjd-card-nocumple .pjd-badge { color: var(--pjd-c-nocumple); border-color: #fecaca; }
+
+/* =======================================
+   VISTA EXPANDIDA AISLADA
+   ======================================= */
+#pjdChecklistPane {
+  width: 100%;
+  min-width: 0;
+}
+
+#pjdChecklistPane.pjd-cl-is-expanded {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9998 !important;
+  display: block !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  padding: 18px !important;
+  margin: 0 !important;
+  overflow: auto !important;
+  background: #f9fafb !important;
+}
+
+#pjdChecklistPane.pjd-cl-is-expanded .pjd-cl-wrapper {
+  width: min(1600px, 100%) !important;
+  min-height: calc(100vh - 36px);
+  margin: 0 auto !important;
+  border-radius: 12px;
+}
+
+#pjdChecklistPane.pjd-cl-is-expanded .pjd-cl-table-container {
+  overflow: visible;
+}
+
+body.pjd-cl-body-locked {
+  overflow: hidden !important;
+}
+
+#pjdChecklistPane [data-cl-expand-view] .pjd-cl-expand-icon,
+#pjdChecklistPane [data-cl-expand-view] .pjd-cl-compress-icon {
+  width: 15px;
+  height: 15px;
+}
+
+#pjdChecklistPane [data-cl-expand-view] .pjd-cl-compress-icon {
+  display: none;
+}
+
+#pjdChecklistPane.pjd-cl-is-expanded [data-cl-expand-view] .pjd-cl-expand-icon {
+  display: none;
+}
+
+#pjdChecklistPane.pjd-cl-is-expanded [data-cl-expand-view] .pjd-cl-compress-icon {
+  display: block;
+}
+
 </style>
 
+<div class="pjd-pane" data-pane="checklist" id="pjdChecklistPane">
 <div class="pjd-cl-wrapper">
 
   <div class="pjd-cl-stats-container">
@@ -397,8 +454,9 @@
       <button type="button" class="pjd-cl-icon-btn" aria-label="Descargar">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       </button>
-      <button type="button" class="pjd-cl-icon-btn" aria-label="Expandir">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      <button type="button" class="pjd-cl-icon-btn" data-cl-expand-view aria-label="Expandir vista" title="Expandir vista" aria-expanded="false">
+        <svg class="pjd-cl-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        <svg class="pjd-cl-compress-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
       </button>
     </div>
   </div>
@@ -410,10 +468,10 @@
 
     <div class="pjd-cl-search-container">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" placeholder="Buscar por requisito, formato o des...">
+      <input type="text" id="pjdClSearch" placeholder="Buscar por requisito, formato o des...">
     </div>
 
-    <button type="button" class="pjd-cl-btn is-blue">
+    <button type="button" class="pjd-cl-btn is-blue pjd-js-reanalisis">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
         <path d="M5 3v4"/><path d="M3 5h4"/>
@@ -421,7 +479,7 @@
       Reanalisis
     </button>
 
-    <button type="button" class="pjd-cl-btn">
+    <button type="button" class="pjd-cl-btn pjd-js-nuevo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Nuevo
     </button>
@@ -600,74 +658,268 @@
     </div>
   </div>
 </div>
+</div>
 
 <script>
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener('DOMContentLoaded', function () {
+  const pane = document.getElementById('pjdChecklistPane');
 
-  // 1. Expandir Filas (Chevron)
-  document.querySelectorAll('.pjd-js-toggle-row').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const tr = this.closest('tr');
-      const detailRow = tr.nextElementSibling;
-      this.classList.toggle('open');
+  if (!pane || pane.dataset.initialized === '1') {
+    return;
+  }
+
+  pane.dataset.initialized = '1';
+
+  const $ = (selector) => pane.querySelector(selector);
+  const $$ = (selector) => Array.from(pane.querySelectorAll(selector));
+
+  /* Filas desplegables */
+  $$('.pjd-js-toggle-row').forEach(function (button) {
+    button.addEventListener('click', function () {
+      const row = button.closest('tr');
+      const detailRow = row ? row.nextElementSibling : null;
+
+      button.classList.toggle('open');
+
       if (detailRow && detailRow.classList.contains('pjd-cl-detail-row')) {
         detailRow.classList.toggle('open');
       }
     });
   });
 
-  // Toggle activo en botones de prioridad
-  document.querySelectorAll('.pjd-cl-priority-group').forEach(group => {
-    group.querySelectorAll('.pjd-cl-priority-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        group.querySelectorAll('.pjd-cl-priority-btn').forEach(b => b.classList.remove('is-active'));
-        this.classList.add('is-active');
+  /* Prioridad visual */
+  $$('.pjd-cl-priority-group').forEach(function (group) {
+    group.querySelectorAll('.pjd-cl-priority-btn').forEach(function (button) {
+      button.addEventListener('click', function () {
+        group.querySelectorAll('.pjd-cl-priority-btn').forEach(function (item) {
+          item.classList.remove('is-active');
+        });
+
+        button.classList.add('is-active');
       });
     });
   });
 
-  // 2. Dropdowns de la Toolbar
-  document.querySelectorAll('.pjd-js-toggle-menu').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      document.querySelectorAll('.pjd-cl-dropdown-menu.show').forEach(menu => {
-        if (menu !== this.nextElementSibling) menu.classList.remove('show');
+  /* Dropdowns locales */
+  $$('.pjd-js-toggle-menu').forEach(function (button) {
+    button.addEventListener('click', function (event) {
+      event.stopPropagation();
+
+      const menu = button.nextElementSibling;
+
+      $$('.pjd-cl-dropdown-menu.show').forEach(function (openedMenu) {
+        if (openedMenu !== menu) {
+          openedMenu.classList.remove('show');
+        }
       });
-      const menu = this.nextElementSibling;
+
       if (menu && menu.classList.contains('pjd-cl-dropdown-menu')) {
         menu.classList.toggle('show');
       }
     });
   });
 
-  document.querySelectorAll('.pjd-cl-dropdown-menu').forEach(menu => {
-    menu.addEventListener('click', function(e) { e.stopPropagation(); });
-  });
-
-  document.addEventListener('click', function() {
-    document.querySelectorAll('.pjd-cl-dropdown-menu.show').forEach(menu => {
-      menu.classList.remove('show');
+  $$('.pjd-cl-dropdown-menu').forEach(function (menu) {
+    menu.addEventListener('click', function (event) {
+      event.stopPropagation();
     });
   });
 
-  // 3. Modal de Ayuda
-  const helpModal = document.querySelector('.pjd-js-help-modal');
-  const btnOpenHelp = document.querySelector('.pjd-js-open-help');
-  const btnCloseHelp = document.querySelector('.pjd-js-close-help');
+  document.addEventListener('click', function (event) {
+    if (!pane.contains(event.target)) {
+      $$('.pjd-cl-dropdown-menu.show').forEach(function (menu) {
+        menu.classList.remove('show');
+      });
+    }
+  });
 
-  if (btnOpenHelp && helpModal) {
-    btnOpenHelp.addEventListener('click', () => helpModal.classList.add('show'));
+  /* Modal de ayuda local */
+  const helpModal = $('.pjd-js-help-modal');
+  const openHelpButton = $('.pjd-js-open-help');
+  const closeHelpButton = $('.pjd-js-close-help');
+
+  if (openHelpButton && helpModal) {
+    openHelpButton.addEventListener('click', function () {
+      helpModal.classList.add('show');
+    });
   }
-  if (btnCloseHelp && helpModal) {
-    btnCloseHelp.addEventListener('click', () => helpModal.classList.remove('show'));
+
+  if (closeHelpButton && helpModal) {
+    closeHelpButton.addEventListener('click', function () {
+      helpModal.classList.remove('show');
+    });
   }
+
   if (helpModal) {
-    helpModal.addEventListener('click', function(e) {
-      if (e.target === this) {
-        this.classList.remove('show');
+    helpModal.addEventListener('click', function (event) {
+      if (event.target === helpModal) {
+        helpModal.classList.remove('show');
       }
     });
   }
 
+  /* Descargar CSV únicamente de esta checklist */
+  const downloadButton = $('[aria-label="Descargar"]');
+
+  if (downloadButton) {
+    downloadButton.addEventListener('click', function () {
+      const rows = [['Requisito', 'Formato', 'Categoría']];
+
+      $$('.pjd-cl-table tbody tr:not(.pjd-cl-detail-row)').forEach(function (row) {
+        const cells = row.querySelectorAll('td');
+
+        if (cells.length < 5 || row.querySelector('td[colspan]')) {
+          return;
+        }
+
+        rows.push([
+          cells[2].innerText.trim(),
+          cells[3].innerText.trim(),
+          cells[4].innerText.trim()
+        ]);
+      });
+
+      const csv = rows.map(function (row) {
+        return row.map(function (cell) {
+          return '"' + String(cell).replace(/"/g, '""') + '"';
+        }).join(',');
+      }).join('\n');
+
+      const blob = new Blob(['\uFEFF' + csv], {
+        type: 'text/csv;charset=utf-8;'
+      });
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+
+      anchor.href = url;
+      anchor.download = 'checklist.csv';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  /* Expandir o contraer toda la vista del checklist */
+  const expandButton = $('[data-cl-expand-view]');
+
+  const setExpanded = function (expanded) {
+    pane.classList.toggle('pjd-cl-is-expanded', expanded);
+    document.body.classList.toggle('pjd-cl-body-locked', expanded);
+
+    if (expandButton) {
+      expandButton.classList.toggle('is-active', expanded);
+      expandButton.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      expandButton.setAttribute('aria-label', expanded ? 'Contraer vista' : 'Expandir vista');
+      expandButton.setAttribute('title', expanded ? 'Contraer vista' : 'Expandir vista');
+    }
+
+    window.dispatchEvent(new Event('resize'));
+  };
+
+  if (expandButton) {
+    expandButton.addEventListener('click', function () {
+      setExpanded(!pane.classList.contains('pjd-cl-is-expanded'));
+    });
+  }
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && pane.classList.contains('pjd-cl-is-expanded')) {
+      setExpanded(false);
+    }
+  });
+
+  /* Nueva fila visual */
+  const newButton = $('.pjd-js-nuevo');
+
+  if (newButton) {
+    newButton.addEventListener('click', function () {
+      const tbody = $('.pjd-cl-table tbody');
+
+      if (!tbody) {
+        return;
+      }
+
+      const emptyCell = tbody.querySelector('td[colspan="5"]');
+
+      if (emptyCell && emptyCell.innerText.includes('Sin registros')) {
+        emptyCell.closest('tr').remove();
+      }
+
+      const row = document.createElement('tr');
+
+      row.innerHTML =
+        '<td style="text-align:center;"><input type="checkbox" class="pjd-cl-checkbox"></td>' +
+        '<td></td>' +
+        '<td><span contenteditable="true" style="outline:none;border-bottom:1px dashed #cbd5e1;min-width:120px;display:inline-block;">Nuevo requisito</span></td>' +
+        '<td class="pjd-text-gray" style="text-align:center;" contenteditable="true">-</td>' +
+        '<td class="pjd-text-gray" contenteditable="true">Legal-Administrativo</td>';
+
+      tbody.appendChild(row);
+
+      const editable = row.querySelector('[contenteditable="true"]');
+
+      if (editable) {
+        editable.focus();
+
+        const range = document.createRange();
+        const selection = window.getSelection();
+
+        range.selectNodeContents(editable);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    });
+  }
+
+  /* Búsqueda solo dentro de esta tabla */
+  const searchInput = $('#pjdClSearch');
+
+  if (searchInput) {
+    searchInput.addEventListener('input', function () {
+      const query = searchInput.value.toLowerCase().trim();
+
+      $$('.pjd-cl-table tbody tr:not(.pjd-cl-detail-row)').forEach(function (row) {
+        if (row.querySelector('td[colspan]')) {
+          return;
+        }
+
+        const matches = row.innerText.toLowerCase().includes(query);
+        const detailRow = row.nextElementSibling;
+
+        row.style.display = matches ? '' : 'none';
+
+        if (
+          detailRow &&
+          detailRow.classList.contains('pjd-cl-detail-row') &&
+          !matches
+        ) {
+          detailRow.classList.remove('open');
+
+          const chevron = row.querySelector('.pjd-cl-chevron-btn');
+
+          if (chevron) {
+            chevron.classList.remove('open');
+          }
+        }
+      });
+    });
+  }
+
+  /* Reanálisis: conserva el evento para el script principal del módulo */
+  const reanalysisButton = $('.pjd-js-reanalisis');
+
+  if (reanalysisButton) {
+    reanalysisButton.addEventListener('click', function () {
+      pane.dispatchEvent(new CustomEvent('pjd:checklist-reanalysis', {
+        bubbles: true,
+        detail: {
+          projectId: @json($project->id ?? null)
+        }
+      }));
+    });
+  }
 });
 </script>
