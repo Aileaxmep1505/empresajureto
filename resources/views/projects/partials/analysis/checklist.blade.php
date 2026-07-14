@@ -37,12 +37,16 @@
           return [
               'id' => $item->id,
               'requisito' => $item->requirement,
+              'descripcion' => $item->description,
               'formato' => $item->format,
               'categoria' => $item->category,
               'aplicabilidad' => $item->applicability,
               'obligatorio' => $item->mandatory ? 'Sí' : 'No',
               'cumplimiento' => $item->compliance_status ?? 'Pendiente',
               'status' => $item->review_status ?? 'Pendiente',
+              'fuente' => $item->source_name,
+              'pagina' => $item->source_page,
+              'cita' => $item->source_quote,
           ];
       })->all();
   }
@@ -51,12 +55,16 @@
       return [
           'id' => $item['id'] ?? ($index + 1),
           'requisito' => $clText($item['requisito'] ?? $item['requirement'] ?? $item['item'] ?? null, 'Requisito sin nombre'),
+          'descripcion' => $clText($item['descripcion'] ?? $item['description'] ?? ''),
           'formato' => $clText($item['formato'] ?? $item['format'] ?? 'No aplica', 'No aplica'),
           'categoria' => $clText($item['categoria'] ?? $item['category'] ?? 'Legal-Administrativo', 'Legal-Administrativo'),
           'aplicabilidad' => $clText($item['aplicabilidad'] ?? $item['applicability'] ?? 'Único', 'Único'),
           'obligatorio' => $clText($item['obligatorio'] ?? $item['mandatory'] ?? 'Sí', 'Sí'),
           'cumplimiento' => $clText($item['cumplimiento'] ?? $item['compliance'] ?? 'Pendiente', 'Pendiente'),
           'status' => $clText($item['status'] ?? $item['review_status'] ?? 'Pendiente', 'Pendiente'),
+          'fuente' => $clText($item['fuente'] ?? $item['source'] ?? ''),
+          'pagina' => $clText($item['pagina'] ?? $item['page'] ?? ''),
+          'cita' => $clText($item['cita'] ?? $item['quote'] ?? ''),
       ];
   })->all();
 @endphp
@@ -110,7 +118,7 @@
   min-width: 0;
   border: 1px solid var(--pjd-border);
   border-radius: 8px;
-  padding: 10px 8px;          /* antes 16px 8px */
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -120,20 +128,20 @@
   box-shadow: 0 0 0 1px var(--pjd-primary);
 }
 .pjd-cl-stat-num {
-  font-size: 18px;            /* antes 20px */
+  font-size: 18px;
   font-weight: 600;
   color: var(--pjd-text-main);
   text-align: center;
-  margin-bottom: 2px;         /* antes 4px */
+  margin-bottom: 2px;
   line-height: 1;
 }
 .is-active .pjd-cl-stat-num { color: var(--pjd-primary); }
 .pjd-cl-stat-label {
-  font-size: 11px;            /* antes 12px */
+  font-size: 11px;
   line-height: 1.2;
   color: var(--pjd-text-muted);
   text-align: center;
-  margin-bottom: 6px;         /* antes 12px */
+  margin-bottom: 6px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
@@ -263,7 +271,42 @@
 /* Fila desplegable */
 .pjd-cl-detail-row { display: none; }
 .pjd-cl-detail-row.open { display: table-row; }
-.pjd-cl-detail-content { padding: 24px; background: #f9fafb; border-left: 4px solid var(--pjd-primary); }
+.pjd-cl-detail-content { padding: 24px 28px; background: #f9fafb; }
+
+/* Contenido del panel de detalle */
+.pjd-cl-detail-label {
+  font-size: 15px; font-weight: 600; color: var(--pjd-text-main); margin: 0 0 10px;
+}
+.pjd-cl-detail-meta {
+  font-size: 14px; color: var(--pjd-text-muted); line-height: 1.9; margin: 0;
+}
+.pjd-cl-detail-sep {
+  border: none; border-top: 1px solid var(--pjd-border); margin: 20px 0;
+}
+.pjd-cl-detail-attrs {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; align-items: center;
+}
+.pjd-cl-detail-attr-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pjd-cl-detail-attr-label {
+  font-size: 14px; font-weight: 500; color: var(--pjd-text-main); white-space: nowrap;
+}
+.pjd-cl-priority-group { display: inline-flex; gap: 8px; }
+.pjd-cl-priority-btn {
+  padding: 6px 16px; border: 1px solid var(--pjd-border); background: #fff; border-radius: 8px;
+  font-size: 13px; color: var(--pjd-text-muted); cursor: pointer;
+}
+.pjd-cl-priority-btn:hover { background: var(--pjd-bg-hover); }
+.pjd-cl-priority-btn.is-active { background: var(--pjd-primary); border-color: var(--pjd-primary); color: #fff; }
+.pjd-cl-detail-date, .pjd-cl-detail-select {
+  padding: 8px 12px; border: 1px solid var(--pjd-border); border-radius: 8px;
+  font-size: 14px; color: var(--pjd-text-main); background: #fff; outline: none;
+}
+.pjd-cl-detail-date:focus, .pjd-cl-detail-select:focus { border-color: var(--pjd-primary); box-shadow: 0 0 0 1px var(--pjd-primary); }
+.pjd-cl-detail-select { min-width: 220px; }
+
+@media (max-width: 720px) {
+  .pjd-cl-detail-attrs { grid-template-columns: 1fr; }
+}
 
 /* =======================================
    MODAL DE AYUDA
@@ -463,9 +506,41 @@
           <tr class="pjd-cl-detail-row">
             <td colspan="5" style="padding:0;">
               <div class="pjd-cl-detail-content">
-                <strong>Detalle Completo:</strong><br>
-                Requisito: {{ $item['requisito'] }}<br>
-                Aplicación: {{ $item['aplicabilidad'] }} | Obligatorio: {{ $item['obligatorio'] }}
+
+                <div class="pjd-cl-detail-label">Descripción:</div>
+                <p class="pjd-cl-detail-meta">
+                  Archivo: {{ $item['formato'] !== 'No aplica' ? $item['formato'] : 'No aplica' }}<br>
+                  Fuente: {{ $item['fuente'] ?: 'No aplica' }}<br>
+                  Página de extracción: {{ $item['pagina'] ?: 'No aplica' }}<br>
+                  @if($item['cita'])Cita: {{ $item['cita'] }}@endif
+                </p>
+
+                <hr class="pjd-cl-detail-sep">
+
+                <div class="pjd-cl-detail-label">Atributos:</div>
+                <div class="pjd-cl-detail-attrs">
+                  <div class="pjd-cl-detail-attr-row">
+                    <span class="pjd-cl-detail-attr-label">Prioridad:</span>
+                    <div class="pjd-cl-priority-group">
+                      <button type="button" class="pjd-cl-priority-btn">Alta</button>
+                      <button type="button" class="pjd-cl-priority-btn">Media</button>
+                      <button type="button" class="pjd-cl-priority-btn">Baja</button>
+                    </div>
+                  </div>
+                  <div class="pjd-cl-detail-attr-row" style="justify-content:flex-end;">
+                    <span class="pjd-cl-detail-attr-label">📅 Fecha límite:</span>
+                    <input type="date" class="pjd-cl-detail-date">
+                  </div>
+                  <div class="pjd-cl-detail-attr-row">
+                    <span class="pjd-cl-detail-attr-label">Responsable:</span>
+                    <select class="pjd-cl-detail-select"><option>Sin asignar</option></select>
+                  </div>
+                  <div class="pjd-cl-detail-attr-row">
+                    <span class="pjd-cl-detail-attr-label">Revisor:</span>
+                    <select class="pjd-cl-detail-select"><option>Sin asignar</option></select>
+                  </div>
+                </div>
+
               </div>
             </td>
           </tr>
@@ -538,6 +613,16 @@ document.addEventListener("DOMContentLoaded", function() {
       if (detailRow && detailRow.classList.contains('pjd-cl-detail-row')) {
         detailRow.classList.toggle('open');
       }
+    });
+  });
+
+  // Toggle activo en botones de prioridad
+  document.querySelectorAll('.pjd-cl-priority-group').forEach(group => {
+    group.querySelectorAll('.pjd-cl-priority-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        group.querySelectorAll('.pjd-cl-priority-btn').forEach(b => b.classList.remove('is-active'));
+        this.classList.add('is-active');
+      });
     });
   });
 
