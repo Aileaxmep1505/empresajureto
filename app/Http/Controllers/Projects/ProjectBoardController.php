@@ -259,23 +259,33 @@ class ProjectBoardController extends Controller
 
         if (!$withoutDocuments && !empty($paths)) {
             try {
-                $result = $processor->process($project, $paths);
+                $result = $this->normalizeProcessorResult(
+                    $processor->process($project, $paths)
+                );
+
+                if (!$result['ok']) {
+                    throw new \RuntimeException(
+                        $result['error'] ?: 'El procesador no pudo analizar los documentos.'
+                    );
+                }
 
                 $this->persistProcessorDocuments(
                     $project->fresh('documents'),
-                    $result['documents'] ?? []
+                    $result['documents']
                 );
 
-                $project->structured_data = $result['structured_data'] ?? null;
-                $project->checklist       = data_get($result, 'structured_data.checklist_sugerido', []); // legacy / respaldo
-                $project->status          = 'ready';
+                $structured = $result['structured_data'];
+                $newChecklist = $this->processorChecklist($structured, $project);
+
+                $project->structured_data = $structured;
+                $project->checklist = $newChecklist;
+                $project->status = 'ready';
+                $project->error_message = null;
                 $project->save();
 
-                $this->syncChecklistItemsFromArray(
-                    $project,
-                    data_get($result, 'structured_data.checklist_sugerido', []),
-                    true
-                );
+                if (!empty($newChecklist)) {
+                    $this->syncChecklistItemsFromArray($project, $newChecklist, true);
+                }
 
                 ProjectDocument::where('project_id', $project->id)
                     ->update([
@@ -408,12 +418,91 @@ class ProjectBoardController extends Controller
             'checklistItems.sourceDocument',
         ]);
 
+        // Recupera automáticamente el checklist de proyectos que fueron
+        // analizados antes de existir la tabla relacional.
+        $this->ensureChecklistItemsExist($project);
+
+        $project->load([
+            'checklistItems.notes.user',
+            'checklistItems.attachments',
+            'checklistItems.responsible',
+            'checklistItems.reviewer',
+            'checklistItems.sourceDocument',
+        ]);
+
         $documentLibrary = $this->projectDocumentLibrary($project);
+        $checklist = $this->checklistPayload($project)['items'];
 
         return view('projects.analisis', [
             'project' => $project,
             'documentLibrary' => $documentLibrary,
+            'checklist' => $checklist,
         ]);
+    }
+
+    /**
+     * Normaliza la respuesta del procesador Python.
+     *
+     * El script puede devolver `structured` o `structured_data`. Esta capa evita
+     * que el proyecto quede sin ficha, checklist o texto por una diferencia de nombre.
+     */
+    private function normalizeProcessorResult(array $result): array
+    {
+        $structured = $result['structured_data']
+            ?? $result['structured']
+            ?? data_get($result, 'data.structured_data')
+            ?? data_get($result, 'data.structured')
+            ?? [];
+
+        if (!is_array($structured)) {
+            $structured = [];
+        }
+
+        $documents = $result['documents']
+            ?? data_get($result, 'data.documents')
+            ?? [];
+
+        if (!is_array($documents)) {
+            $documents = [];
+        }
+
+        return [
+            'ok' => (bool) ($result['ok'] ?? true),
+            'error' => $result['error'] ?? null,
+            'structured_data' => $structured,
+            'documents' => $documents,
+            'raw_text_combined' => is_string($result['raw_text_combined'] ?? null)
+                ? $result['raw_text_combined']
+                : '',
+        ];
+    }
+
+    /**
+     * Obtiene el checklist desde cualquiera de las rutas históricas usadas por
+     * el procesador o por proyectos antiguos.
+     */
+    private function processorChecklist(array $structured, ?Project $project = null): array
+    {
+        $candidates = [
+            data_get($structured, 'checklist_sugerido'),
+            data_get($structured, 'checklist'),
+            data_get($structured, 'analisis.checklist_sugerido'),
+            data_get($structured, 'analisis.checklist'),
+        ];
+
+        if ($project) {
+            $candidates[] = $project->checklist;
+            $candidates[] = data_get($project->structured_data ?? [], 'checklist_sugerido');
+            $candidates[] = data_get($project->structured_data ?? [], 'checklist');
+        }
+
+        foreach ($candidates as $candidate) {
+            if (is_array($candidate) && !empty($candidate)) {
+                return array_values(array_filter($candidate, 'is_array'));
+            }
+        }
+
+        return [];
     }
 
     /**
@@ -425,8 +514,10 @@ class ProjectBoardController extends Controller
             return;
         }
 
-        $documents = $project->documents()->get()->keyBy(
-            fn (ProjectDocument $document) => mb_strtolower(trim((string) $document->filename))
+        $documentCollection = $project->documents()->get();
+
+        $documents = $documentCollection->keyBy(
+            fn (ProjectDocument $document) => mb_strtolower(trim(basename((string) $document->filename)))
         );
 
         foreach ($processorDocuments as $payload) {
@@ -440,7 +531,15 @@ class ProjectBoardController extends Controller
             }
 
             /** @var ProjectDocument|null $document */
-            $document = $documents->get(mb_strtolower($filename));
+            $document = $documents->get(mb_strtolower(basename($filename)));
+
+            if (!$document) {
+                $document = $documentCollection->first(function (ProjectDocument $candidate) use ($filename) {
+                    return mb_strtolower(basename((string) $candidate->file_path))
+                        === mb_strtolower(basename($filename));
+                });
+            }
+
             if (!$document) {
                 continue;
             }
@@ -479,6 +578,19 @@ class ProjectBoardController extends Controller
 
         foreach ($project->documents as $document) {
             $text = trim((string) $document->extracted_text);
+
+            if ($text === '') {
+                $raw = is_array($document->extracted_raw) ? $document->extracted_raw : [];
+
+                foreach (['text', 'content', 'raw_text', 'raw_preview', 'summary', 'resumen'] as $key) {
+                    $candidate = $raw[$key] ?? null;
+
+                    if (is_string($candidate) && trim($candidate) !== '') {
+                        $text = trim($candidate);
+                        break;
+                    }
+                }
+            }
 
             if ($text === '') {
                 continue;
@@ -748,10 +860,20 @@ class ProjectBoardController extends Controller
         $documentText = $this->projectGroundedDocumentText($project);
 
         if ($documentText === '') {
-            return response()->json([
-                'ok' => false,
-                'message' => 'Los documentos todavía no tienen texto extraído. Ejecuta el reanálisis del proyecto.',
-            ], 422);
+            $structuredFallback = json_encode(
+                is_array($project->structured_data) ? $project->structured_data : [],
+                JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT
+            );
+
+            if (!$structuredFallback || trim($structuredFallback) === '[]') {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Los documentos todavía no tienen texto extraído. Ejecuta el reanálisis del proyecto.',
+                ], 422);
+            }
+
+            $documentText = "--- DATOS RECUPERADOS DEL ANÁLISIS DEL PROYECTO ---\n"
+                . $structuredFallback;
         }
 
         ProjectChatMessage::create([
@@ -1185,25 +1307,37 @@ PROMPT;
                 return response()->json(['ok' => false, 'error' => 'No hay documentos para reanalizar.'], 422);
             }
 
-            $result = $processor->process($project, $paths);
+            $result = $this->normalizeProcessorResult(
+                $processor->process($project, $paths)
+            );
+
+            if (!$result['ok']) {
+                throw new \RuntimeException(
+                    $result['error'] ?: 'No se pudo reanalizar el checklist.'
+                );
+            }
 
             $this->persistProcessorDocuments(
                 $project->fresh('documents'),
-                $result['documents'] ?? []
+                $result['documents']
             );
 
-            $newChecklist = data_get($result, 'structured_data.checklist_sugerido', []);
+            $structured = $result['structured_data'];
+            $newChecklist = $this->processorChecklist($structured, $project);
 
-            if (!empty($result['structured_data'])) {
-                $sd = $project->structured_data ?? [];
-                $sd = array_merge($sd, $result['structured_data']);
-                $project->structured_data = $sd;
+            if (!empty($structured)) {
+                $sd = is_array($project->structured_data) ? $project->structured_data : [];
+                $project->structured_data = array_replace_recursive($sd, $structured);
             }
 
-            $project->checklist = $newChecklist; // legacy / respaldo
+            $project->checklist = $newChecklist;
+            $project->status = 'ready';
+            $project->error_message = null;
             $project->save();
 
-            $this->syncChecklistItemsFromArray($project, $newChecklist, true);
+            if (!empty($newChecklist)) {
+                $this->syncChecklistItemsFromArray($project, $newChecklist, true);
+            }
 
             return response()->json([
                 'ok'      => true,
@@ -1461,10 +1595,58 @@ PROMPT;
             return;
         }
 
-        $legacy = $project->checklist ?: data_get($project->structured_data ?? [], 'checklist_sugerido', []);
-        if (is_array($legacy) && !empty($legacy)) {
+        $legacy = $this->processorChecklist(
+            is_array($project->structured_data) ? $project->structured_data : [],
+            $project
+        );
+
+        if (!empty($legacy)) {
             $this->syncChecklistItemsFromArray($project, $legacy, false);
         }
+    }
+
+    private function checklistTextValue($value, string $fallback = ''): string
+    {
+        if (is_null($value)) {
+            return $fallback;
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Sí' : 'No';
+        }
+
+        if (is_scalar($value)) {
+            $text = trim((string) $value);
+            return $text !== '' ? $text : $fallback;
+        }
+
+        if (is_object($value)) {
+            $value = (array) $value;
+        }
+
+        if (is_array($value)) {
+            foreach (['respuesta', 'valor', 'texto', 'descripcion', 'nombre', 'titulo', 'label', 'content'] as $key) {
+                if (array_key_exists($key, $value)) {
+                    $candidate = $this->checklistTextValue($value[$key]);
+                    if ($candidate !== '') {
+                        return $candidate;
+                    }
+                }
+            }
+
+            $parts = [];
+            foreach ($value as $item) {
+                $candidate = $this->checklistTextValue($item);
+                if ($candidate !== '') {
+                    $parts[] = $candidate;
+                }
+            }
+
+            $text = trim(implode(' ', array_unique($parts)));
+            return $text !== '' ? $text : $fallback;
+        }
+
+        return $fallback;
     }
 
     private function syncChecklistItemsFromArray(Project $project, array $items, bool $mergeExisting = true): void
@@ -1480,7 +1662,10 @@ PROMPT;
         foreach (array_values($items) as $position => $raw) {
             if (!is_array($raw)) continue;
 
-            $requirement = $raw['requisito'] ?? $raw['item'] ?? $raw['text'] ?? 'Sin nombre';
+            $requirement = $this->checklistTextValue(
+                $raw['requisito'] ?? $raw['item'] ?? $raw['text'] ?? 'Sin nombre',
+                'Sin nombre'
+            );
             $key = mb_strtolower(trim($requirement));
 
             $item = $existing->get($key) ?: new ProjectChecklistItem([
@@ -1490,19 +1675,19 @@ PROMPT;
 
             $this->fillChecklistItem($item, [
                 'requisito'             => $requirement,
-                'descripcion'           => $raw['descripcion'] ?? '',
-                'criterio_cumplimiento' => $raw['criterio_cumplimiento'] ?? '',
-                'formato'               => $raw['formato'] ?? 'No aplica',
-                'categoria'             => $raw['categoria'] ?? 'Legal-Administrativo',
-                'aplicabilidad'         => $raw['aplicabilidad'] ?? 'Único',
-                'obligatorio'           => $raw['obligatorio'] ?? 'Sí',
-                'cumplimiento'          => $raw['cumplimiento'] ?? '-',
-                'status'                => $raw['status'] ?? 'Pendiente',
-                'prioridad'             => $raw['prioridad'] ?? 'Media',
+                'descripcion'           => $this->checklistTextValue($raw['descripcion'] ?? ''),
+                'criterio_cumplimiento' => $this->checklistTextValue($raw['criterio_cumplimiento'] ?? ''),
+                'formato'               => $this->checklistTextValue($raw['formato'] ?? 'No aplica', 'No aplica'),
+                'categoria'             => $this->checklistTextValue($raw['categoria'] ?? 'Legal-Administrativo', 'Legal-Administrativo'),
+                'aplicabilidad'         => $this->checklistTextValue($raw['aplicabilidad'] ?? 'Único', 'Único'),
+                'obligatorio'           => $this->checklistTextValue($raw['obligatorio'] ?? 'Sí', 'Sí'),
+                'cumplimiento'          => $this->checklistTextValue($raw['cumplimiento'] ?? '-', '-'),
+                'status'                => $this->checklistTextValue($raw['status'] ?? 'Pendiente', 'Pendiente'),
+                'prioridad'             => $this->checklistTextValue($raw['prioridad'] ?? 'Media', 'Media'),
                 'fecha_limite'          => $raw['fecha_limite'] ?? null,
-                'fuente'                => $raw['fuente'] ?? '',
+                'fuente'                => $this->checklistTextValue($raw['fuente'] ?? ''),
                 'pagina'                => $raw['pagina'] ?? null,
-                'cita'                  => $raw['cita'] ?? $raw['evidencia'] ?? $raw['fragmento'] ?? '',
+                'cita'                  => $this->checklistTextValue($raw['cita'] ?? $raw['evidencia'] ?? $raw['fragmento'] ?? ''),
             ]);
 
             $item->project_id = $project->id;
@@ -2836,21 +3021,30 @@ PROMPT;
                 }
 
                 $processor = app(PythonProjectProcessor::class);
-                $result = $processor->process($project, $documentPaths);
-
-                app(self::class)->persistProcessorDocuments(
-                    $project->fresh('documents'),
-                    $result['documents'] ?? []
+                $controller = app(self::class);
+                $result = $controller->normalizeProcessorResult(
+                    $processor->process($project, $documentPaths)
                 );
 
-                $structured = $result['structured_data'] ?? [];
+                if (!$result['ok']) {
+                    throw new \RuntimeException(
+                        $result['error'] ?: 'No se pudo reanalizar la ficha.'
+                    );
+                }
+
+                $controller->persistProcessorDocuments(
+                    $project->fresh('documents'),
+                    $result['documents']
+                );
+
+                $structured = $result['structured_data'];
 
                 if (is_array($structured) && !empty($structured)) {
                     $current = is_array($project->structured_data) ? $project->structured_data : [];
                     $project->structured_data = array_replace_recursive($current, $structured);
                 }
 
-                $newChecklist = data_get($structured, 'checklist_sugerido', []);
+                $newChecklist = $controller->processorChecklist($structured, $project);
 
                 if (is_array($newChecklist) && !empty($newChecklist)) {
                     $project->checklist = $newChecklist;
@@ -2861,7 +3055,7 @@ PROMPT;
                 $project->save();
 
                 if (is_array($newChecklist) && !empty($newChecklist)) {
-                    app(self::class)->syncChecklistItemsFromArray($project, $newChecklist, true);
+                    $controller->syncChecklistItemsFromArray($project, $newChecklist, true);
                 }
 
                 ProjectDocument::where('project_id', $project->id)

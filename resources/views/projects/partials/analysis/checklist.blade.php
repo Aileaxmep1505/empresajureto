@@ -1,3 +1,185 @@
+@php
+  /*
+  |--------------------------------------------------------------------------
+  | Fuente robusta del checklist
+  |--------------------------------------------------------------------------
+  | Prioridad:
+  | 1) Variable $checklist enviada por el controlador.
+  | 2) Relación project_checklist_items.
+  | 3) projects.checklist (legacy).
+  | 4) structured_data.checklist_sugerido / checklist.
+  */
+  $clText = null;
+
+  $clText = function ($value, $fallback = '') use (&$clText) {
+      if (is_null($value)) {
+          return $fallback;
+      }
+
+      if (is_bool($value)) {
+          return $value ? 'Sí' : 'No';
+      }
+
+      if (is_scalar($value)) {
+          $text = trim((string) $value);
+          return $text !== '' ? $text : $fallback;
+      }
+
+      if (is_object($value)) {
+          $value = (array) $value;
+      }
+
+      if (is_array($value)) {
+          foreach ([
+              'respuesta', 'answer', 'valor', 'value', 'texto', 'descripcion',
+              'description', 'nombre', 'titulo', 'title', 'label', 'content'
+          ] as $key) {
+              if (!array_key_exists($key, $value)) {
+                  continue;
+              }
+
+              $candidate = $clText($value[$key]);
+
+              if ($candidate !== '') {
+                  return $candidate;
+              }
+          }
+
+          $parts = [];
+
+          foreach ($value as $item) {
+              $candidate = $clText($item);
+
+              if ($candidate !== '') {
+                  $parts[] = $candidate;
+              }
+          }
+
+          $text = trim(implode(' ', array_unique($parts)));
+          return $text !== '' ? $text : $fallback;
+      }
+
+      return $fallback;
+  };
+
+  $rawChecklist = isset($checklist) && is_array($checklist) && !empty($checklist)
+      ? $checklist
+      : [];
+
+  if (empty($rawChecklist) && $project->relationLoaded('checklistItems') && $project->checklistItems->isNotEmpty()) {
+      $rawChecklist = $project->checklistItems
+          ->map(function ($item) {
+              if (method_exists($item, 'toChecklistArray')) {
+                  return $item->toChecklistArray();
+              }
+
+              $meta = is_array($item->metadata ?? null) ? $item->metadata : [];
+
+              return [
+                  'id' => $item->id,
+                  'requisito' => $item->requirement,
+                  'descripcion' => $item->description,
+                  'criterio_cumplimiento' => $item->compliance_criteria,
+                  'formato' => $item->format,
+                  'categoria' => $item->category,
+                  'aplicabilidad' => $item->applicability,
+                  'obligatorio' => $item->mandatory ? 'Sí' : 'No',
+                  'cumplimiento' => match ($item->compliance_status) {
+                      'cumple' => 'Cumple',
+                      'parcial' => 'Parcial',
+                      'no_cumple' => 'No Cumple',
+                      default => '-',
+                  },
+                  'status' => match ($item->review_status) {
+                      'en_revision' => 'En revisión',
+                      'aprobado' => 'Aprobado',
+                      default => 'Pendiente',
+                  },
+                  'prioridad' => match ($item->priority) {
+                      'alta' => 'Alta',
+                      'baja' => 'Baja',
+                      default => 'Media',
+                  },
+                  'fecha_limite' => optional($item->due_date)->format('Y-m-d'),
+                  'responsable' => optional($item->responsible)->name ?: ($meta['responsable_text'] ?? ''),
+                  'revisor' => optional($item->reviewer)->name ?: ($meta['revisor_text'] ?? ''),
+                  'fuente' => $item->source_name,
+                  'pagina' => $item->source_page,
+                  'cita' => $item->source_quote,
+                  'notas' => $item->relationLoaded('notes')
+                      ? $item->notes->map(fn ($note) => [
+                          'id' => $note->id,
+                          'body' => $note->body,
+                      ])->values()->all()
+                      : [],
+                  'adjuntos' => $item->relationLoaded('attachments')
+                      ? $item->attachments->map(fn ($attachment) => [
+                          'id' => $attachment->id,
+                          'name' => $attachment->original_name,
+                          'url' => $attachment->url,
+                          'mime' => $attachment->mime_type,
+                          'size' => $attachment->size,
+                      ])->values()->all()
+                      : [],
+              ];
+          })
+          ->values()
+          ->all();
+  }
+
+  if (empty($rawChecklist)) {
+      $legacyChecklist = $project->checklist ?? null;
+
+      if (!is_array($legacyChecklist) || empty($legacyChecklist)) {
+          $structuredData = is_array($project->structured_data ?? null)
+              ? $project->structured_data
+              : [];
+
+          $legacyChecklist = data_get($structuredData, 'checklist_sugerido')
+              ?? data_get($structuredData, 'checklist')
+              ?? data_get($structuredData, 'analisis.checklist_sugerido')
+              ?? data_get($structuredData, 'analisis.checklist')
+              ?? [];
+      }
+
+      $rawChecklist = is_array($legacyChecklist) ? $legacyChecklist : [];
+  }
+
+  $checklist = collect($rawChecklist)
+      ->filter(fn ($item) => is_array($item))
+      ->map(function ($item, $index) use ($clText) {
+          $rawNotes = $item['notas'] ?? [];
+          $rawAttachments = $item['adjuntos'] ?? $item['attachments'] ?? [];
+
+          return [
+              'id' => $item['id'] ?? $item['item_id'] ?? ($index + 1),
+              'requisito' => $clText(
+                  $item['requisito'] ?? $item['requirement'] ?? $item['item'] ?? $item['text'] ?? null,
+                  'Requisito sin nombre'
+              ),
+              'descripcion' => $clText($item['descripcion'] ?? $item['description'] ?? ''),
+              'criterio_cumplimiento' => $clText($item['criterio_cumplimiento'] ?? $item['compliance_criteria'] ?? ''),
+              'formato' => $clText($item['formato'] ?? $item['format'] ?? 'No aplica', 'No aplica'),
+              'categoria' => $clText($item['categoria'] ?? $item['category'] ?? 'Legal-Administrativo', 'Legal-Administrativo'),
+              'aplicabilidad' => $clText($item['aplicabilidad'] ?? $item['applicability'] ?? 'Único', 'Único'),
+              'obligatorio' => $clText($item['obligatorio'] ?? $item['mandatory'] ?? 'Sí', 'Sí'),
+              'cumplimiento' => $clText($item['cumplimiento'] ?? $item['compliance'] ?? '-', '-'),
+              'status' => $clText($item['status'] ?? $item['review_status'] ?? 'Pendiente', 'Pendiente'),
+              'prioridad' => $clText($item['prioridad'] ?? $item['priority'] ?? 'Media', 'Media'),
+              'fecha_limite' => $clText($item['fecha_limite'] ?? $item['due_date'] ?? ''),
+              'responsable' => $clText($item['responsable'] ?? $item['responsible'] ?? ''),
+              'revisor' => $clText($item['revisor'] ?? $item['reviewer'] ?? ''),
+              'fuente' => $clText($item['fuente'] ?? $item['source'] ?? ''),
+              'pagina' => $clText($item['pagina'] ?? $item['page'] ?? ''),
+              'cita' => $clText($item['cita'] ?? $item['quote'] ?? ''),
+              'notas' => is_array($rawNotes) ? $rawNotes : [],
+              'adjuntos' => is_array($rawAttachments) ? $rawAttachments : [],
+          ];
+      })
+      ->values()
+      ->all();
+@endphp
+
 <div class="pjd-pane" data-pane="checklist">
         <div class="pjd-checklist-wrap">
           <div class="pjd-checklist-head">
