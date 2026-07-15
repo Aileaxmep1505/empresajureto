@@ -14,6 +14,7 @@ use App\Services\PythonProjectProcessor;
 use App\Services\OpenAiStructurerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
@@ -2167,7 +2168,7 @@ PROMPT;
             'mode' => 'formato_especifico',
             'filename' => $filename,
             'stored_path' => $storedPath,
-            'content' => Str::limit($content, 24000, '\n[FORMATO RECORTADO]'),
+            'content' => Str::limit($content, 6000, '\n[FORMATO RECORTADO]'),
         ];
     }
 
@@ -2258,7 +2259,7 @@ PROMPT;
 
         try {
             $process = new Process(['pdftotext', '-layout', $path, '-']);
-            $process->setTimeout(25);
+            $process->setTimeout(8);
             $process->run();
 
             if ($process->isSuccessful()) {
@@ -2286,7 +2287,7 @@ PROMPT;
             JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT
         );
 
-        $documentsText = $this->projectGroundedDocumentText($project, 65000);
+        $documentsText = $this->projectGroundedDocumentText($project, 25000);
 
         if (trim($documentsText) === '') {
             $documentsText = 'No existe texto documental extraído. Usa únicamente datos estructurados y checklist, sin inventar información.';
@@ -2621,17 +2622,37 @@ PROMPT;
 
     public function generateReport(Request $request, Project $project, OpenAiStructurerService $ai)
     {
-        @set_time_limit(300);
-        @ini_set('max_execution_time', '300');
-        @ini_set('memory_limit', '768M');
-
         abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
 
         try {
+            $action = (string) $request->input('action', 'generate');
+
+            if ($action === 'clarifications_status') {
+                $jobId = trim((string) $request->input('job_id', ''));
+
+                if ($jobId === '') {
+                    return response()->json([
+                        'ok' => false,
+                        'message' => 'Falta el identificador del proceso.',
+                    ], 422);
+                }
+
+                $status = Cache::get("project-report-job:{$jobId}");
+
+                if (!is_array($status)) {
+                    return response()->json([
+                        'ok' => false,
+                        'message' => 'El proceso ya no existe o expiró.',
+                    ], 404);
+                }
+
+                return response()->json(array_merge(['ok' => true], $status));
+            }
+
             $type = $this->normalizeReportType($request->input('report_type', 'analysis'));
             $title = $request->input('report_title') ?: $this->reportTitleForType($type);
 
-            if ($request->input('action') === 'save') {
+            if ($action === 'save') {
                 $content = $request->input('report_content', $request->input('draft_content', ''));
                 $this->saveProjectReport($project, $type, $content, $title);
 
@@ -2653,13 +2674,48 @@ PROMPT;
                     'content' => '',
                 ];
 
-            $prompt = $this->buildSpecializedReportPrompt($project, $checklist, $type, [
+            $options = [
                 'format_mode' => $template['mode'] ?? $request->input('format_mode', 'estandar'),
                 'template_filename' => $template['filename'] ?? '',
                 'template_context' => $template['content'] ?? '',
                 'risk_levels' => $request->input('risk_levels', ['alto', 'medio', 'no_cumple']),
                 'instructions' => $request->input('instructions', ''),
-            ]);
+            ];
+
+            if ($type === 'clarifications') {
+                $jobId = (string) Str::uuid();
+                $cacheKey = "project-report-job:{$jobId}";
+
+                Cache::put($cacheKey, [
+                    'status' => 'queued',
+                    'message' => 'Archivo recibido. Preparando el análisis...',
+                    'progress' => 10,
+                    'template_name' => $template['filename'] ?? null,
+                ], now()->addHour());
+
+                $projectId = $project->id;
+                $userId = Auth::id();
+
+                dispatch(function () use ($projectId, $userId, $title, $options, $cacheKey) {
+                    app(self::class)->processClarificationsReportAsync(
+                        $projectId,
+                        $userId,
+                        $title,
+                        $options,
+                        $cacheKey
+                    );
+                })->afterResponse();
+
+                return response()->json([
+                    'ok' => true,
+                    'queued' => true,
+                    'job_id' => $jobId,
+                    'message' => 'La generación comenzó en segundo plano.',
+                    'template_name' => $template['filename'] ?? null,
+                ], 202);
+            }
+
+            $prompt = $this->buildSpecializedReportPrompt($project, $checklist, $type, $options);
             $html = null;
 
             try {
@@ -2700,12 +2756,98 @@ PROMPT;
             Log::error('Report generation failed', [
                 'project_id' => $project->id,
                 'err' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'ok' => false,
                 'message' => $e->getMessage(),
             ], 500);
+        }
+    }
+
+    public function processClarificationsReportAsync(
+        int $projectId,
+        ?int $userId,
+        string $title,
+        array $options,
+        string $cacheKey
+    ): void {
+        ignore_user_abort(true);
+        @set_time_limit(0);
+        @ini_set('max_execution_time', '0');
+        @ini_set('memory_limit', '768M');
+
+        try {
+            Cache::put($cacheKey, [
+                'status' => 'processing',
+                'message' => 'Analizando bases, checklist y formato...',
+                'progress' => 35,
+                'template_name' => $options['template_filename'] ?? null,
+            ], now()->addHour());
+
+            $project = Project::query()->findOrFail($projectId);
+
+            if ($userId !== 1 && (int) $project->user_id !== (int) $userId) {
+                throw new \RuntimeException('No tienes permiso para procesar este proyecto.');
+            }
+
+            $project->loadMissing(['documents']);
+            $checklist = $this->projectChecklistReportArray($project);
+            $prompt = $this->buildSpecializedReportPrompt(
+                $project,
+                $checklist,
+                'clarifications',
+                $options
+            );
+
+            Cache::put($cacheKey, [
+                'status' => 'processing',
+                'message' => 'Generando preguntas estratégicas...',
+                'progress' => 65,
+                'template_name' => $options['template_filename'] ?? null,
+            ], now()->addHour());
+
+            $ai = app(OpenAiStructurerService::class);
+            $messages = [
+                ['role' => 'system', 'content' => 'Eres un especialista en licitaciones públicas mexicanas. Genera HTML limpio, verificable y listo para editar.'],
+                ['role' => 'user', 'content' => $prompt],
+            ];
+
+            $html = trim((string) $ai->chatRaw($messages));
+            $html = preg_replace('/^```html\s*/i', '', $html);
+            $html = preg_replace('/^```\s*/', '', $html);
+            $html = preg_replace('/```$/', '', trim($html));
+
+            if ($html === '' || trim(strip_tags($html)) === '') {
+                $html = $this->buildSpecializedReportFallbackHtml($project, 'clarifications');
+            }
+
+            $this->saveProjectReport($project, 'clarifications', $html, $title);
+
+            Cache::put($cacheKey, [
+                'status' => 'completed',
+                'message' => 'Junta de Aclaraciones generada correctamente.',
+                'progress' => 100,
+                'html' => $html,
+                'report_type' => 'clarifications',
+                'report_title' => $title,
+                'saved_at' => now()->format('H:i:s'),
+                'template_name' => $options['template_filename'] ?? null,
+            ], now()->addHour());
+        } catch (\Throwable $e) {
+            Log::error('Async clarifications report generation failed', [
+                'project_id' => $projectId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            Cache::put($cacheKey, [
+                'status' => 'failed',
+                'message' => $e->getMessage(),
+                'progress' => 100,
+                'template_name' => $options['template_filename'] ?? null,
+            ], now()->addHour());
         }
     }
 

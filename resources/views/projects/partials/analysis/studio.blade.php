@@ -2300,37 +2300,130 @@ document.addEventListener('DOMContentLoaded', function () {
     syncTemplateVisibility();
 
     if (generateClarificationsButton) {
+      let clarificationsPollingTimer = null;
+
+      const stopClarificationsPolling = function () {
+        if (clarificationsPollingTimer) {
+          clearTimeout(clarificationsPollingTimer);
+          clarificationsPollingTimer = null;
+        }
+      };
+
+      const pollClarificationsStatus = async function (reportUrl, csrfToken, jobId, originalHtml) {
+        try {
+          const statusForm = new FormData();
+          statusForm.append('_token', csrfToken);
+          statusForm.append('action', 'clarifications_status');
+          statusForm.append('job_id', jobId);
+
+          const response = await fetch(reportUrl, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
+            body: statusForm
+          });
+
+          const raw = await response.text();
+          let data = {};
+
+          try {
+            data = raw ? JSON.parse(raw) : {};
+          } catch (parseError) {
+            throw new Error('El servidor devolvió una respuesta inválida (' + response.status + ').');
+          }
+
+          if (!response.ok || data.ok === false) {
+            throw new Error(data.message || data.error || 'No se pudo consultar el avance.');
+          }
+
+          if (progressBox) {
+            progressBox.textContent = (data.message || 'Procesando...') + ' ' + Number(data.progress || 0) + '%';
+            progressBox.classList.add('is-visible');
+          }
+
+          if (data.status === 'completed' && data.html) {
+            stopClarificationsPolling();
+
+            generatedReports.clarifications = {
+              title: data.report_title || 'Junta de Aclaraciones - Preguntas Estratégicas',
+              html: data.html,
+              template_name: data.template_name || null
+            };
+
+            if (typeof ensureStudioReportItem === 'function') {
+              ensureStudioReportItem('clarifications', generatedReports.clarifications.title);
+            }
+
+            generateClarificationsButton.disabled = false;
+            generateClarificationsButton.innerHTML = originalHtml;
+            closeModal(modalEstrategia);
+
+            if (typeof openWordEditor === 'function') {
+              openWordEditor('clarifications', generatedReports.clarifications.title, data.html);
+            }
+
+            return;
+          }
+
+          if (data.status === 'failed') {
+            stopClarificationsPolling();
+            generateClarificationsButton.disabled = false;
+            generateClarificationsButton.innerHTML = originalHtml;
+
+            if (progressBox) {
+              progressBox.textContent = data.message || 'La generación no pudo completarse.';
+              progressBox.classList.add('is-visible');
+            }
+
+            return;
+          }
+
+          clarificationsPollingTimer = setTimeout(function () {
+            pollClarificationsStatus(reportUrl, csrfToken, jobId, originalHtml);
+          }, 2500);
+        } catch (error) {
+          stopClarificationsPolling();
+          generateClarificationsButton.disabled = false;
+          generateClarificationsButton.innerHTML = originalHtml;
+
+          if (progressBox) {
+            progressBox.textContent = error.message || 'No se pudo consultar el proceso.';
+            progressBox.classList.add('is-visible');
+          }
+        }
+      };
+
       generateClarificationsButton.addEventListener('click', async function () {
+        stopClarificationsPolling();
+
         const formatMode = modalEstrategia.querySelector('input[name="formato_ja"]:checked')?.value || 'no';
         const riskLevels = [];
 
-        if (modalEstrategia.querySelector('input[name="riesgo_alto"]')?.checked) {
-          riskLevels.push('alto');
-        }
-
-        if (modalEstrategia.querySelector('input[name="riesgo_medio"]')?.checked) {
-          riskLevels.push('medio');
-        }
-
-        if (modalEstrategia.querySelector('input[name="riesgo_no_cumple"]')?.checked) {
-          riskLevels.push('no_cumple');
-        }
+        if (modalEstrategia.querySelector('input[name="riesgo_alto"]')?.checked) riskLevels.push('alto');
+        if (modalEstrategia.querySelector('input[name="riesgo_medio"]')?.checked) riskLevels.push('medio');
+        if (modalEstrategia.querySelector('input[name="riesgo_no_cumple"]')?.checked) riskLevels.push('no_cumple');
 
         const instructions = modalEstrategia.querySelector('.pjd-estrategia-textarea')?.value.trim() || '';
         const templateFile = templateInput?.files?.[0] || null;
         const originalHtml = generateClarificationsButton.innerHTML;
 
         if (formatMode === 'si' && !templateFile) {
-          window.alert('Selecciona el archivo Word, Excel o PDF que se usará como formato.');
+          if (progressBox) {
+            progressBox.textContent = 'Selecciona el archivo Word, Excel o PDF que se usará como formato.';
+            progressBox.classList.add('is-visible');
+          }
           templateInput?.click();
           return;
         }
 
         generateClarificationsButton.disabled = true;
-        generateClarificationsButton.textContent = 'Preparando formato y analizando bases...';
+        generateClarificationsButton.textContent = 'Subiendo archivo e iniciando análisis...';
 
         if (progressBox) {
-          progressBox.textContent = 'El archivo se está leyendo y las preguntas se están adaptando a su estructura. Este proceso puede tardar varios minutos.';
+          progressBox.textContent = 'Subiendo el formato y preparando el proceso...';
           progressBox.classList.add('is-visible');
         }
 
@@ -2346,13 +2439,8 @@ document.addEventListener('DOMContentLoaded', function () {
           formData.append('format_mode', formatMode === 'si' ? 'formato_especifico' : 'estandar');
           formData.append('instructions', instructions);
 
-          if (templateFile) {
-            formData.append('template_file', templateFile, templateFile.name);
-          }
-
-          riskLevels.forEach(function (risk) {
-            formData.append('risk_levels[]', risk);
-          });
+          if (templateFile) formData.append('template_file', templateFile, templateFile.name);
+          riskLevels.forEach(function (risk) { formData.append('risk_levels[]', risk); });
 
           const response = await fetch(reportUrl, {
             method: 'POST',
@@ -2364,48 +2452,31 @@ document.addEventListener('DOMContentLoaded', function () {
             body: formData
           });
 
-          const data = await response.json().catch(function () {
-            return {};
-          });
+          const raw = await response.text();
+          let data = {};
 
-          if (!response.ok || data.ok === false || !data.html) {
-            throw new Error(data.message || data.error || 'No se pudo generar la Junta de Aclaraciones.');
+          try {
+            data = raw ? JSON.parse(raw) : {};
+          } catch (parseError) {
+            throw new Error('El servidor devolvió una respuesta inválida (' + response.status + ').');
           }
 
-          generatedReports.clarifications = {
-            title: 'Junta de Aclaraciones - Preguntas Estratégicas',
-            html: data.html,
-            template_name: data.template_name || null
-          };
-
-          if (progressBox) {
-            progressBox.textContent = data.template_name
-              ? 'Junta generada usando el formato: ' + data.template_name
-              : 'Junta generada con el formato estándar.';
+          if (!response.ok || data.ok === false || !data.queued || !data.job_id) {
+            throw new Error(data.message || data.error || 'No se pudo iniciar la generación.');
           }
 
-          if (typeof ensureStudioReportItem === 'function') {
-            ensureStudioReportItem('clarifications', generatedReports.clarifications.title);
-          }
+          if (progressBox) progressBox.textContent = data.message || 'La generación comenzó en segundo plano.';
+          generateClarificationsButton.textContent = 'Analizando bases...';
 
-          closeModal(modalEstrategia);
-
-          if (typeof openWordEditor === 'function') {
-            openWordEditor(
-              'clarifications',
-              generatedReports.clarifications.title,
-              data.html
-            );
-          }
+          pollClarificationsStatus(reportUrl, csrfToken, data.job_id, originalHtml);
         } catch (error) {
-          if (progressBox) {
-            progressBox.textContent = error.message || 'No se pudo generar la Junta de Aclaraciones.';
-            progressBox.classList.add('is-visible');
-          }
-          window.alert(error.message || 'No se pudo generar la Junta de Aclaraciones.');
-        } finally {
           generateClarificationsButton.disabled = false;
           generateClarificationsButton.innerHTML = originalHtml;
+
+          if (progressBox) {
+            progressBox.textContent = error.message || 'No se pudo iniciar la Junta de Aclaraciones.';
+            progressBox.classList.add('is-visible');
+          }
         }
       });
     }
