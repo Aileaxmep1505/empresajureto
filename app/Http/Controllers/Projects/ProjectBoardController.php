@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Projects;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateClarificationsReportJob;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\ProjectChatMessage;
@@ -2688,23 +2689,21 @@ PROMPT;
 
                 Cache::put($cacheKey, [
                     'status' => 'queued',
-                    'message' => 'Archivo recibido. Preparando el análisis...',
+                    'message' => 'Proceso enviado a la cola. Esperando trabajador...',
                     'progress' => 10,
                     'template_name' => $template['filename'] ?? null,
                 ], now()->addHour());
 
-                $projectId = $project->id;
+                $projectId = (int) $project->id;
                 $userId = Auth::id();
 
-                dispatch(function () use ($projectId, $userId, $title, $options, $cacheKey) {
-                    app(self::class)->processClarificationsReportAsync(
-                        $projectId,
-                        $userId,
-                        $title,
-                        $options,
-                        $cacheKey
-                    );
-                })->afterResponse();
+                GenerateClarificationsReportJob::dispatch(
+                    $projectId,
+                    $userId,
+                    $title,
+                    $options,
+                    $cacheKey
+                )->onQueue('reports');
 
                 return response()->json([
                     'ok' => true,

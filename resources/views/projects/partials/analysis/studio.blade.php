@@ -2301,16 +2301,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (generateClarificationsButton) {
       let clarificationsPollingTimer = null;
+      let clarificationsPollingStartedAt = null;
+      const clarificationsMaxWaitMs = 10 * 60 * 1000;
 
       const stopClarificationsPolling = function () {
         if (clarificationsPollingTimer) {
           clearTimeout(clarificationsPollingTimer);
           clarificationsPollingTimer = null;
         }
+
+        clarificationsPollingStartedAt = null;
       };
 
       const pollClarificationsStatus = async function (reportUrl, csrfToken, jobId, originalHtml) {
         try {
+          if (
+            clarificationsPollingStartedAt
+            && (Date.now() - clarificationsPollingStartedAt) > clarificationsMaxWaitMs
+          ) {
+            stopClarificationsPolling();
+            generateClarificationsButton.disabled = false;
+            generateClarificationsButton.innerHTML = originalHtml;
+
+            if (progressBox) {
+              progressBox.textContent = 'El proceso superó 10 minutos. Revisa que el trabajador de cola siga ejecutándose y vuelve a intentarlo.';
+              progressBox.classList.add('is-visible');
+            }
+
+            return;
+          }
           const statusForm = new FormData();
           statusForm.append('_token', csrfToken);
           statusForm.append('action', 'clarifications_status');
@@ -2467,6 +2486,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
           if (progressBox) progressBox.textContent = data.message || 'La generación comenzó en segundo plano.';
           generateClarificationsButton.textContent = 'Analizando bases...';
+          clarificationsPollingStartedAt = Date.now();
 
           pollClarificationsStatus(reportUrl, csrfToken, data.job_id, originalHtml);
         } catch (error) {
