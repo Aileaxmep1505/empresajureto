@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
+use ZipArchive;
 
 class ProjectBoardController extends Controller
 {
@@ -1889,31 +1891,183 @@ PROMPT;
 
     private function buildExecutiveReportPrompt(Project $project, array $checklist): string
     {
-        $structured = json_encode($project->structured_data ?? [], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-        $checklistJson = json_encode($checklist, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $structured = json_encode(
+            is_array($project->structured_data) ? $project->structured_data : [],
+            JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT
+        );
+
+        $checklistJson = json_encode(
+            $checklist,
+            JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT
+        );
+
+        /*
+         * El resumen ejecutivo debe sustentarse en el contenido real de los
+         * documentos y no solamente en structured_data. Esto permite recuperar
+         * citas, plazos, certificaciones, contradicciones y fuentes concretas.
+         */
+        $documentsText = $this->projectGroundedDocumentText($project, 125000);
+
+        if (trim($documentsText) === '') {
+            $documentsText = 'No existe texto documental extraído. Usa únicamente los datos estructurados y el checklist, sin inventar información.';
+        }
+
         $name = $project->name;
 
         return <<<PROMPT
-Eres un consultor experto en licitaciones públicas mexicanas. Genera un REPORTE EJECUTIVO en HTML editable para el proyecto "{$name}".
+Eres un consultor senior especializado en licitaciones públicas mexicanas, análisis contractual, cumplimiento documental, operación logística y viabilidad comercial.
 
-Usa únicamente la información disponible. Si un dato no existe, escribe una frase clara como: En los documentos revisados, no se encontró información sobre...
+Genera un RESUMEN EJECUTIVO PROFUNDO, útil para que la dirección de una empresa decida si participa o no en el proyecto "{$name}".
 
-Estructura obligatoria:
-<article class="pjd-report-doc">
-<h1>Reporte ejecutivo: {$name}</h1>
-<section><h2>Ficha General</h2> Número de licitación, Tipo de evento, Organismo, Objeto de la licitación y Medio de participación.</section>
-<section><h2>Fechas Clave</h2> Fecha de publicación, Junta de aclaraciones, Presentación y apertura de proposiciones, Fallo y Vigencia del contrato.</section>
-<section><h2>Características Generales</h2> Preguntas y respuestas ejecutivas sobre implementación, experiencia, sanciones, garantía, sistema de evaluación, cartas de apoyo, muestras, documentación regulatoria, entregas, subrogación, idioma, adjudicación y tratados.</section>
-<section><h2>Puntos a Considerar</h2> Lista concreta de riesgos, requisitos críticos y observaciones.</section>
+FUENTES Y VERACIDAD
+1. Usa primero el texto literal de los DOCUMENTOS DEL PROYECTO.
+2. Usa DATOS ESTRUCTURADOS y CHECKLIST como apoyo y para cruzar cumplimiento.
+3. No inventes datos, fechas, porcentajes, normas, marcas, requisitos, páginas, archivos, conclusiones ni citas.
+4. Cuando exista una contradicción, indícala claramente y menciona los documentos involucrados.
+5. Cuando un dato no esté disponible, escribe de forma ejecutiva: "No se encontró evidencia suficiente en los documentos revisados".
+6. No escribas `null`, rutas internas, nombres de recursos técnicos ni archivos de identidad como header.png, footer.png, storage/, public/ o informacion_de_la_empresa/.
+7. No confundas documentos corporativos internos con documentos de las bases de la licitación.
+8. Cada cita debe conservar el sentido literal del documento. No fabriques páginas.
+9. No uses emojis, iconos decorativos, markdown, bloques de código ni texto fuera del HTML.
+10. El resultado debe ser HTML limpio y editable.
+
+OBJETIVO DEL DOCUMENTO
+El resultado debe parecer un dictamen ejecutivo profesional, semejante al siguiente nivel de profundidad:
+- explicar el objeto real y su modalidad contractual;
+- determinar alineación con capacidad y portafolio usando el checklist disponible;
+- señalar alcance operativo y exigencias posteriores a la entrega;
+- identificar certificaciones o normas aplicables;
+- explicar partidas, conceptos y restricciones técnicas;
+- detectar plazos críticos y contradicciones;
+- emitir recomendación de participación con justificación;
+- presentar riesgos ejecutivos concretos y accionables;
+- identificar las fuentes documentales de cada conclusión.
+
+ESTRUCTURA HTML OBLIGATORIA
+
+<article class="pjd-report-doc pjd-executive-report">
+  <header class="pjd-report-cover">
+    <h1>Resumen Ejecutivo</h1>
+    <p>Proyecto: {$name}</p>
+  </header>
+
+  <section class="pjd-report-section">
+    <h2>Objeto y Dictamen de Alineación</h2>
+    <p>Redacta de dos a cuatro párrafos explicando el objeto exacto, convocante, modalidad contractual, número de partidas, forma de suministro, alcance real y cualquier inconsistencia editorial o contractual detectada.</p>
+
+    <ul>
+      <li><strong>Alineación con portafolio:</strong> Determina la alineación usando únicamente evidencia disponible en los documentos, datos estructurados y checklist. Distingue entre capacidad confirmada, capacidad no acreditada y falta de información.</li>
+      <li><strong>Alcance y exigencia operativa:</strong> Explica cobertura geográfica, cantidades o partidas cuando estén disponibles, garantías, reposiciones, entregas, instalación, soporte, muestras, personal, almacenes u otras obligaciones operativas.</li>
+      <li><strong>Señal de viabilidad:</strong> Clasifica como ALTA, MEDIA o BAJA y justifica con cumplimiento documental, capacidad operativa, restricciones técnicas y condiciones económicas.</li>
+    </ul>
+  </section>
+
+  <section class="pjd-report-section">
+    <h2>Certificaciones aplicables</h2>
+    <ul>
+      <li>Incluye únicamente NOM, NMX, ISO, registros, certificados, autorizaciones o normas expresamente mencionadas en los documentos.</li>
+      <li>Para cada norma explica brevemente a qué producto, documento o requisito se aplica cuando exista esa evidencia.</li>
+      <li>Si no existen certificaciones detectadas, indícalo expresamente.</li>
+    </ul>
+  </section>
+
+  <section class="pjd-report-section">
+    <h2>Estructura y Alcance del Objeto</h2>
+    <p>Describe partidas, lotes, conceptos, modalidad abierta o cerrada, adjudicación, entrega única o parcial y alcance técnico.</p>
+    <ul>
+      <li><strong>Restricciones técnicas:</strong> Identifica medidas, materiales, colores, capacidades, marcas de referencia, moldes, compatibilidades, contenido nacional, muestras u otros candados.</li>
+      <li><strong>Impacto en la participación:</strong> Explica si esas restricciones limitan proveedores, elevan costos o requieren aclaración.</li>
+    </ul>
+
+    <h3>Fuentes</h3>
+    <ul>
+      <li>Lista únicamente nombres reales de documentos usados para esta sección.</li>
+    </ul>
+  </section>
+
+  <section class="pjd-report-section">
+    <h2>Plazos Operativos Críticos</h2>
+    <p><strong>Existen plazos críticos:</strong> Sí o No.</p>
+    <p>Explica la relación entre publicación, aclaraciones, fallo, entrega, vigencia, pago, garantías, reposiciones y cualquier plazo documental posterior a la adjudicación. Señala contradicciones o márgenes insuficientes.</p>
+
+    <h3>Detalle de plazos</h3>
+    <ul>
+      <li>
+        <strong>Tipo de plazo:</strong> valor exacto.<br>
+        <strong>Cita:</strong> fragmento documental breve y fiel.<br>
+        <strong>Ubicación:</strong> nombre real del archivo y página o sección únicamente si está disponible.<br>
+        <strong>Comentario:</strong> impacto ejecutivo, operativo, financiero o documental.
+      </li>
+    </ul>
+
+    <h3>Fuentes de plazos</h3>
+    <ul>
+      <li>Lista únicamente archivos que realmente sustentan los plazos.</li>
+    </ul>
+  </section>
+
+  <section class="pjd-report-section">
+    <h2>Recomendación de Participación</h2>
+    <ul>
+      <li><strong>Recomendación:</strong> SÍ, SÍ CONDICIONADA o NO.</li>
+      <li><strong>Justificación:</strong> Explica los factores determinantes: cumplimiento, documentos faltantes, experiencia, certificaciones, restricciones técnicas, contenido nacional, costos, pago, entrega y riesgo contractual.</li>
+      <li><strong>Condiciones para reconsiderar:</strong> Presenta acciones concretas, numeradas y ejecutables. Incluye preguntas para junta de aclaraciones cuando correspondan.</li>
+    </ul>
+  </section>
+
+  <section class="pjd-report-section">
+    <h2>Riesgos Ejecutivos</h2>
+    <p><strong>Nivel de riesgo global:</strong> ALTO, MEDIO o BAJO.</p>
+    <p>Redacta un análisis integrado de los riesgos de cumplimiento, comerciales, financieros, contractuales, técnicos, documentales y logísticos.</p>
+
+    <ul>
+      <li><strong>Riesgo documental:</strong> faltantes y consecuencias.</li>
+      <li><strong>Riesgo técnico:</strong> especificaciones, normas, muestras, marcas o compatibilidad.</li>
+      <li><strong>Riesgo operativo:</strong> entrega, reposición, cobertura, personal, instalación o soporte.</li>
+      <li><strong>Riesgo financiero:</strong> pago, fianzas, penalizaciones, capital de trabajo y vigencia.</li>
+      <li><strong>Riesgo contractual:</strong> rescisión, penas, deducciones, garantías y obligaciones posteriores.</li>
+    </ul>
+  </section>
+
+  <section class="pjd-report-section">
+    <h2>Fuentes documentales consultadas</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Documento</th>
+          <th>Página o sección</th>
+          <th>Información utilizada</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Nombre real del archivo</td>
+          <td>Página o sección disponible</td>
+          <td>Resumen breve de la evidencia utilizada</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
 </article>
 
-No incluyas markdown ni bloques de código. No inventes datos. Mantén lenguaje profesional, claro y ejecutivo.
+CRITERIOS DE REDACCIÓN
+- Escribe en español de México.
+- Mantén tono directivo, preciso y profesional.
+- Evita frases genéricas y repeticiones.
+- No copies literalmente grandes bloques: sintetiza y conserva citas breves solo donde aporten evidencia.
+- No agregues secciones vacías con datos ficticios.
+- No muestres instrucciones, razonamiento interno ni advertencias sobre IA.
+- Los encabezados deben coincidir exactamente con la estructura solicitada.
+- No agregues logos ni rutas de imágenes; el editor ya aplica la identidad visual.
 
 === DATOS ESTRUCTURADOS ===
 {$structured}
 
-=== CHECKLIST RELACIONAL ===
+=== CHECKLIST RELACIONAL Y ESTADO DE CUMPLIMIENTO ===
 {$checklistJson}
+
+=== TEXTO EXTRAÍDO DE LOS DOCUMENTOS DEL PROYECTO ===
+{$documentsText}
 PROMPT;
     }
 
@@ -1923,6 +2077,7 @@ PROMPT;
             'finance', 'finanzas', 'financial' => 'finance',
             'logistics', 'logistica', 'logistica_operativa' => 'logistics',
             'technical', 'soporte_tecnico', 'soporte', 'tecnico' => 'technical',
+            'clarifications', 'junta', 'junta_aclaraciones', 'aclaraciones', 'ja' => 'clarifications',
             default => 'analysis',
         };
     }
@@ -1933,6 +2088,7 @@ PROMPT;
             'finance' => 'Reporte Financiero de la Licitación',
             'logistics' => 'Reporte Logístico de la Licitación',
             'technical' => 'Reporte Técnico de Soporte y Puesta en Marcha',
+            'clarifications' => 'Junta de Aclaraciones - Preguntas Estratégicas',
             default => 'Reporte de análisis de bases',
         };
     }
@@ -1974,10 +2130,377 @@ PROMPT;
         $project->save();
     }
 
-    private function buildSpecializedReportPrompt(Project $project, array $checklist, string $type): string
+    private function clarificationTemplateContext(Request $request, Project $project): array
+    {
+        if (!$request->hasFile('template_file')) {
+            return [
+                'mode' => 'estandar',
+                'filename' => null,
+                'stored_path' => null,
+                'content' => '',
+            ];
+        }
+
+        $request->validate([
+            'template_file' => ['file', 'mimes:doc,docx,pdf,xls,xlsx', 'max:25600'],
+        ]);
+
+        $file = $request->file('template_file');
+        $filename = $file->getClientOriginalName();
+        $extension = mb_strtolower($file->getClientOriginalExtension(), 'UTF-8');
+        $storedPath = $file->store("projects/{$project->id}/templates/junta-aclaraciones", 'public');
+        $absolutePath = storage_path('app/public/' . $storedPath);
+
+        $content = match ($extension) {
+            'docx' => $this->extractTextFromDocxTemplate($absolutePath),
+            'xlsx' => $this->extractTextFromXlsxTemplate($absolutePath),
+            'pdf' => $this->extractTextFromPdfTemplate($absolutePath),
+            default => '',
+        };
+
+        if (trim($content) === '') {
+            $content = "No fue posible extraer automáticamente el contenido interno del archivo {$filename}. "
+                . "Conserva como mínimo una tabla editable con las columnas del formato y usa el nombre del archivo como referencia.";
+        }
+
+        return [
+            'mode' => 'formato_especifico',
+            'filename' => $filename,
+            'stored_path' => $storedPath,
+            'content' => Str::limit($content, 24000, '\n[FORMATO RECORTADO]'),
+        ];
+    }
+
+    private function extractTextFromDocxTemplate(string $path): string
+    {
+        if (!class_exists(ZipArchive::class) || !is_file($path)) {
+            return '';
+        }
+
+        $zip = new ZipArchive();
+
+        if ($zip->open($path) !== true) {
+            return '';
+        }
+
+        $xml = $zip->getFromName('word/document.xml') ?: '';
+        $zip->close();
+
+        if ($xml === '') {
+            return '';
+        }
+
+        $xml = str_replace(
+            ['</w:p>', '</w:tr>', '</w:tc>', '<w:tab/>', '<w:br/>'],
+            ["\n", "\n", "\t", "\t", "\n"],
+            $xml
+        );
+
+        $text = html_entity_decode(strip_tags($xml), ENT_QUOTES | ENT_XML1, 'UTF-8');
+
+        return trim(preg_replace('/[ \t]+/u', ' ', preg_replace('/\n{3,}/u', "\n\n", $text)));
+    }
+
+    private function extractTextFromXlsxTemplate(string $path): string
+    {
+        if (!class_exists(ZipArchive::class) || !is_file($path)) {
+            return '';
+        }
+
+        $zip = new ZipArchive();
+
+        if ($zip->open($path) !== true) {
+            return '';
+        }
+
+        $sharedStrings = [];
+        $sharedXml = $zip->getFromName('xl/sharedStrings.xml') ?: '';
+
+        if ($sharedXml !== '') {
+            $sharedXml = str_replace(['</si>', '</t>'], ["\n", ' '], $sharedXml);
+            $sharedStrings = array_values(array_filter(array_map(
+                fn ($value) => trim(html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_XML1, 'UTF-8')),
+                preg_split('/\n+/u', $sharedXml)
+            )));
+        }
+
+        $parts = [];
+
+        for ($index = 1; $index <= 12; $index++) {
+            $sheetXml = $zip->getFromName("xl/worksheets/sheet{$index}.xml");
+
+            if (!$sheetXml) {
+                continue;
+            }
+
+            $sheetXml = preg_replace_callback(
+                '/<c[^>]*t="s"[^>]*>.*?<v>(\d+)<\/v>.*?<\/c>/s',
+                function ($matches) use ($sharedStrings) {
+                    return $sharedStrings[(int) $matches[1]] ?? '';
+                },
+                $sheetXml
+            );
+
+            $sheetXml = str_replace(['</row>', '</c>'], ["\n", "\t"], $sheetXml);
+            $parts[] = html_entity_decode(strip_tags($sheetXml), ENT_QUOTES | ENT_XML1, 'UTF-8');
+        }
+
+        $zip->close();
+
+        return trim(preg_replace('/[ \t]+/u', ' ', preg_replace('/\n{3,}/u', "\n\n", implode("\n", $parts))));
+    }
+
+    private function extractTextFromPdfTemplate(string $path): string
+    {
+        if (!is_file($path)) {
+            return '';
+        }
+
+        try {
+            $process = new Process(['pdftotext', '-layout', $path, '-']);
+            $process->setTimeout(25);
+            $process->run();
+
+            if ($process->isSuccessful()) {
+                return trim((string) $process->getOutput());
+            }
+        } catch (\Throwable $error) {
+            Log::info('No fue posible extraer el formato PDF con pdftotext.', [
+                'path' => $path,
+                'error' => $error->getMessage(),
+            ]);
+        }
+
+        return '';
+    }
+
+    private function buildClarificationsReportPrompt(Project $project, array $checklist, array $options = []): string
+    {
+        $structured = json_encode(
+            is_array($project->structured_data) ? $project->structured_data : [],
+            JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT
+        );
+
+        $checklistJson = json_encode(
+            $checklist,
+            JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT
+        );
+
+        $documentsText = $this->projectGroundedDocumentText($project, 65000);
+
+        if (trim($documentsText) === '') {
+            $documentsText = 'No existe texto documental extraído. Usa únicamente datos estructurados y checklist, sin inventar información.';
+        }
+
+        $riskLevels = collect($options['risk_levels'] ?? ['alto', 'medio', 'no_cumple'])
+            ->map(fn ($value) => mb_strtoupper(trim((string) $value), 'UTF-8'))
+            ->filter()
+            ->implode(', ');
+
+        $instructions = trim((string) ($options['instructions'] ?? ''));
+        $formatMode = trim((string) ($options['format_mode'] ?? 'estandar'));
+        $templateFilename = trim((string) ($options['template_filename'] ?? ''));
+        $templateContext = trim((string) ($options['template_context'] ?? ''));
+        $projectName = $project->name;
+
+        return <<<PROMPT
+Eres un especialista senior en contratación pública de México, licitaciones gubernamentales, LAASSP, su Reglamento, Compras MX, CompraNet, formalización contractual, cumplimiento fiscal y seguridad social, garantías, contenido nacional, evaluación legal, técnica, financiera y logística.
+
+Genera un documento profesional titulado "Junta de Aclaraciones - Preguntas Estratégicas" para el proyecto "{$projectName}".
+
+OBJETIVO
+Detectar contradicciones, ambigüedades, errores editoriales, requisitos desproporcionados, referencias cruzadas inconsistentes, fechas incompatibles, posibles restricciones a la libre participación, documentos duplicados, causales de desechamiento poco claras, requisitos técnicos cerrados, marcas o especificaciones limitantes, riesgos fiscales, financieros, contractuales, logísticos y cualquier punto que deba aclararse antes de presentar la propuesta.
+
+CONFIGURACIÓN DEL USUARIO
+- Formato solicitado: {$formatMode}
+- Archivo de formato: {$templateFilename}
+- Niveles prioritarios: {$riskLevels}
+- Instrucciones adicionales: {$instructions}
+
+REGLAS PARA EL FORMATO ADJUNTO
+- Si el modo es formato_especifico, usa la estructura, encabezados, orden de columnas y secciones detectadas en el archivo adjunto.
+- Coloca cada pregunta dentro de esa estructura; no agregues una tabla distinta si el formato ya define una.
+- Mantén campos vacíos editables cuando el formato los incluya y no exista un dato confirmado.
+- No copies contenido de ejemplo del formato como si fuera evidencia de las bases.
+- Si el formato no puede interpretarse completamente, conserva al menos sus títulos y encabezados principales, y adapta las preguntas a ellos.
+
+=== ESTRUCTURA EXTRAÍDA DEL FORMATO ADJUNTO ===
+{$templateContext}
+
+REGLAS DE VERACIDAD
+1. Usa primero el texto literal extraído de las bases, anexos, modelos de contrato y documentos del proyecto.
+2. Cruza la información con datos estructurados y checklist.
+3. No inventes numerales, páginas, artículos legales, fechas, porcentajes, nombres de archivos ni citas.
+4. Si no puedes confirmar la página exacta, usa "Página no identificada"; nunca fabriques una página.
+5. Si una referencia legal aparece en los documentos, puedes citarla. Si propones revisar una disposición general, indícala como "Referencia legal sugerida para validación" y no como hecho documental.
+6. No incluyas rutas internas, archivos header.png, footer.png, storage/, public/, informacion_de_la_empresa/ ni valores null.
+7. No uses emojis, markdown ni bloques de código.
+8. Devuelve únicamente HTML limpio y editable.
+9. Redacta preguntas claras, respetuosas, concretas y orientadas a obtener una respuesta vinculante de la convocante.
+10. Evita preguntas duplicadas. Consolida asuntos equivalentes y separa los que tengan consecuencias distintas.
+11. No propongas sustituir requisitos obligatorios sin explicar el fundamento documental y el riesgo que se pretende resolver.
+12. Identifica preguntas potencialmente contraproducentes o que podrían endurecer las bases; colócalas en una sección separada como "Preguntas que requieren autorización interna".
+
+ANÁLISIS OBLIGATORIO
+Debes revisar, como mínimo:
+- carácter nacional o internacional y referencias a tratados;
+- plataformas oficiales: Compras MX, CompraNet, RUPC, PROCURA u otras;
+- personalidad jurídica, identificación, poderes, RFC, CURP y documentos equivalentes;
+- SAT, IMSS e INFONAVIT;
+- experiencia, contratos, CFDI, cartas de recomendación y constancias;
+- contenido nacional y forma de acreditación;
+- especificaciones técnicas, marcas, modelos, medidas, materiales, muestras y normas;
+- bienes nuevos, usados, reacondicionados y condiciones de aceptación;
+- subcontratación;
+- garantías de cumplimiento, vicios ocultos, responsabilidad civil y seguros;
+- vigencia, entrega, reposición, pago, facturación y formalización;
+- contradicciones entre convocatoria, anexos, checklist, contrato y formatos;
+- requisitos que aparecen solo en una sección o con nombres diferentes;
+- causales de desechamiento y documentos subsanables;
+- errores de año, ejercicio fiscal o fechas imposibles;
+- requisitos que podrían limitar la competencia o generar sobrecostos;
+- riesgos no cubiertos por las preguntas ya sugeridas.
+
+ESTRUCTURA HTML OBLIGATORIA
+<article class="jrt-report-doc jrt-clarifications-report">
+  <header>
+    <h1>Junta de Aclaraciones - Preguntas Estratégicas</h1>
+    <p>Proyecto: {$projectName}</p>
+    <p>Documento de trabajo sujeto a revisión jurídica, técnica, comercial y directiva.</p>
+  </header>
+
+  <section>
+    <h2>Resumen Ejecutivo de Hallazgos</h2>
+    <p>Explica los principales riesgos, contradicciones y temas que justifican presentar preguntas.</p>
+    <ul>
+      <li><strong>Total de preguntas propuestas:</strong> número.</li>
+      <li><strong>Riesgo predominante:</strong> ALTO, MEDIO o BAJO.</li>
+      <li><strong>Temas críticos:</strong> lista breve.</li>
+      <li><strong>Fecha límite de preguntas:</strong> fecha y hora solo si están documentadas.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Preguntas recomendadas para presentar</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Número</th>
+          <th>Prioridad</th>
+          <th>Categoría</th>
+          <th>Página</th>
+          <th>Numeral / Apartado</th>
+          <th>Hallazgo detectado</th>
+          <th>Pregunta / Aclaración propuesta</th>
+          <th>Objetivo de la pregunta</th>
+          <th>Riesgo si no se aclara</th>
+          <th>Fuente</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>ALTA</td>
+          <td>Legal, técnica, financiera, logística, fiscal, contractual o administrativa</td>
+          <td>Página real o Página no identificada</td>
+          <td>Numeral real</td>
+          <td>Explica la contradicción o ambigüedad encontrada.</td>
+          <td>Redacta una pregunta formal, precisa y lista para enviar a la convocante.</td>
+          <td>Indica qué confirmación, modificación o criterio se busca obtener.</td>
+          <td>Desechamiento, costo, incumplimiento, restricción, penalización u otro riesgo.</td>
+          <td>Nombre real del archivo y cita breve.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Preguntas por categoría</h2>
+    <h3>Legal y administrativa</h3>
+    <ol><li>Incluye preguntas no duplicadas sobre personalidad, poderes, plataformas, documentación y causales de desechamiento.</li></ol>
+    <h3>Técnica</h3>
+    <ol><li>Incluye especificaciones limitantes, normas, marcas, contenido nacional, muestras y aceptación de bienes.</li></ol>
+    <h3>Financiera y contractual</h3>
+    <ol><li>Incluye pago, facturación, fianzas, seguros, vigencia, penalizaciones y rescisión.</li></ol>
+    <h3>Logística y operación</h3>
+    <ol><li>Incluye entrega, horarios, reposición, almacenes, evidencias y coordinación.</li></ol>
+    <h3>Fiscal y seguridad social</h3>
+    <ol><li>Incluye SAT, IMSS, INFONAVIT, ejercicios fiscales y documentos alternativos únicamente cuando la evidencia lo justifique.</li></ol>
+  </section>
+
+  <section>
+    <h2>Contradicciones y errores de bases detectados</h2>
+    <table>
+      <thead><tr><th>#</th><th>Tema</th><th>Documento A</th><th>Documento B</th><th>Contradicción</th><th>Impacto</th><th>Acción sugerida</th></tr></thead>
+      <tbody><tr><td>1</td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Preguntas que requieren autorización interna</h2>
+    <p>Incluye preguntas sensibles, negociadoras o potencialmente contraproducentes. Explica por qué deben revisarse antes de presentarse.</p>
+  </section>
+
+  <section>
+    <h2>Preguntas descartadas o consolidadas</h2>
+    <table>
+      <thead><tr><th>Pregunta original</th><th>Decisión</th><th>Motivo</th><th>Pregunta consolidada relacionada</th></tr></thead>
+      <tbody><tr><td></td><td>Descartada o consolidada</td><td></td><td></td></tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Matriz de prioridad</h2>
+    <table>
+      <thead><tr><th>Prioridad</th><th>Criterio</th><th>Preguntas</th><th>Responsable sugerido</th></tr></thead>
+      <tbody>
+        <tr><td>ALTA</td><td>Puede provocar desechamiento, pérdida económica o imposibilidad de cumplimiento.</td><td>Números de preguntas.</td><td>Jurídico, técnico, finanzas, operaciones o dirección.</td></tr>
+        <tr><td>MEDIA</td><td>Genera ambigüedad, costo adicional o dificultad operativa.</td><td>Números de preguntas.</td><td>Área responsable.</td></tr>
+        <tr><td>BAJA</td><td>Mejora claridad documental sin cambiar la viabilidad.</td><td>Números de preguntas.</td><td>Área responsable.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Fuentes documentales</h2>
+    <table>
+      <thead><tr><th>#</th><th>Documento</th><th>Página / Sección</th><th>Numeral</th><th>Uso en el análisis</th></tr></thead>
+      <tbody><tr><td>1</td><td>Nombre real del archivo</td><td></td><td></td><td></td></tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Revisión previa al envío</h2>
+    <ul>
+      <li>Verificar que cada página, numeral y cita corresponda al documento original.</li>
+      <li>Eliminar preguntas duplicadas.</li>
+      <li>Confirmar que ninguna pregunta revele una incapacidad innecesaria del licitante.</li>
+      <li>Validar las preguntas legales con el área jurídica.</li>
+      <li>Validar especificaciones y equivalencias con el área técnica.</li>
+      <li>Confirmar fecha, hora, plataforma y formato oficial de presentación.</li>
+    </ul>
+  </section>
+</article>
+
+DATOS ESTRUCTURADOS
+{$structured}
+
+CHECKLIST Y ESTADO DE CUMPLIMIENTO
+{$checklistJson}
+
+TEXTO EXTRAÍDO DE LOS DOCUMENTOS
+{$documentsText}
+PROMPT;
+    }
+
+    private function buildSpecializedReportPrompt(Project $project, array $checklist, string $type, array $options = []): string
     {
         if ($type === 'analysis') {
             return $this->buildExecutiveReportPrompt($project, $checklist);
+        }
+
+        if ($type === 'clarifications') {
+            return $this->buildClarificationsReportPrompt($project, $checklist, $options);
         }
 
         $structured = json_encode($project->structured_data ?? [], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
@@ -2089,6 +2612,7 @@ PROMPT;
             'finance' => '<h3>💵 Condiciones de pago</h3><ul><li><strong>💰 Plazo de pago establecido:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧾 Modalidad de pago:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📅 Condiciones de entrega:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>💳 Moneda y método de pago:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🧾 Facturación</h3><ul><li><strong>🏦 Requisitos de facturación:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🗓️ Tiempos de entrega y validación de facturas:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📋 Documentos complementarios exigidos:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⚙️ Procedimiento de revisión o autorización:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>📑 Garantías, fianzas y seguros</h3><ul><li><strong>🛡️ Tipo de pólizas requeridas:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>💵 Porcentajes o montos exigidos:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🗓️ Vigencia o plazo de cobertura:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📄 Condiciones para liberación o devolución:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>💳 Anticipos y retenciones</h3><ul><li><strong>💸 Porcentaje o monto del anticipo:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⚠️ Retenciones aplicables:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>📈 Requisitos financieros</h3><ul><li><strong>📊 Documentos solicitados:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🏦 Criterios de capacidad económica:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>📊 Penalizaciones y deducciones</h3><ul><li><strong>⚠️ Multas por atraso o incumplimiento:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>💰 Deducciones automáticas o ajustes:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🏦 Cuentas bancarias y comprobaciones</h3><ul><li><strong>💳 Cuentas destino y mecanismos de pago:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧾 Documentación de soporte:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul>',
             'logistics' => '<h3>📦 Entregas y recepción</h3><ul><li><strong>🏠 Lugar(es) de entrega:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⏰ Horarios o ventanas:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📋 Condiciones específicas:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧾 Documentos requeridos en la entrega:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>⏱️ Plazos y tiempos</h3><ul><li><strong>📅 Fechas límites o cronogramas:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🚚 Transporte y distribución</h3><ul><li><strong>🚛 Tipo de transporte solicitado:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧴 Condiciones de embalaje y etiquetado:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⚠️ Penalizaciones o sanciones por retraso:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🏢 Almacenamiento y condiciones</h3><ul><li><strong>🌡️ Condiciones especiales:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🏗️ Infraestructura o espacios requeridos:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>📄 Documentación logística</h3><ul><li><strong>📜 Remisiones, guías o manifiestos exigidos:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🖋️ Requisitos de firma o validación:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>⚠️ Riesgos y penalizaciones</h3><ul><li><strong>💸 Sanciones económicas o administrativas:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🔄 Devoluciones o reemplazos:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🤝 Coordinación y comunicación</h3><ul><li><strong>👥 Responsables de coordinación logística:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📞 Mecanismos de comunicación y validación:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul>',
             'technical' => '<h3>⚙️ Instalación y puesta en marcha</h3><ul><li><strong>🏗️ Requisitos previos del sitio:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⚡ Conexiones o infraestructura necesaria:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧾 Pruebas o verificaciones iniciales:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📅 Tiempo estimado de instalación:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🧩 Puesta a punto y validación técnica</h3><ul><li><strong>🧪 Pruebas funcionales y calibraciones:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📋 Protocolos o formatos exigidos:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧠 Responsables técnicos designados:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🧰 Mantenimiento preventivo</h3><ul><li><strong>🔁 Frecuencia o calendario:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⚙️ Alcance del servicio:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>🛠️ Mantenimiento correctivo</h3><ul><li><strong>⏱️ Tiempo máximo de respuesta:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧰 Tipo de soporte:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⚠️ Penalizaciones por retraso o incumplimiento:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>👩‍🏫 Capacitaciones</h3><ul><li><strong>🧠 Tipo de capacitación:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>📍 Lugar o modalidad:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>⏰ Duración:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>📞 Centro de soporte y atención al cliente</h3><ul><li><strong>☎️ Teléfonos o correos de contacto:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>💬 Niveles de servicio (SLA):</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul><h3>📜 Documentación técnica</h3><ul><li><strong>📘 Manuales o guías de operación:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧾 Certificados o reportes de calibración:</strong> ⚠️ Información no explícita en los documentos revisados.</li><li><strong>🧱 Entregables técnicos obligatorios:</strong> ⚠️ Información no explícita en los documentos revisados.</li></ul>',
+            'clarifications' => '<h2>Resumen Ejecutivo de Hallazgos</h2><p>No fue posible completar el análisis automático. Revise manualmente las bases y agregue preguntas sustentadas.</p><h2>Preguntas recomendadas para presentar</h2><table><thead><tr><th>Número</th><th>Prioridad</th><th>Categoría</th><th>Página</th><th>Numeral / Apartado</th><th>Hallazgo detectado</th><th>Pregunta / Aclaración propuesta</th><th>Objetivo</th><th>Riesgo</th><th>Fuente</th></tr></thead><tbody><tr><td>1</td><td>ALTA</td><td>Por revisar</td><td>Página no identificada</td><td>Por revisar</td><td>Validación manual pendiente.</td><td>Redactar pregunta después de validar la evidencia.</td><td>Aclarar el requisito.</td><td>Por determinar.</td><td>Documentos del proyecto.</td></tr></tbody></table><h2>Contradicciones y errores detectados</h2><p>Requiere revisión manual de convocatoria, anexos, contrato, formatos y checklist.</p><h2>Revisión previa al envío</h2><ul><li>Validar páginas, numerales y citas.</li><li>Eliminar duplicados.</li><li>Revisar con las áreas jurídica, técnica y comercial.</li></ul>',
             default => '',
         };
 
@@ -2097,6 +2621,10 @@ PROMPT;
 
     public function generateReport(Request $request, Project $project, OpenAiStructurerService $ai)
     {
+        @set_time_limit(300);
+        @ini_set('max_execution_time', '300');
+        @ini_set('memory_limit', '768M');
+
         abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
 
         try {
@@ -2115,7 +2643,23 @@ PROMPT;
 
             $project->loadMissing(['documents']);
             $checklist = $this->projectChecklistReportArray($project);
-            $prompt = $this->buildSpecializedReportPrompt($project, $checklist, $type);
+
+            $template = $type === 'clarifications'
+                ? $this->clarificationTemplateContext($request, $project)
+                : [
+                    'mode' => $request->input('format_mode', 'estandar'),
+                    'filename' => null,
+                    'stored_path' => null,
+                    'content' => '',
+                ];
+
+            $prompt = $this->buildSpecializedReportPrompt($project, $checklist, $type, [
+                'format_mode' => $template['mode'] ?? $request->input('format_mode', 'estandar'),
+                'template_filename' => $template['filename'] ?? '',
+                'template_context' => $template['content'] ?? '',
+                'risk_levels' => $request->input('risk_levels', ['alto', 'medio', 'no_cumple']),
+                'instructions' => $request->input('instructions', ''),
+            ]);
             $html = null;
 
             try {
@@ -2149,6 +2693,8 @@ PROMPT;
                 'html' => $html,
                 'report_type' => $type,
                 'saved_at' => now()->format('H:i:s'),
+                'template_name' => $template['filename'] ?? null,
+                'template_path' => $template['stored_path'] ?? null,
             ]);
         } catch (\Throwable $e) {
             Log::error('Report generation failed', [
