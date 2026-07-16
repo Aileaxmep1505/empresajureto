@@ -373,5 +373,8 @@ return [
     'server_key'  => env('GOOGLE_MAPS_SERVER_KEY'),
     'country'     => env('GOOGLE_MAPS_COUNTRY', 'mx'),
 ],
+'google' => [
+    'tag_manager_id' => env('GOOGLE_TAG_MANAGER_ID'),
+],
 
 ];
