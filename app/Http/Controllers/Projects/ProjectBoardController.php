@@ -2691,6 +2691,10 @@ PROMPT;
                     'status' => 'queued',
                     'message' => 'Proceso enviado a la cola. Esperando trabajador...',
                     'progress' => 10,
+                    'html' => '<article class="jrt-report-doc jrt-clarifications-report"><header><h1>Junta de Aclaraciones - Preguntas Estratégicas</h1><p>Proyecto: ' . e($project->name) . '</p></header><section><h2>Preparando análisis</h2><p>El proceso fue enviado a la cola. El documento se actualizará automáticamente conforme se generen las secciones.</p></section></article>',
+                    'report_type' => 'clarifications',
+                    'report_title' => $title,
+                    'completed_sections' => [],
                     'template_name' => $template['filename'] ?? null,
                 ], now()->addHour());
 
@@ -2765,6 +2769,134 @@ PROMPT;
         }
     }
 
+
+    /**
+     * Documento visible desde el primer segundo mientras se generan las secciones.
+     */
+    private function buildClarificationsLiveHtml(
+        Project $project,
+        array $sections,
+        string $currentMessage,
+        int $progress,
+        bool $completed = false
+    ): string {
+        $projectName = e($project->name);
+        $status = $completed ? 'Documento finalizado' : 'Generación en progreso';
+        $safeMessage = e($currentMessage);
+        $safeProgress = max(0, min(100, $progress));
+
+        $html = '<article class="jrt-report-doc jrt-clarifications-report jrt-live-report">';
+        $html .= '<header>';
+        $html .= '<h1>Junta de Aclaraciones - Preguntas Estratégicas</h1>';
+        $html .= '<p><strong>Proyecto:</strong> ' . $projectName . '</p>';
+        $html .= '<p>Documento de trabajo sujeto a revisión jurídica, técnica, comercial y directiva.</p>';
+        $html .= '</header>';
+
+        $html .= '<section class="jrt-live-progress" contenteditable="false">';
+        $html .= '<h2>' . e($status) . '</h2>';
+        $html .= '<p>' . $safeMessage . '</p>';
+        $html .= '<div style="height:10px;border-radius:999px;background:#e6f0ff;overflow:hidden;margin:10px 0 6px;">';
+        $html .= '<div style="width:' . $safeProgress . '%;height:100%;background:#007aff;transition:width .25s ease;"></div>';
+        $html .= '</div>';
+        $html .= '<p><strong>Avance:</strong> ' . $safeProgress . '%</p>';
+        $html .= '</section>';
+
+        if (empty($sections)) {
+            $html .= '<section><h2>Preparando análisis</h2><p>Se están revisando las bases, anexos, contrato, checklist y las instrucciones proporcionadas.</p></section>';
+        } else {
+            foreach ($sections as $sectionHtml) {
+                if (is_string($sectionHtml) && trim($sectionHtml) !== '') {
+                    $html .= $sectionHtml;
+                }
+            }
+        }
+
+        if (!$completed) {
+            $html .= '<section class="jrt-live-pending" contenteditable="false">';
+            $html .= '<h2>Siguientes secciones</h2>';
+            $html .= '<p>El documento seguirá actualizándose automáticamente conforme termine cada bloque.</p>';
+            $html .= '</section>';
+        }
+
+        $html .= '</article>';
+
+        return $html;
+    }
+
+    /**
+     * Define los bloques progresivos de Junta de Aclaraciones.
+     */
+    private function clarificationGenerationSections(): array
+    {
+        return [
+            [
+                'key' => 'summary',
+                'title' => 'Resumen Ejecutivo de Hallazgos',
+                'progress' => 22,
+                'instruction' => 'Genera únicamente una sección <section> con el encabezado exacto <h2>Resumen Ejecutivo de Hallazgos</h2>. Resume riesgos, contradicciones, total estimado de preguntas, riesgo predominante, temas críticos y fecha límite de preguntas cuando esté documentada.',
+            ],
+            [
+                'key' => 'legal',
+                'title' => 'Preguntas legales y administrativas',
+                'progress' => 38,
+                'instruction' => 'Genera únicamente una sección <section> con <h2>Preguntas legales y administrativas</h2>. Incluye una tabla con columnas Número, Prioridad, Página, Numeral/Apartado, Hallazgo, Pregunta/Aclaración, Objetivo, Riesgo y Fuente. Analiza personalidad, poderes, plataformas, registros, documentos, causales de desechamiento y subsanación.',
+            ],
+            [
+                'key' => 'technical',
+                'title' => 'Preguntas técnicas',
+                'progress' => 54,
+                'instruction' => 'Genera únicamente una sección <section> con <h2>Preguntas técnicas</h2>. Incluye tabla con Número, Prioridad, Página, Numeral/Apartado, Hallazgo, Pregunta/Aclaración, Objetivo, Riesgo y Fuente. Analiza especificaciones, marcas, modelos, equivalencias, contenido nacional, muestras, normas, bienes nuevos y criterios de aceptación.',
+            ],
+            [
+                'key' => 'financial',
+                'title' => 'Preguntas financieras y contractuales',
+                'progress' => 68,
+                'instruction' => 'Genera únicamente una sección <section> con <h2>Preguntas financieras y contractuales</h2>. Incluye tabla con Número, Prioridad, Página, Numeral/Apartado, Hallazgo, Pregunta/Aclaración, Objetivo, Riesgo y Fuente. Analiza presupuesto, precios, pago, facturación, fianzas, seguros, garantías, penas, deducciones, rescisión y vigencia.',
+            ],
+            [
+                'key' => 'operations',
+                'title' => 'Preguntas logísticas, fiscales y de seguridad social',
+                'progress' => 82,
+                'instruction' => 'Genera únicamente una sección <section> con <h2>Preguntas logísticas, fiscales y de seguridad social</h2>. Incluye tabla con Número, Prioridad, Página, Numeral/Apartado, Hallazgo, Pregunta/Aclaración, Objetivo, Riesgo y Fuente. Analiza entrega, transporte, almacenes, reposición, subcontratación, SAT, IMSS, INFONAVIT y documentos vigentes.',
+            ],
+            [
+                'key' => 'closing',
+                'title' => 'Contradicciones, prioridad, autorización y fuentes',
+                'progress' => 96,
+                'instruction' => 'Genera únicamente las secciones finales: <section><h2>Contradicciones y errores de bases detectados</h2>...</section>, <section><h2>Preguntas que requieren autorización interna</h2>...</section>, <section><h2>Matriz de prioridad</h2>...</section>, <section><h2>Fuentes documentales</h2>...</section> y <section><h2>Revisión previa al envío</h2>...</section>. No repitas preguntas ya generadas.',
+            ],
+        ];
+    }
+
+    private function cleanGeneratedReportHtml(string $html): string
+    {
+        $html = trim($html);
+        $html = preg_replace('/^```html\s*/i', '', $html);
+        $html = preg_replace('/^```\s*/', '', $html);
+        $html = preg_replace('/```$/', '', trim($html));
+
+        return trim((string) $html);
+    }
+
+    private function buildClarificationsSectionPrompt(
+        Project $project,
+        array $checklist,
+        array $options,
+        array $section,
+        array $generatedSections
+    ): string {
+        $basePrompt = $this->buildClarificationsReportPrompt($project, $checklist, $options);
+        $previousTitles = collect($generatedSections)
+            ->keys()
+            ->implode(', ');
+
+        return $basePrompt . "\n\nINSTRUCCIÓN DE GENERACIÓN PROGRESIVA:\n"
+            . $section['instruction'] . "\n"
+            . "Devuelve SOLO esa sección HTML, sin <article>, sin markdown y sin repetir bloques anteriores.\n"
+            . "Secciones ya generadas: " . ($previousTitles !== '' ? $previousTitles : 'ninguna') . ".\n"
+            . "Respeta literalmente las instrucciones adicionales del usuario, siempre que no obliguen a inventar datos o referencias legales.\n";
+    }
+
     public function processClarificationsReportAsync(
         int $projectId,
         ?int $userId,
@@ -2778,13 +2910,6 @@ PROMPT;
         @ini_set('memory_limit', '768M');
 
         try {
-            Cache::put($cacheKey, [
-                'status' => 'processing',
-                'message' => 'Analizando bases, checklist y formato...',
-                'progress' => 35,
-                'template_name' => $options['template_filename'] ?? null,
-            ], now()->addHour());
-
             $project = Project::query()->findOrFail($projectId);
 
             if ($userId !== 1 && (int) $project->user_id !== (int) $userId) {
@@ -2793,47 +2918,133 @@ PROMPT;
 
             $project->loadMissing(['documents']);
             $checklist = $this->projectChecklistReportArray($project);
-            $prompt = $this->buildSpecializedReportPrompt(
+            $generatedSections = [];
+
+            $initialHtml = $this->buildClarificationsLiveHtml(
                 $project,
-                $checklist,
-                'clarifications',
-                $options
+                [],
+                'Analizando bases, anexos, checklist e instrucciones...',
+                12,
+                false
             );
 
             Cache::put($cacheKey, [
                 'status' => 'processing',
-                'message' => 'Generando preguntas estratégicas...',
-                'progress' => 65,
+                'message' => 'Analizando bases, anexos, checklist e instrucciones...',
+                'progress' => 12,
+                'html' => $initialHtml,
+                'report_type' => 'clarifications',
+                'report_title' => $title,
+                'completed_sections' => [],
                 'template_name' => $options['template_filename'] ?? null,
-            ], now()->addHour());
+            ], now()->addHours(3));
 
             $ai = app(OpenAiStructurerService::class);
-            $messages = [
-                ['role' => 'system', 'content' => 'Eres un especialista en licitaciones públicas mexicanas. Genera HTML limpio, verificable y listo para editar.'],
-                ['role' => 'user', 'content' => $prompt],
-            ];
+            $sections = $this->clarificationGenerationSections();
 
-            $html = trim((string) $ai->chatRaw($messages));
-            $html = preg_replace('/^```html\s*/i', '', $html);
-            $html = preg_replace('/^```\s*/', '', $html);
-            $html = preg_replace('/```$/', '', trim($html));
+            foreach ($sections as $section) {
+                $beforeHtml = $this->buildClarificationsLiveHtml(
+                    $project,
+                    $generatedSections,
+                    'Generando ' . $section['title'] . '...',
+                    max(12, (int) $section['progress'] - 8),
+                    false
+                );
 
-            if ($html === '' || trim(strip_tags($html)) === '') {
-                $html = $this->buildSpecializedReportFallbackHtml($project, 'clarifications');
+                Cache::put($cacheKey, [
+                    'status' => 'processing',
+                    'message' => 'Generando ' . $section['title'] . '...',
+                    'progress' => max(12, (int) $section['progress'] - 8),
+                    'html' => $beforeHtml,
+                    'report_type' => 'clarifications',
+                    'report_title' => $title,
+                    'current_section' => $section['key'],
+                    'completed_sections' => array_keys($generatedSections),
+                    'template_name' => $options['template_filename'] ?? null,
+                ], now()->addHours(3));
+
+                $prompt = $this->buildClarificationsSectionPrompt(
+                    $project,
+                    $checklist,
+                    $options,
+                    $section,
+                    $generatedSections
+                );
+
+                $messages = [
+                    [
+                        'role' => 'system',
+                        'content' => 'Eres un especialista en licitaciones públicas mexicanas. Devuelve únicamente la sección HTML solicitada, verificable, sustentada y lista para editar.',
+                    ],
+                    ['role' => 'user', 'content' => $prompt],
+                ];
+
+                try {
+                    $sectionHtml = $this->cleanGeneratedReportHtml(
+                        (string) $ai->chatRaw($messages)
+                    );
+                } catch (\Throwable $sectionError) {
+                    Log::warning('Clarifications progressive section failed', [
+                        'project_id' => $projectId,
+                        'section' => $section['key'],
+                        'error' => $sectionError->getMessage(),
+                    ]);
+
+                    $sectionHtml = '<section><h2>' . e($section['title']) . '</h2><p>No fue posible completar automáticamente este bloque. Requiere revisión manual.</p></section>';
+                }
+
+                if ($sectionHtml === '' || trim(strip_tags($sectionHtml)) === '') {
+                    $sectionHtml = '<section><h2>' . e($section['title']) . '</h2><p>No se encontró evidencia suficiente para generar contenido en este bloque.</p></section>';
+                }
+
+                $generatedSections[$section['key']] = $sectionHtml;
+
+                $partialHtml = $this->buildClarificationsLiveHtml(
+                    $project,
+                    $generatedSections,
+                    $section['title'] . ' completado. Continuando con el siguiente bloque...',
+                    (int) $section['progress'],
+                    false
+                );
+
+                // Guarda también el avance para que pueda descargarse o editarse.
+                $this->saveProjectReport($project->fresh(), 'clarifications', $partialHtml, $title);
+
+                Cache::put($cacheKey, [
+                    'status' => 'processing',
+                    'message' => $section['title'] . ' completado.',
+                    'progress' => (int) $section['progress'],
+                    'html' => $partialHtml,
+                    'report_type' => 'clarifications',
+                    'report_title' => $title,
+                    'current_section' => null,
+                    'completed_sections' => array_keys($generatedSections),
+                    'saved_at' => now()->format('H:i:s'),
+                    'template_name' => $options['template_filename'] ?? null,
+                ], now()->addHours(3));
             }
 
-            $this->saveProjectReport($project, 'clarifications', $html, $title);
+            $finalHtml = $this->buildClarificationsLiveHtml(
+                $project,
+                $generatedSections,
+                'Junta de Aclaraciones terminada.',
+                100,
+                true
+            );
+
+            $this->saveProjectReport($project->fresh(), 'clarifications', $finalHtml, $title);
 
             Cache::put($cacheKey, [
                 'status' => 'completed',
                 'message' => 'Junta de Aclaraciones generada correctamente.',
                 'progress' => 100,
-                'html' => $html,
+                'html' => $finalHtml,
                 'report_type' => 'clarifications',
                 'report_title' => $title,
+                'completed_sections' => array_keys($generatedSections),
                 'saved_at' => now()->format('H:i:s'),
                 'template_name' => $options['template_filename'] ?? null,
-            ], now()->addHour());
+            ], now()->addHours(3));
         } catch (\Throwable $e) {
             Log::error('Async clarifications report generation failed', [
                 'project_id' => $projectId,
@@ -2841,12 +3052,18 @@ PROMPT;
                 'trace' => $e->getTraceAsString(),
             ]);
 
+            $cached = Cache::get($cacheKey, []);
+
             Cache::put($cacheKey, [
                 'status' => 'failed',
                 'message' => $e->getMessage(),
-                'progress' => 100,
+                'progress' => (int) ($cached['progress'] ?? 100),
+                'html' => $cached['html'] ?? null,
+                'report_type' => 'clarifications',
+                'report_title' => $title,
+                'completed_sections' => $cached['completed_sections'] ?? [],
                 'template_name' => $options['template_filename'] ?? null,
-            ], now()->addHour());
+            ], now()->addHours(3));
         }
     }
 
