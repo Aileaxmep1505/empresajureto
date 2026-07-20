@@ -1058,41 +1058,23 @@
     ], 'El proyecto presenta riesgos que deben revisarse antes de participar: requisitos obligatorios, evidencia documental, plazos, alcances, restricciones técnicas y condiciones financieras.');
 
     $fichaRows = [
-      [
-        'key' => 'ficha.numero_licitacion',
-        'question' => '¿Cuál es el número de la licitación?',
-        'val' => $fxClean($ficha['numero_licitacion'] ?? null),
-      ],
-      [
-        'key' => 'ficha.tipo_evento',
-        'question' => '¿Cuál es el tipo de procedimiento y su modalidad?',
-        'val' => $tipoEventoFx,
-      ],
-      [
-        'key' => 'ficha.organismo',
-        'question' => '¿Cuál es el organismo y el área convocante específica?',
-        'val' => $organismoFx,
-      ],
-      [
-        'key' => 'ficha.objeto_licitacion',
-        'question' => '¿Cuál es el objeto exacto de la licitación?',
-        'val' => $objetoFx,
-      ],
-      [
-        'key' => 'ficha.medio_participacion',
-        'question' => '¿Cuál es el medio de participación (electrónica, presencial, mixta)?',
-        'val' => $fxClean($ficha['medio_participacion'] ?? null),
-      ],
-      [
-        'key' => 'ficha.moneda_pago',
-        'question' => '¿En qué moneda se realizará el pago?',
-        'val' => $fxClean($ficha['moneda_pago'] ?? null),
-      ],
-      [
-        'key' => 'ficha.condiciones_pago',
-        'question' => '¿Cuáles son las condiciones y forma de pago?',
-        'val' => $fxClean($ficha['condiciones_pago'] ?? null),
-      ],
+      ['key' => 'ficha.numero_licitacion', 'question' => '¿Cuál es el número de la licitación, solicitud o procedimiento?', 'val' => $fxClean($ficha['numero_licitacion'] ?? null)],
+      ['key' => 'ficha.tipo_evento', 'question' => '¿Cuál es el tipo de procedimiento y su modalidad?', 'val' => $tipoEventoFx],
+      ['key' => 'ficha.caracter_procedimiento', 'question' => '¿El procedimiento es nacional, internacional o está cubierto por tratados?', 'val' => $fxClean($ficha['caracter_procedimiento'] ?? null)],
+      ['key' => 'ficha.organismo', 'question' => '¿Cuál es el organismo y el área convocante específica?', 'val' => $organismoFx],
+      ['key' => 'ficha.objeto_licitacion', 'question' => '¿Cuál es el objeto exacto de la licitación?', 'val' => $objetoFx],
+      ['key' => 'ficha.tipo_contrato', 'question' => '¿El contrato será abierto o cerrado y cómo se determinarán las cantidades?', 'val' => $fxClean($ficha['tipo_contrato'] ?? null)],
+      ['key' => 'ficha.forma_adjudicacion', 'question' => '¿Cómo se realizará la adjudicación: total, por partida, lote o abastecimiento simultáneo?', 'val' => $fxClean($ficha['forma_adjudicacion'] ?? null)],
+      ['key' => 'ficha.medio_participacion', 'question' => '¿Cuál es el medio de participación (electrónica, presencial o mixta)?', 'val' => $fxClean($ficha['medio_participacion'] ?? null)],
+      ['key' => 'ficha.plataforma', 'question' => '¿En qué plataforma o sistema debe presentarse la propuesta?', 'val' => $fxClean($ficha['plataforma'] ?? null)],
+      ['key' => 'ficha.lugar_entrega', 'question' => '¿En qué lugares, almacenes o instituciones se realizará la entrega?', 'val' => $fxClean($ficha['lugar_entrega'] ?? null)],
+      ['key' => 'ficha.plazo_entrega', 'question' => '¿Cuál es el plazo máximo para entregar los bienes o iniciar el servicio?', 'val' => $fxClean($ficha['plazo_entrega'] ?? null)],
+      ['key' => 'ficha.vigencia_contrato', 'question' => '¿Cuál es la vigencia o duración del contrato?', 'val' => $fxClean($ficha['vigencia_contrato'] ?? null)],
+      ['key' => 'ficha.moneda_pago', 'question' => '¿En qué moneda se realizará el pago?', 'val' => $fxClean($ficha['moneda_pago'] ?? null)],
+      ['key' => 'ficha.condiciones_pago', 'question' => '¿Cuáles son las condiciones, plazo y forma de pago?', 'val' => $fxClean($ficha['condiciones_pago'] ?? null)],
+      ['key' => 'ficha.garantia_bienes', 'question' => '¿Qué periodo de garantía, vicios ocultos o reposición debe ofrecerse?', 'val' => $fxClean($ficha['garantia_bienes'] ?? null)],
+      ['key' => 'ficha.contenido_nacional', 'question' => '¿Se exige un porcentaje de contenido nacional y cómo debe acreditarse?', 'val' => $fxClean($ficha['contenido_nacional'] ?? null)],
+      ['key' => 'ficha.subcontratacion', 'question' => '¿Está permitida la subcontratación, asociación o propuesta conjunta?', 'val' => $fxClean($ficha['subcontratacion'] ?? null)],
     ];
 
     $fechaValue = function (array $keys, $fallback = null) use ($fechas, $sd, $fxClean) {
@@ -1156,6 +1138,21 @@
         'val' => $fechaValue(['fallo', 'fecha_fallo']),
       ],
       [
+        'key' => 'fechas_clave.notificacion_adjudicacion',
+        'question' => 'Notificación de adjudicación o fallo',
+        'val' => $fechaValue(['notificacion_adjudicacion', 'notificacion_fallo', 'fecha_notificacion_adjudicacion']),
+      ],
+      [
+        'key' => 'fechas_clave.entrega_documentos_cotejo',
+        'question' => 'Entrega de documentos para cotejo y elaboración del contrato',
+        'val' => $fechaValue(['entrega_documentos_cotejo', 'cotejo_documental', 'documentos_para_contrato']),
+      ],
+      [
+        'key' => 'fechas_clave.correccion_errores_adjudicacion',
+        'question' => 'Corrección de errores en la notificación de adjudicación',
+        'val' => $fechaValue(['correccion_errores_adjudicacion', 'correccion_notificacion', 'plazo_correccion_fallo']),
+      ],
+      [
         'key' => 'fechas_clave.firma_contrato',
         'question' => 'Firma del contrato',
         'val' => $fechaValue(['firma_contrato', 'fecha_firma_contrato']),
@@ -1172,8 +1169,139 @@
       ],
     ];
 
+    /*
+    |--------------------------------------------------------------------------
+    | Eventos y fechas dinámicas detectadas por la IA
+    |--------------------------------------------------------------------------
+    | Además de los hitos principales de fechas_clave, esta vista incorpora
+    | TODOS los registros encontrados en eventos.vigencias y
+    | eventos.plazos_ejecucion. No existe un límite fijo de elementos.
+    */
+    $eventosDinamicosFx = collect([
+        'vigencias' => data_get($sd, 'eventos.vigencias', []),
+        'plazos_ejecucion' => data_get($sd, 'eventos.plazos_ejecucion', []),
+    ])->flatMap(function ($items, $group) use ($fxClean) {
+        if (is_object($items)) {
+            $items = (array) $items;
+        }
+
+        if (!is_array($items)) {
+            return [];
+        }
+
+        return collect($items)->map(function ($item, $index) use ($group, $fxClean) {
+            if (is_object($item)) {
+                $item = (array) $item;
+            }
+
+            if (!is_array($item)) {
+                return null;
+            }
+
+            $label = $fxClean(
+                $item['label']
+                    ?? $item['titulo']
+                    ?? $item['nombre']
+                    ?? $item['evento']
+                    ?? $item['tipo']
+                    ?? null
+            );
+
+            $value = $fxClean(
+                $item['value']
+                    ?? $item['valor']
+                    ?? $item['fecha']
+                    ?? $item['plazo']
+                    ?? $item['vigencia']
+                    ?? $item['respuesta']
+                    ?? null
+            );
+
+            if (!$label || !$value) {
+                return null;
+            }
+
+            return [
+                'key' => 'eventos.' . $group . '.' . $index,
+                'question' => $label,
+                'val' => $value,
+                'risk' => $fxClean($item['risk'] ?? $item['riesgo'] ?? null),
+                'fuente' => $fxClean($item['fuente'] ?? $item['source'] ?? null),
+                'pagina' => $item['pagina'] ?? $item['page'] ?? null,
+                'cita' => $fxClean($item['cita'] ?? $item['quote'] ?? $item['evidencia'] ?? null),
+                'group' => $group,
+            ];
+        })->filter()->values();
+    })->values();
+
+    /*
+     * Se conservan primero los hitos principales y después se agregan todos
+     * los eventos dinámicos. Se eliminan duplicados por título + valor.
+     */
+    $fechasRows = collect($fechasRows)
+        ->concat($eventosDinamicosFx)
+        ->filter(fn ($row) => filled($row['question'] ?? null) && filled($row['val'] ?? null))
+        ->unique(function ($row) {
+            return mb_strtolower(trim((string) ($row['question'] ?? '')), 'UTF-8')
+                . '|'
+                . mb_strtolower(trim((string) ($row['val'] ?? '')), 'UTF-8');
+        })
+        ->values()
+        ->all();
+
     $fechasSinDato = collect($fechasRows)
         ->every(fn ($row) => blank($row['val'] ?? null));
+
+    /*
+    |--------------------------------------------------------------------------
+    | Preguntas dinámicas del resumen ejecutivo
+    |--------------------------------------------------------------------------
+    | Se muestran TODAS las preguntas que regrese el procesador Python.
+    | Esto evita limitar la vista a los siete campos fijos de ficha.
+    */
+    $resumenRawFx = data_get($sd, 'resumen_ejecutivo.preguntas', data_get($sd, 'resumen_ejecutivo', []));
+
+    if (is_object($resumenRawFx)) {
+        $resumenRawFx = (array) $resumenRawFx;
+    }
+
+    $resumenRowsFx = collect(is_array($resumenRawFx) ? $resumenRawFx : [])
+        ->map(function ($item, $index) use ($fxClean) {
+            if (is_object($item)) {
+                $item = (array) $item;
+            }
+
+            if (!is_array($item)) {
+                return null;
+            }
+
+            $question = $fxClean(
+                $item['pregunta']
+                    ?? $item['question']
+                    ?? $item['titulo']
+                    ?? null
+            );
+
+            $answer = $fxClean(
+                $item['respuesta']
+                    ?? $item['answer']
+                    ?? $item['valor']
+                    ?? $item['resultado']
+                    ?? null
+            );
+
+            if (!$question) {
+                return null;
+            }
+
+            return [
+                'key' => 'resumen_ejecutivo.' . $index,
+                'question' => $question,
+                'val' => $answer,
+            ];
+        })
+        ->filter()
+        ->values();
   @endphp
 
   <div class="pjd-fx-shell pjd-fx-workspace">
@@ -1330,6 +1458,64 @@
         </div>
       </div>
 
+      @if($resumenRowsFx->isNotEmpty())
+        <div class="pjd-card pjd-fx-card">
+          <div class="pjd-card-head pjd-fx-card-head js-card-toggle">
+            <h3 class="pjd-fx-card-title">
+              Preguntas clave del análisis
+              <span class="pjd-fx-pill" style="height:24px;padding:0 10px;border-color:#cfe0ff;background:#e6f0ff;color:#007aff;">
+                {{ $resumenRowsFx->count() }} preguntas
+              </span>
+            </h3>
+            <span class="pjd-card-chev pjd-fx-chev">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </span>
+          </div>
+
+          <div class="pjd-card-body pjd-fx-card-body">
+            <div class="pjd-fx-qa-list">
+              @foreach($resumenRowsFx as $row)
+                @php
+                  $payload = $citaPayload($citas, $row['key'], $row['val'] ?? null, $row['question'] ?? null);
+                  $citaInfo = $resolverCita($citas, $row['key'], $row['val'] ?? null, $row['question'] ?? null);
+                  $fuente = is_array($citaInfo) ? ($citaInfo['fuente'] ?? null) : null;
+                  $pagina = is_array($citaInfo) ? ($citaInfo['pagina'] ?? null) : null;
+                  $citaTexto = is_array($citaInfo) ? ($citaInfo['cita'] ?? null) : null;
+                  $docUrl = $fuente ? optional($project->documents->firstWhere('filename', $fuente))->url : null;
+                @endphp
+
+                <article class="pjd-field pjd-fx-qa {{ $payload ? 'has-cita' : 'has-no-cita' }}" @if($payload) data-cita="{{ $payload }}" @endif>
+                  <div class="pjd-fx-qa-main">
+                    <h4>{{ mb_strtoupper($row['question'], 'UTF-8') }}</h4>
+                    <p>{{ $row['val'] ?: 'No se encontró información' }}</p>
+
+                    @if($payload)
+                      <div class="pjd-fx-cita">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+                        Ver fuente
+                      </div>
+                    @endif
+                  </div>
+
+                  <button type="button" class="pjd-fx-trash" title="Eliminar visual" aria-label="Eliminar pregunta">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                  </button>
+
+                  @include('projects.partials.analysis.source-panel', [
+                    'payload' => $payload,
+                    'citaTexto' => $citaTexto,
+                    'fuente' => $fuente,
+                    'pagina' => $pagina,
+                    'docUrl' => $docUrl,
+                    'emptyMessage' => 'No hay cita textual guardada para esta respuesta. Reanaliza el proyecto para generar la evidencia correspondiente.'
+                  ])
+                </article>
+              @endforeach
+            </div>
+          </div>
+        </div>
+      @endif
+
       <div class="pjd-card pjd-fx-card is-hitos">
         <div class="pjd-card-head pjd-fx-card-head js-card-toggle">
           <h3 class="pjd-fx-card-title">Hitos de licitación <span class="pjd-fx-sparkle" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.7 5.1L19 10l-5.3 1.9L12 17l-1.7-5.1L5 10l5.3-1.9L12 3Z"/><path d="M19 4v4"/><path d="M17 6h4"/><path d="M5 16v4"/><path d="M3 18h4"/></svg></span></h3>
@@ -1349,9 +1535,18 @@
               @php
                 $payload = $citaPayload($citas, $row['key'], $row['val'] ?? null, $row['question'] ?? null);
                 $citaInfo = $resolverCita($citas, $row['key'], $row['val'] ?? null, $row['question'] ?? null);
-                $fuente = is_array($citaInfo) ? ($citaInfo['fuente'] ?? null) : null;
-                $pagina = is_array($citaInfo) ? ($citaInfo['pagina'] ?? null) : null;
-                $citaTexto = is_array($citaInfo) ? ($citaInfo['cita'] ?? null) : null;
+                $fuente = $row['fuente'] ?? (is_array($citaInfo) ? ($citaInfo['fuente'] ?? null) : null);
+                $pagina = $row['pagina'] ?? (is_array($citaInfo) ? ($citaInfo['pagina'] ?? null) : null);
+                $citaTexto = $row['cita'] ?? (is_array($citaInfo) ? ($citaInfo['cita'] ?? null) : null);
+
+                if (!$payload && ($citaTexto || $fuente || $pagina)) {
+                  $payload = base64_encode(json_encode([
+                    'cita' => $citaTexto,
+                    'fuente' => $fuente,
+                    'pagina' => $pagina,
+                  ], JSON_UNESCAPED_UNICODE));
+                }
+
                 $docUrl = $fuente ? optional($project->documents->firstWhere('filename', $fuente))->url : null;
               @endphp
 
@@ -1359,6 +1554,9 @@
                 <div class="pjd-fx-hito-main">
                   <h4 class="pjd-fx-hito-title">{{ mb_strtoupper($row['question']) }}</h4>
                   <p class="pjd-fx-hito-date">{{ $row['val'] ?: 'Sin dato' }}</p>
+                  @if(!empty($row['risk']))
+                    <span class="pjd-fx-cita" style="text-decoration:none;">Riesgo: {{ mb_strtoupper($row['risk'], 'UTF-8') }}</span>
+                  @endif
                   @if($payload)
                     <div class="pjd-fx-cita"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Ver fuente</div>
                   @endif

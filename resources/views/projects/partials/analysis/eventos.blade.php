@@ -368,6 +368,44 @@
     white-space: pre-wrap;
   }
 
+  .pjd-events-source {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid #e6edf7;
+    border-radius: 8px;
+    background: #f8fbff;
+    color: #5f6b7a;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .pjd-events-source strong {
+    color: #334155;
+    font-weight: 700;
+  }
+
+  .pjd-events-source-quote {
+    display: block;
+    margin-top: 6px;
+    color: #64748b;
+    font-style: italic;
+    white-space: pre-wrap;
+  }
+
+  .pjd-events-count {
+    min-width: 24px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: #e6f0ff;
+    color: #007aff;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .pjd-events-risk-select {
     width: auto;
     height: 28px;
@@ -385,10 +423,22 @@
     cursor: pointer;
   }
 
+  .pjd-events-risk-select.is-high {
+    border-color: #fecaca;
+    background: #fff1f1;
+    color: #c62828;
+  }
+
   .pjd-events-risk-select.is-medium {
     border-color: #fde68a;
     background: #fffbea;
     color: #8a5a00;
+  }
+
+  .pjd-events-risk-select.is-low {
+    border-color: #bbf7d0;
+    background: #f0fff4;
+    color: #15803d;
   }
 
   .pjd-events-risk-select:focus {
@@ -476,26 +526,12 @@
       }
 
       if (is_scalar($value)) {
-        $text = trim(
-          preg_replace(
-            '/\s+/u',
-            ' ',
-            strip_tags((string) $value)
-          )
-        );
-
+        $text = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $value)));
         return $text !== '' ? $text : null;
       }
 
       if ($value instanceof \Stringable) {
-        $text = trim(
-          preg_replace(
-            '/\s+/u',
-            ' ',
-            strip_tags((string) $value)
-          )
-        );
-
+        $text = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $value)));
         return $text !== '' ? $text : null;
       }
 
@@ -505,19 +541,9 @@
 
       if (is_array($value)) {
         foreach ([
-          'respuesta',
-          'valor',
-          'value',
-          'fecha',
-          'texto',
-          'descripcion',
-          'label',
-          'nombre',
-          'titulo',
-          'riesgo',
-          'risk',
-          'nivel',
-          'content',
+          'respuesta', 'valor', 'value', 'fecha', 'date', 'plazo',
+          'texto', 'descripcion', 'label', 'nombre', 'titulo',
+          'riesgo', 'risk', 'nivel', 'content',
         ] as $key) {
           if (!array_key_exists($key, $value)) {
             continue;
@@ -534,14 +560,8 @@
 
         foreach ($value as $key => $item) {
           if (in_array((string) $key, [
-            'fuente',
-            'pagina',
-            'cita',
-            'source',
-            'page',
-            'quote',
-            'evidencia',
-            'metadata',
+            'fuente', 'pagina', 'cita', 'source', 'page', 'quote',
+            'evidencia', 'metadata',
           ], true)) {
             continue;
           }
@@ -554,7 +574,6 @@
         }
 
         $text = trim(implode(' ', array_unique($parts)));
-
         return $text !== '' ? $text : null;
       }
 
@@ -565,7 +584,13 @@
       return mb_strtoupper($eventClean($value) ?: $fallback, 'UTF-8');
     };
 
-    $normalizeEventRow = function ($row, int $index, string $defaultPrefix) use ($eventClean, $eventUpper) {
+    $humanizeEventKey = function ($key): string {
+      $text = str_replace(['_', '-', '.'], ' ', (string) $key);
+      $text = preg_replace('/\s+/u', ' ', trim($text));
+      return mb_convert_case($text, MB_CASE_TITLE, 'UTF-8');
+    };
+
+    $normalizeEventRow = function ($row, int $index, string $defaultPrefix, ?string $forcedLabel = null) use ($eventClean, $eventUpper, $humanizeEventKey) {
       if (is_object($row)) {
         $row = (array) $row;
       }
@@ -578,17 +603,24 @@
         }
 
         return [
-          'label' => $defaultPrefix . ' ' . ($index + 1),
+          'label' => $forcedLabel ?: ($defaultPrefix . ' ' . ($index + 1)),
           'value' => $value,
-          'risk'  => 'NULO',
+          'risk' => 'NULO',
+          'source' => null,
+          'page' => null,
+          'quote' => null,
+          'category' => $defaultPrefix,
         ];
       }
 
       $label = $eventClean(
-        $row['label']
+        $forcedLabel
+          ?? $row['label']
           ?? $row['nombre']
           ?? $row['titulo']
           ?? $row['concepto']
+          ?? $row['evento']
+          ?? $row['tipo']
           ?? null
       );
 
@@ -597,6 +629,8 @@
           ?? $row['valor']
           ?? $row['respuesta']
           ?? $row['fecha']
+          ?? $row['date']
+          ?? $row['plazo']
           ?? $row['descripcion']
           ?? $row['texto']
           ?? null
@@ -609,6 +643,29 @@
           ?? 'NULO'
       );
 
+      $source = $eventClean(
+        $row['fuente']
+          ?? $row['source']
+          ?? $row['archivo']
+          ?? $row['documento']
+          ?? null
+      );
+
+      $page = $eventClean(
+        $row['pagina']
+          ?? $row['page']
+          ?? $row['página']
+          ?? null
+      );
+
+      $quote = $eventClean(
+        $row['cita']
+          ?? $row['quote']
+          ?? $row['evidencia']
+          ?? $row['fragmento']
+          ?? null
+      );
+
       if (!$label && !$value) {
         return null;
       }
@@ -616,57 +673,129 @@
       return [
         'label' => $label ?: ($defaultPrefix . ' ' . ($index + 1)),
         'value' => $value ?: 'Sin dato',
-        'risk'  => in_array($risk, ['NULO', 'BAJO', 'MEDIO', 'ALTO'], true)
-          ? $risk
-          : 'NULO',
+        'risk' => in_array($risk, ['NULO', 'BAJO', 'MEDIO', 'ALTO'], true) ? $risk : 'NULO',
+        'source' => $source,
+        'page' => $page,
+        'quote' => $quote,
+        'category' => $defaultPrefix,
       ];
     };
 
-    $commentsText = $eventClean(
-      data_get($sd, 'eventos.comentarios')
-    ) ?: 'No hay comentarios detectados para este documento.';
+    $commentsText = $eventClean(data_get($sd, 'eventos.comentarios'))
+      ?: 'Se muestran todas las fechas, vigencias y plazos relevantes detectados en los documentos de la licitación.';
+
+    /*
+    |--------------------------------------------------------------------------
+    | Recolección exhaustiva de eventos
+    |--------------------------------------------------------------------------
+    | Además de eventos.vigencias y eventos.plazos_ejecucion, esta vista toma:
+    | - fechas_clave
+    | - hitos_licitacion
+    | - cronograma / calendario
+    | - eventos adicionales generados por la IA
+    */
+    $vigenciasRows = collect();
+    $plazosRows = collect();
 
     $vigenciasSource = data_get($sd, 'eventos.vigencias', []);
     $vigenciasSource = is_array($vigenciasSource) ? $vigenciasSource : [];
 
-    $vigenciasRows = collect($vigenciasSource)
-      ->map(fn ($row, $index) => $normalizeEventRow($row, $index, 'Vigencia'))
-      ->filter()
-      ->values();
+    foreach (array_values($vigenciasSource) as $index => $row) {
+      $normalized = $normalizeEventRow($row, $index, 'Vigencia');
+      if ($normalized) {
+        $vigenciasRows->push($normalized);
+      }
+    }
 
-    $plazosSource = data_get(
-      $sd,
-      'eventos.plazos_ejecucion',
-      data_get($sd, 'eventos.plazos', [])
-    );
-
+    $plazosSource = data_get($sd, 'eventos.plazos_ejecucion', data_get($sd, 'eventos.plazos', []));
     $plazosSource = is_array($plazosSource) ? $plazosSource : [];
 
-    $plazosRows = collect($plazosSource)
-      ->map(fn ($row, $index) => $normalizeEventRow($row, $index, 'Plazo'))
-      ->filter()
-      ->values();
+    foreach (array_values($plazosSource) as $index => $row) {
+      $normalized = $normalizeEventRow($row, $index, 'Plazo');
+      if ($normalized) {
+        $plazosRows->push($normalized);
+      }
+    }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Métricas del encabezado
-    |--------------------------------------------------------------------------
-    | Antes estas variables no se definían y provocaban:
-    | Undefined variable $detectedEvents
-    */
-    $allEventRows = $vigenciasRows
-      ->concat($plazosRows)
-      ->values();
+    $dynamicDateContainers = [
+      'fechas_clave',
+      'hitos_licitacion',
+      'cronograma',
+      'calendario',
+      'eventos.fechas',
+      'eventos.hitos',
+      'eventos.cronograma',
+      'eventos.calendario',
+      'fechas',
+      'plazos',
+    ];
 
+    foreach ($dynamicDateContainers as $path) {
+      $container = data_get($sd, $path, []);
+
+      if (is_object($container)) {
+        $container = (array) $container;
+      }
+
+      if (!is_array($container)) {
+        continue;
+      }
+
+      foreach ($container as $key => $row) {
+        $forcedLabel = is_string($key) && !is_numeric($key)
+          ? $humanizeEventKey($key)
+          : null;
+
+        $normalized = $normalizeEventRow(
+          $row,
+          is_numeric($key) ? (int) $key : 0,
+          'Fecha relevante',
+          $forcedLabel
+        );
+
+        if (!$normalized) {
+          continue;
+        }
+
+        $labelLow = mb_strtolower($normalized['label'], 'UTF-8');
+
+        $isVigencia = str_contains($labelLow, 'vigencia')
+          || str_contains($labelLow, 'garantía')
+          || str_contains($labelLow, 'garantia')
+          || str_contains($labelLow, 'validez')
+          || str_contains($labelLow, 'duración')
+          || str_contains($labelLow, 'duracion');
+
+        if ($isVigencia) {
+          $vigenciasRows->push($normalized);
+        } else {
+          $plazosRows->push($normalized);
+        }
+      }
+    }
+
+    $dedupeEvents = function ($rows) {
+      return collect($rows)
+        ->filter(fn ($row) => !blank($row['label'] ?? null) || !blank($row['value'] ?? null))
+        ->unique(function ($row) {
+          return mb_strtolower(
+            trim((string) ($row['label'] ?? ''))
+            . '|' .
+            trim((string) ($row['value'] ?? '')),
+            'UTF-8'
+          );
+        })
+        ->values();
+    };
+
+    $vigenciasRows = $dedupeEvents($vigenciasRows);
+    $plazosRows = $dedupeEvents($plazosRows);
+
+    $allEventRows = $vigenciasRows->concat($plazosRows)->values();
     $detectedEvents = $allEventRows->count();
 
-    $highRisk = $allEventRows
-      ->where('risk', 'ALTO')
-      ->count();
-
-    $mediumRisk = $allEventRows
-      ->where('risk', 'MEDIO')
-      ->count();
+    $highRisk = $allEventRows->where('risk', 'ALTO')->count();
+    $mediumRisk = $allEventRows->where('risk', 'MEDIO')->count();
 
     $lowRisk = $allEventRows
       ->filter(fn ($row) => in_array($row['risk'] ?? 'NULO', ['BAJO', 'NULO'], true))
@@ -751,6 +880,7 @@
         <div class="pjd-events-card-head js-events-card-toggle" role="button" tabindex="0" aria-expanded="true">
           <h3 class="pjd-events-card-title">
             Vigencias
+            <span class="pjd-events-count">{{ $vigenciasRows->count() }}</span>
             <span class="pjd-events-sparkle" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.7 5.1L19 10l-5.3 1.9L12 17l-1.7-5.1L5 10l5.3-1.9L12 3Z"></path><path d="M19 4v4"></path><path d="M17 6h4"></path><path d="M5 16v4"></path><path d="M3 18h4"></path></svg></span>
           </h3>
           <span class="pjd-events-card-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg></span>
@@ -763,7 +893,7 @@
                 <div class="pjd-events-row-main">
                   <div class="pjd-events-row-title">
                     <h4>{{ mb_strtoupper($eventClean($row['label'] ?? 'Sin nombre') ?: 'Sin nombre', 'UTF-8') }}</h4>
-                    <select class="pjd-events-risk-select {{ $risk === 'MEDIO' ? 'is-medium' : '' }}" aria-label="Nivel de riesgo">
+                    <select class="pjd-events-risk-select {{ $risk === 'ALTO' ? 'is-high' : ($risk === 'MEDIO' ? 'is-medium' : (in_array($risk, ['BAJO', 'NULO'], true) ? 'is-low' : '')) }}" aria-label="Nivel de riesgo">
                       <option value="NULO" {{ $risk === 'NULO' ? 'selected' : '' }}>NULO</option>
                       <option value="BAJO" {{ $risk === 'BAJO' ? 'selected' : '' }}>BAJO</option>
                       <option value="MEDIO" {{ $risk === 'MEDIO' ? 'selected' : '' }}>MEDIO</option>
@@ -771,6 +901,22 @@
                     </select>
                   </div>
                   <p>{{ $eventClean($row['value'] ?? null) ?: 'Sin dato' }}</p>
+
+                  @if(!blank($row['source'] ?? null) || !blank($row['page'] ?? null) || !blank($row['quote'] ?? null))
+                    <div class="pjd-events-source">
+                      @if(!blank($row['source'] ?? null))
+                        <strong>Fuente:</strong> {{ $row['source'] }}
+                      @endif
+
+                      @if(!blank($row['page'] ?? null))
+                        <span>{{ !blank($row['source'] ?? null) ? ' · ' : '' }}<strong>Página:</strong> {{ $row['page'] }}</span>
+                      @endif
+
+                      @if(!blank($row['quote'] ?? null))
+                        <span class="pjd-events-source-quote">“{{ $row['quote'] }}”</span>
+                      @endif
+                    </div>
+                  @endif
                 </div>
                 <button type="button" class="pjd-events-trash" title="Eliminar visual" aria-label="Eliminar evento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button>
               </article>
@@ -785,6 +931,7 @@
         <div class="pjd-events-card-head js-events-card-toggle" role="button" tabindex="0" aria-expanded="true">
           <h3 class="pjd-events-card-title">
             Plazos de ejecución
+            <span class="pjd-events-count">{{ $plazosRows->count() }}</span>
             <span class="pjd-events-sparkle" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.7 5.1L19 10l-5.3 1.9L12 17l-1.7-5.1L5 10l5.3-1.9L12 3Z"></path><path d="M19 4v4"></path><path d="M17 6h4"></path><path d="M5 16v4"></path><path d="M3 18h4"></path></svg></span>
           </h3>
           <span class="pjd-events-card-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg></span>
@@ -797,7 +944,7 @@
                 <div class="pjd-events-row-main">
                   <div class="pjd-events-row-title">
                     <h4>{{ mb_strtoupper($eventClean($row['label'] ?? 'Sin nombre') ?: 'Sin nombre', 'UTF-8') }}</h4>
-                    <select class="pjd-events-risk-select {{ $risk === 'MEDIO' ? 'is-medium' : '' }}" aria-label="Nivel de riesgo">
+                    <select class="pjd-events-risk-select {{ $risk === 'ALTO' ? 'is-high' : ($risk === 'MEDIO' ? 'is-medium' : (in_array($risk, ['BAJO', 'NULO'], true) ? 'is-low' : '')) }}" aria-label="Nivel de riesgo">
                       <option value="NULO" {{ $risk === 'NULO' ? 'selected' : '' }}>NULO</option>
                       <option value="BAJO" {{ $risk === 'BAJO' ? 'selected' : '' }}>BAJO</option>
                       <option value="MEDIO" {{ $risk === 'MEDIO' ? 'selected' : '' }}>MEDIO</option>
@@ -805,6 +952,22 @@
                     </select>
                   </div>
                   <p>{{ $eventClean($row['value'] ?? null) ?: 'Sin dato' }}</p>
+
+                  @if(!blank($row['source'] ?? null) || !blank($row['page'] ?? null) || !blank($row['quote'] ?? null))
+                    <div class="pjd-events-source">
+                      @if(!blank($row['source'] ?? null))
+                        <strong>Fuente:</strong> {{ $row['source'] }}
+                      @endif
+
+                      @if(!blank($row['page'] ?? null))
+                        <span>{{ !blank($row['source'] ?? null) ? ' · ' : '' }}<strong>Página:</strong> {{ $row['page'] }}</span>
+                      @endif
+
+                      @if(!blank($row['quote'] ?? null))
+                        <span class="pjd-events-source-quote">“{{ $row['quote'] }}”</span>
+                      @endif
+                    </div>
+                  @endif
                 </div>
                 <button type="button" class="pjd-events-trash" title="Eliminar visual" aria-label="Eliminar evento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path></svg></button>
               </article>
@@ -851,6 +1014,14 @@ document.addEventListener('DOMContentLoaded', function () {
       toggleComments();
     });
   }
+
+  document.querySelectorAll('.pjd-events-trash').forEach(function (button) {
+    button.addEventListener('click', function () {
+      const row = button.closest('.pjd-events-row');
+      if (!row) return;
+      row.remove();
+    });
+  });
 
   document.querySelectorAll('.js-events-card-toggle').forEach(function (head) {
     const toggleCard = function () {

@@ -376,5 +376,7 @@ return [
 'google' => [
     'tag_manager_id' => env('GOOGLE_TAG_MANAGER_ID'),
 ],
-
+'cron_queue' => [
+    'token' => env('CRON_QUEUE_TOKEN'),
+],
 ];
