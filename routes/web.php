@@ -2674,14 +2674,14 @@ Route::middleware('auth')->prefix('configuracion')->name('settings.')->group(fun
 
 use App\Http\Controllers\CronQueueController;
 
+Route::get('/cron/queue/ping', [CronQueueController::class, 'ping'])
+    ->name('cron.queue.ping');
+
 Route::get('/cron/queue/run', [CronQueueController::class, 'run'])
-    ->name('cron.queue.run')
-    ->withoutMiddleware([
-        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
-    ]);
+    ->name('cron.queue.run');
 
 Route::get('/cron/queue/health', [CronQueueController::class, 'health'])
-    ->name('cron.queue.health')
-    ->withoutMiddleware([
-        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
-    ]);
+    ->name('cron.queue.health');
+
+Route::get('/cron/queue/status', [CronQueueController::class, 'status'])
+    ->name('cron.queue.status');
