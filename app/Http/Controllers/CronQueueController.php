@@ -406,4 +406,25 @@ class CronQueueController extends Controller
             return null;
         }
     }
+    public function unlock(Request $request): JsonResponse
+{
+    $this->validateCronToken($request);
+
+    try {
+        Cache::forget('cron-queue-worker-lock');
+
+        return response()->json([
+            'ok' => true,
+            'status' => 'unlocked',
+            'message' => 'El bloqueo del worker fue eliminado.',
+            'timestamp' => now()->toDateTimeString(),
+        ]);
+    } catch (Throwable $exception) {
+        return response()->json([
+            'ok' => false,
+            'status' => 'error',
+            'message' => $exception->getMessage(),
+        ], 500);
+    }
+}
 }

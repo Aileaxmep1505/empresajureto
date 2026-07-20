@@ -2685,3 +2685,5 @@ Route::get('/cron/queue/health', [CronQueueController::class, 'health'])
 
 Route::get('/cron/queue/status', [CronQueueController::class, 'status'])
     ->name('cron.queue.status');
+    Route::get('/cron/queue/unlock', [CronQueueController::class, 'unlock'])
+    ->name('cron.queue.unlock');
