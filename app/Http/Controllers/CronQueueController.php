@@ -246,30 +246,25 @@ class CronQueueController extends Controller
             'diagnostic' => $this->buildDiagnostic(),
         ]);
     }
+private function validateCronToken(Request $request): void
+{
+    $configuredToken = trim((string) config('services.cron_queue.token'));
 
-    private function validateCronToken(Request $request): void
-    {
-        $configuredToken = trim((string) config('services.cron_queue.token'));
-        $receivedToken = trim((string) $request->query('token'));
+    $receivedToken = trim(
+        (string) $request->header('X-JURETO-TOKEN')
+    );
 
-        if ($configuredToken === '') {
-            $this->directLog('CRON_QUEUE_TOKEN no está configurado.');
-
-            abort(500, 'CRON_QUEUE_TOKEN no está configurado en el servidor.');
-        }
-
-        if (
-            $receivedToken === ''
-            || !hash_equals($configuredToken, $receivedToken)
-        ) {
-            $this->directLog('Intento con token inválido.', [
-                'ip' => $request->ip(),
-                'received_token_length' => strlen($receivedToken),
-            ]);
-
-            abort(403, 'Token de cron inválido.');
-        }
+    if ($configuredToken === '') {
+        abort(500, 'CRON_QUEUE_TOKEN no está configurado.');
     }
+
+    if (
+        $receivedToken === ''
+        || !hash_equals($configuredToken, $receivedToken)
+    ) {
+        abort(403, 'Token de cron inválido.');
+    }
+}
 
     private function buildDiagnostic(): array
     {
