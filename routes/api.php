@@ -36,3 +36,21 @@ Route::post('/whatsapp/webhook', function (Request $request) {
 
 Route::post('/webhooks/shopify/orders-paid', [ShopifyWebhookController::class, 'ordersPaid'])
     ->name('webhooks.shopify.orders-paid');
+
+
+
+
+use App\Http\Controllers\CronQueueController;
+
+
+Route::get('/queue/run', [CronQueueController::class, 'run'])
+    ->name('api.queue.run');
+
+Route::get('/queue/ping', [CronQueueController::class, 'ping'])
+    ->name('api.queue.ping');
+
+Route::get('/queue/status', [CronQueueController::class, 'status'])
+    ->name('api.queue.status');
+
+Route::get('/queue/unlock', [CronQueueController::class, 'unlock'])
+    ->name('api.queue.unlock');

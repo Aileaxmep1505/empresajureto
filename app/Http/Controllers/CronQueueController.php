@@ -248,7 +248,9 @@ class CronQueueController extends Controller
     }
 private function validateCronToken(Request $request): void
 {
-    $configuredToken = trim((string) config('services.cron_queue.token'));
+    $configuredToken = trim(
+        (string) config('services.cron_queue.token')
+    );
 
     $receivedToken = trim(
         (string) $request->header('X-JURETO-TOKEN')

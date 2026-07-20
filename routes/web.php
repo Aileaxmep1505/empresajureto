@@ -2671,7 +2671,3 @@ Route::middleware('auth')->prefix('configuracion')->name('settings.')->group(fun
     Route::post('/representantes', [SettingsController::class, 'storeRepresentative'])->name('representatives.store');
     Route::delete('/representantes/{representative}', [SettingsController::class, 'destroyRepresentative'])->name('representatives.destroy');
 });
-use App\Http\Controllers\CronQueueController;
-
-Route::get('/system/pulse', [CronQueueController::class, 'run'])
-    ->name('system.pulse');
