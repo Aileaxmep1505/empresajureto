@@ -2828,42 +2828,28 @@ PROMPT;
      */
     private function clarificationGenerationSections(): array
     {
+        /*
+         * Tres llamadas en lugar de seis.
+         * Reduce aproximadamente a la mitad el tiempo total sin perder el avance.
+         */
         return [
             [
-                'key' => 'summary',
-                'title' => 'Resumen Ejecutivo de Hallazgos',
-                'progress' => 22,
-                'instruction' => 'Genera únicamente una sección <section> con el encabezado exacto <h2>Resumen Ejecutivo de Hallazgos</h2>. Resume riesgos, contradicciones, total estimado de preguntas, riesgo predominante, temas críticos y fecha límite de preguntas cuando esté documentada.',
+                'key' => 'diagnosis',
+                'title' => 'Diagnóstico y preguntas legales',
+                'progress' => 35,
+                'instruction' => 'Genera: 1) <section><h2>Resumen Ejecutivo de Hallazgos</h2>...</section>; y 2) <section><h2>Preguntas legales y administrativas</h2>...</section>. Incluye únicamente preguntas relevantes y no duplicadas. Máximo 10 preguntas en este bloque.',
             ],
             [
-                'key' => 'legal',
-                'title' => 'Preguntas legales y administrativas',
-                'progress' => 38,
-                'instruction' => 'Genera únicamente una sección <section> con <h2>Preguntas legales y administrativas</h2>. Incluye una tabla con columnas Número, Prioridad, Página, Numeral/Apartado, Hallazgo, Pregunta/Aclaración, Objetivo, Riesgo y Fuente. Analiza personalidad, poderes, plataformas, registros, documentos, causales de desechamiento y subsanación.',
-            ],
-            [
-                'key' => 'technical',
-                'title' => 'Preguntas técnicas',
-                'progress' => 54,
-                'instruction' => 'Genera únicamente una sección <section> con <h2>Preguntas técnicas</h2>. Incluye tabla con Número, Prioridad, Página, Numeral/Apartado, Hallazgo, Pregunta/Aclaración, Objetivo, Riesgo y Fuente. Analiza especificaciones, marcas, modelos, equivalencias, contenido nacional, muestras, normas, bienes nuevos y criterios de aceptación.',
-            ],
-            [
-                'key' => 'financial',
-                'title' => 'Preguntas financieras y contractuales',
-                'progress' => 68,
-                'instruction' => 'Genera únicamente una sección <section> con <h2>Preguntas financieras y contractuales</h2>. Incluye tabla con Número, Prioridad, Página, Numeral/Apartado, Hallazgo, Pregunta/Aclaración, Objetivo, Riesgo y Fuente. Analiza presupuesto, precios, pago, facturación, fianzas, seguros, garantías, penas, deducciones, rescisión y vigencia.',
-            ],
-            [
-                'key' => 'operations',
-                'title' => 'Preguntas logísticas, fiscales y de seguridad social',
-                'progress' => 82,
-                'instruction' => 'Genera únicamente una sección <section> con <h2>Preguntas logísticas, fiscales y de seguridad social</h2>. Incluye tabla con Número, Prioridad, Página, Numeral/Apartado, Hallazgo, Pregunta/Aclaración, Objetivo, Riesgo y Fuente. Analiza entrega, transporte, almacenes, reposición, subcontratación, SAT, IMSS, INFONAVIT y documentos vigentes.',
+                'key' => 'core',
+                'title' => 'Preguntas técnicas, financieras y operativas',
+                'progress' => 72,
+                'instruction' => 'Genera tres secciones: <h2>Preguntas técnicas</h2>, <h2>Preguntas financieras y contractuales</h2> y <h2>Preguntas logísticas, fiscales y de seguridad social</h2>. Usa tablas compactas con Número, Prioridad, Página, Numeral/Apartado, Hallazgo, Pregunta/Aclaración, Objetivo, Riesgo y Fuente. Máximo 18 preguntas en total, solo las que tengan evidencia o riesgo real.',
             ],
             [
                 'key' => 'closing',
-                'title' => 'Contradicciones, prioridad, autorización y fuentes',
+                'title' => 'Contradicciones, prioridad y fuentes',
                 'progress' => 96,
-                'instruction' => 'Genera únicamente las secciones finales: <section><h2>Contradicciones y errores de bases detectados</h2>...</section>, <section><h2>Preguntas que requieren autorización interna</h2>...</section>, <section><h2>Matriz de prioridad</h2>...</section>, <section><h2>Fuentes documentales</h2>...</section> y <section><h2>Revisión previa al envío</h2>...</section>. No repitas preguntas ya generadas.',
+                'instruction' => 'Genera las secciones finales: <h2>Contradicciones y errores de bases detectados</h2>, <h2>Preguntas que requieren autorización interna</h2>, <h2>Matriz de prioridad</h2>, <h2>Fuentes documentales</h2> y <h2>Revisión previa al envío</h2>. No repitas preguntas anteriores. Mantén el contenido breve y ejecutivo.',
             ],
         ];
     }
@@ -2885,16 +2871,89 @@ PROMPT;
         array $section,
         array $generatedSections
     ): string {
-        $basePrompt = $this->buildClarificationsReportPrompt($project, $checklist, $options);
-        $previousTitles = collect($generatedSections)
-            ->keys()
+        /*
+         * Contexto compacto: antes se reenviaba el prompt completo y hasta
+         * 25,000 caracteres documentales en cada una de seis llamadas.
+         */
+        $structuredData = is_array($project->structured_data) ? $project->structured_data : [];
+
+        // Excluye reportes previos para no inflar el contexto.
+        unset($structuredData['generated_reports'], $structuredData['generated_documents']);
+
+        $structured = json_encode(
+            $structuredData,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+
+        $checklistCompact = collect($checklist)
+            ->take(80)
+            ->map(fn ($item) => [
+                'requisito' => $item['requisito'] ?? $item['requirement'] ?? '',
+                'descripcion' => $item['descripcion'] ?? $item['description'] ?? '',
+                'cumplimiento' => $item['cumplimiento'] ?? '-',
+                'prioridad' => $item['prioridad'] ?? 'Media',
+                'fuente' => $item['fuente'] ?? '',
+                'pagina' => $item['pagina'] ?? null,
+                'cita' => Str::limit((string) ($item['cita'] ?? ''), 280),
+            ])
+            ->values()
+            ->all();
+
+        $checklistJson = json_encode(
+            $checklistCompact,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+
+        // 12,000 caracteres suelen ser suficientes para detectar los puntos críticos.
+        $documentsText = $this->projectGroundedDocumentText($project, 12000);
+
+        $riskLevels = collect($options['risk_levels'] ?? ['alto', 'medio', 'no_cumple'])
+            ->map(fn ($value) => mb_strtoupper(trim((string) $value), 'UTF-8'))
+            ->filter()
             ->implode(', ');
 
-        return $basePrompt . "\n\nINSTRUCCIÓN DE GENERACIÓN PROGRESIVA:\n"
-            . $section['instruction'] . "\n"
-            . "Devuelve SOLO esa sección HTML, sin <article>, sin markdown y sin repetir bloques anteriores.\n"
-            . "Secciones ya generadas: " . ($previousTitles !== '' ? $previousTitles : 'ninguna') . ".\n"
-            . "Respeta literalmente las instrucciones adicionales del usuario, siempre que no obliguen a inventar datos o referencias legales.\n";
+        $instructions = Str::limit(trim((string) ($options['instructions'] ?? '')), 1200);
+        $formatMode = trim((string) ($options['format_mode'] ?? 'estandar'));
+        $templateFilename = trim((string) ($options['template_filename'] ?? ''));
+        $templateContext = Str::limit(trim((string) ($options['template_context'] ?? '')), 2500);
+        $previousTitles = collect($generatedSections)->keys()->implode(', ');
+        $projectName = $project->name;
+
+        return <<<PROMPT
+Eres especialista senior en licitaciones públicas mexicanas y juntas de aclaraciones.
+
+Genera SOLO el bloque HTML solicitado para el proyecto "{$projectName}".
+
+BLOQUE ACTUAL
+{$section['instruction']}
+
+CONFIGURACIÓN
+- Riesgos prioritarios: {$riskLevels}
+- Instrucciones del usuario: {$instructions}
+- Formato: {$formatMode}
+- Archivo de formato: {$templateFilename}
+- Estructura del formato: {$templateContext}
+
+REGLAS
+1. Usa únicamente la evidencia incluida abajo.
+2. No inventes páginas, numerales, leyes, fechas, porcentajes ni citas.
+3. Si una referencia legal no aparece en la evidencia, escribe "Referencia legal sugerida para validación".
+4. Respeta el tono solicitado por el usuario, pero mantén claridad profesional.
+5. Evita preguntas duplicadas y asuntos sin impacto real.
+6. Devuelve únicamente secciones HTML, sin <article>, markdown ni explicaciones.
+7. Las preguntas deben ser concretas y listas para presentar.
+8. Si no existe evidencia suficiente para una pregunta, no la incluyas.
+9. Secciones ya generadas: {$previousTitles}.
+
+DATOS ESTRUCTURADOS
+{$structured}
+
+CHECKLIST COMPACTO
+{$checklistJson}
+
+EXTRACTO DOCUMENTAL PRIORITARIO
+{$documentsText}
+PROMPT;
     }
 
     public function processClarificationsReportAsync(

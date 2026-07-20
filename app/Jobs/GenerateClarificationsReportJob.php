@@ -17,9 +17,9 @@ class GenerateClarificationsReportJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
-     * El documento se genera por bloques; se permite hasta 30 minutos.
+     * El documento se genera en tres bloques compactos; se permite hasta 15 minutos.
      */
-    public int $timeout = 1800;
+    public int $timeout = 900;
     public int $tries = 1;
     public bool $failOnTimeout = true;
 
