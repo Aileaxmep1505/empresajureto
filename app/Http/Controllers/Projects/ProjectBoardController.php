@@ -2682,6 +2682,24 @@ PROMPT;
                 ], 410);
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | Junta de Aclaraciones rápida en tres peticiones
+            |--------------------------------------------------------------------------
+            | Cada bloque se genera y guarda por separado para evitar el 504 de Nginx.
+            | No utiliza Jobs, workers, cron, caché de progreso ni colas.
+            */
+            if ($type === 'clarifications' && $action === 'generate') {
+                return $this->generateClarificationsStepDirect(
+                    $request,
+                    $project,
+                    $ai,
+                    $requestId,
+                    $startedAt,
+                    $title
+                );
+            }
+
             $project->loadMissing(['documents']);
             $checklist = $this->projectChecklistReportArray($project);
 
@@ -2870,6 +2888,359 @@ PROMPT;
      * Prompt compacto para una sola llamada directa.
      * Evita reenviar reportes previos y limita el texto documental.
      */
+    /**
+     * Genera la Junta de Aclaraciones en tres peticiones HTTP breves.
+     *
+     * Paso 1: diagnóstico y preguntas legales / administrativas.
+     * Paso 2: preguntas técnicas, financieras y operativas.
+     * Paso 3: contradicciones, autorizaciones internas y revisión final.
+     */
+    private function generateClarificationsStepDirect(
+        Request $request,
+        Project $project,
+        OpenAiStructurerService $ai,
+        string $requestId,
+        float $startedAt,
+        string $title
+    ) {
+        $step = max(1, min(3, (int) $request->input('clarification_step', 1)));
+
+        $project->loadMissing(['documents', 'checklistItems']);
+        $checklist = $this->projectChecklistReportArray($project);
+
+        $template = $step === 1
+            ? $this->clarificationTemplateContext($request, $project)
+            : [
+                'mode' => $request->input('format_mode', 'estandar'),
+                'filename' => null,
+                'stored_path' => null,
+                'content' => '',
+            ];
+
+        $options = [
+            'format_mode' => $template['mode'] ?? $request->input('format_mode', 'estandar'),
+            'template_filename' => $template['filename'] ?? '',
+            'template_context' => $template['content'] ?? '',
+            'risk_levels' => $request->input('risk_levels', ['alto', 'medio', 'no_cumple']),
+            'instructions' => trim((string) $request->input('instructions', '')),
+        ];
+
+        $prompt = $this->buildClarificationsStepPrompt(
+            $project,
+            $checklist,
+            $options,
+            $step
+        );
+
+        $this->writeDirectReportLog('JA_STEP_START', [
+            'request_id' => $requestId,
+            'project_id' => $project->id,
+            'step' => $step,
+            'prompt_chars' => mb_strlen($prompt, 'UTF-8'),
+        ]);
+
+        try {
+            $sectionHtml = trim((string) $ai->chatRaw([
+                [
+                    'role' => 'system',
+                    'content' => 'Eres especialista senior en licitaciones públicas mexicanas. Devuelve únicamente el fragmento HTML solicitado, sin markdown, sin repetir secciones anteriores y sin inventar evidencia.',
+                ],
+                [
+                    'role' => 'user',
+                    'content' => $prompt,
+                ],
+            ]));
+
+            $sectionHtml = $this->cleanDirectReportHtml($sectionHtml);
+        } catch (\Throwable $exception) {
+            $this->writeDirectReportLog('JA_STEP_ERROR', [
+                'request_id' => $requestId,
+                'project_id' => $project->id,
+                'step' => $step,
+                'error' => $exception->getMessage(),
+                'elapsed_seconds' => round(microtime(true) - $startedAt, 2),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'status' => 'error',
+                'request_id' => $requestId,
+                'step' => $step,
+                'message' => 'No se pudo generar el bloque ' . $step . ': ' . $exception->getMessage(),
+            ], 500);
+        }
+
+        if ($sectionHtml === '' || trim(strip_tags($sectionHtml)) === '') {
+            return response()->json([
+                'ok' => false,
+                'status' => 'empty',
+                'request_id' => $requestId,
+                'step' => $step,
+                'message' => 'La IA no devolvió contenido para el bloque ' . $step . '.',
+            ], 422);
+        }
+
+        $freshProject = $project->fresh() ?: $project;
+        $data = is_array($freshProject->structured_data ?? null)
+            ? $freshProject->structured_data
+            : [];
+
+        $reports = data_get($data, 'generated_reports', []);
+        $reports = is_array($reports) ? $reports : [];
+
+        $current = $reports['clarifications'] ?? [];
+        $current = is_array($current) ? $current : [];
+
+        $parts = $step === 1
+            ? []
+            : ($current['parts'] ?? []);
+
+        $parts = is_array($parts) ? $parts : [];
+        $parts[(string) $step] = $sectionHtml;
+        ksort($parts, SORT_NUMERIC);
+
+        $fullHtml = $this->buildClarificationsDocumentFromParts(
+            $freshProject,
+            $parts,
+            $step >= 3
+        );
+
+        $reports['clarifications'] = [
+            'title' => $title,
+            'html' => $fullHtml,
+            'parts' => $parts,
+            'completed_steps' => array_map('intval', array_keys($parts)),
+            'status' => $step >= 3 ? 'completed' : 'processing',
+            'updated_at' => now()->toDateTimeString(),
+            'template_name' => $step === 1
+                ? ($template['filename'] ?? null)
+                : ($current['template_name'] ?? null),
+        ];
+
+        $data['generated_reports'] = $reports;
+        $freshProject->structured_data = $data;
+        $freshProject->save();
+
+        $elapsed = round(microtime(true) - $startedAt, 2);
+
+        $this->writeDirectReportLog('JA_STEP_COMPLETED', [
+            'request_id' => $requestId,
+            'project_id' => $project->id,
+            'step' => $step,
+            'section_chars' => mb_strlen($sectionHtml, 'UTF-8'),
+            'document_chars' => mb_strlen($fullHtml, 'UTF-8'),
+            'elapsed_seconds' => $elapsed,
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'status' => $step >= 3 ? 'completed' : 'processing',
+            'queued' => false,
+            'request_id' => $requestId,
+            'step' => $step,
+            'next_step' => $step < 3 ? $step + 1 : null,
+            'progress' => match ($step) {
+                1 => 38,
+                2 => 72,
+                default => 100,
+            },
+            'message' => match ($step) {
+                1 => 'Diagnóstico y preguntas legales terminados.',
+                2 => 'Preguntas técnicas, financieras y operativas terminadas.',
+                default => 'Junta de Aclaraciones finalizada y guardada.',
+            },
+            'html' => $fullHtml,
+            'section_html' => $sectionHtml,
+            'report_type' => 'clarifications',
+            'report_title' => $title,
+            'saved_at' => now()->format('H:i:s'),
+            'elapsed_seconds' => $elapsed,
+            'template_name' => $reports['clarifications']['template_name'] ?? null,
+        ]);
+    }
+
+    private function buildClarificationsDocumentFromParts(
+        Project $project,
+        array $parts,
+        bool $completed
+    ): string {
+        $projectName = e((string) $project->name);
+        $content = implode("\n", array_values($parts));
+
+        $pending = $completed
+            ? ''
+            : '<section data-ja-pending="1"><h2>Análisis en curso</h2><p>Las secciones restantes se agregarán automáticamente en los siguientes bloques.</p></section>';
+
+        return '<article class="jrt-report-doc jrt-clarifications-report">'
+            . '<header><h1>Junta de Aclaraciones - Preguntas Estratégicas</h1>'
+            . '<p>Proyecto: ' . $projectName . '</p></header>'
+            . $content
+            . $pending
+            . '</article>';
+    }
+
+    private function buildClarificationsStepPrompt(
+        Project $project,
+        array $checklist,
+        array $options,
+        int $step
+    ): string {
+        $riskLevels = collect($options['risk_levels'] ?? [])
+            ->map(fn ($risk) => mb_strtoupper((string) $risk, 'UTF-8'))
+            ->filter()
+            ->implode(', ');
+
+        $instructions = trim((string) ($options['instructions'] ?? ''));
+        $instructions = $instructions !== ''
+            ? mb_substr($instructions, 0, 1800, 'UTF-8')
+            : 'Redacción profesional, natural, concreta y sustentada.';
+
+        $formatMode = (string) ($options['format_mode'] ?? 'estandar');
+        $templateFilename = (string) ($options['template_filename'] ?? '');
+        $templateContext = mb_substr(
+            trim((string) ($options['template_context'] ?? '')),
+            0,
+            2500,
+            'UTF-8'
+        );
+
+        $structuredSource = is_array($project->structured_data ?? null)
+            ? $project->structured_data
+            : [];
+
+        $structuredCompact = [
+            'ficha' => data_get($structuredSource, 'ficha'),
+            'resumen_ejecutivo' => data_get($structuredSource, 'resumen_ejecutivo'),
+            'eventos' => data_get($structuredSource, 'eventos'),
+            'fechas_clave' => data_get($structuredSource, 'fechas_clave'),
+            'riesgos' => data_get($structuredSource, 'riesgos'),
+            'recomendacion' => data_get($structuredSource, 'recomendacion'),
+            'contradicciones' => data_get($structuredSource, 'contradicciones'),
+        ];
+
+        $structuredJson = mb_substr(
+            (string) json_encode(
+                $structuredCompact,
+                JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE
+            ),
+            0,
+            7000,
+            'UTF-8'
+        );
+
+        $relevantChecklist = collect($checklist)
+            ->filter(function ($item) {
+                if (!is_array($item)) {
+                    return false;
+                }
+
+                $haystack = mb_strtolower((string) json_encode($item, JSON_UNESCAPED_UNICODE), 'UTF-8');
+
+                return str_contains($haystack, 'alto')
+                    || str_contains($haystack, 'medio')
+                    || str_contains($haystack, 'no cumple')
+                    || str_contains($haystack, 'incumple')
+                    || str_contains($haystack, 'riesgo')
+                    || str_contains($haystack, 'pendiente');
+            })
+            ->take(18)
+            ->values()
+            ->all();
+
+        if (empty($relevantChecklist)) {
+            $relevantChecklist = array_slice($checklist, 0, 12);
+        }
+
+        $checklistJson = mb_substr(
+            (string) json_encode(
+                $relevantChecklist,
+                JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE
+            ),
+            0,
+            5500,
+            'UTF-8'
+        );
+
+        $documentsText = $this->projectGroundedDocumentText($project, 9500);
+        $projectName = (string) $project->name;
+
+        $task = match ($step) {
+            1 => <<<'HTML'
+Devuelve exactamente estas dos secciones, sin <article>, sin <header> y sin repetir el título general:
+<section data-ja-step="1">
+  <h2>Resumen Ejecutivo de Hallazgos</h2>
+  <p>Diagnóstico breve, concreto y sustentado.</p>
+  <ul>
+    <li><strong>Riesgo predominante:</strong> valor real.</li>
+    <li><strong>Temas críticos:</strong> lista breve.</li>
+    <li><strong>Enfoque recomendado:</strong> acción concreta.</li>
+  </ul>
+</section>
+<section data-ja-step="1-questions">
+  <h2>Preguntas legales y administrativas</h2>
+  <table><thead><tr><th>#</th><th>Prioridad</th><th>Categoría</th><th>Página</th><th>Numeral</th><th>Hallazgo</th><th>Pregunta propuesta</th><th>Objetivo</th><th>Riesgo</th><th>Fuente</th></tr></thead><tbody>
+  Genera entre 4 y 7 filas sólidas.
+  </tbody></table>
+</section>
+HTML,
+            2 => <<<'HTML'
+Devuelve exactamente una sección, sin <article>, sin <header> y sin repetir el título general:
+<section data-ja-step="2">
+  <h2>Preguntas técnicas, financieras y operativas</h2>
+  <table><thead><tr><th>#</th><th>Prioridad</th><th>Categoría</th><th>Página</th><th>Numeral</th><th>Hallazgo</th><th>Pregunta propuesta</th><th>Objetivo</th><th>Riesgo</th><th>Fuente</th></tr></thead><tbody>
+  Genera entre 5 y 8 filas sólidas sobre especificaciones, equivalencias, entregas, garantías, pagos, penalizaciones, contenido nacional, subcontratación, infraestructura o plazos, solo cuando exista evidencia.
+  </tbody></table>
+</section>
+HTML,
+            default => <<<'HTML'
+Devuelve exactamente estas tres secciones finales, sin <article>, sin <header> y sin repetir el título general:
+<section data-ja-step="3-contradictions">
+  <h2>Contradicciones y errores detectados</h2>
+  <table><thead><tr><th>#</th><th>Tema</th><th>Evidencia</th><th>Impacto</th><th>Acción sugerida</th></tr></thead><tbody>Incluye solo contradicciones reales; si no existen, agrega una fila que lo indique claramente.</tbody></table>
+</section>
+<section data-ja-step="3-approval">
+  <h2>Preguntas que requieren autorización interna</h2>
+  <ul><li>Incluye únicamente asuntos sensibles, negociadores o que impliquen aceptar riesgos.</li></ul>
+</section>
+<section data-ja-step="3-review">
+  <h2>Revisión previa al envío</h2>
+  <ul><li>Validar páginas, numerales y citas.</li><li>Confirmar fecha, hora, plataforma y formato.</li><li>Revisar asuntos jurídicos, técnicos y comerciales.</li><li>Eliminar preguntas duplicadas.</li></ul>
+</section>
+HTML,
+        };
+
+        return <<<PROMPT
+Genera el BLOQUE {$step} de la Junta de Aclaraciones del proyecto "{$projectName}".
+
+INSTRUCCIÓN DE SALIDA
+{$task}
+
+REGLAS OBLIGATORIAS
+1. Usa únicamente la evidencia incluida abajo.
+2. No inventes páginas, numerales, leyes, fechas, porcentajes, archivos ni citas.
+3. Si la página o numeral no está identificado, escribe exactamente "No identificado".
+4. No repitas preguntas entre categorías.
+5. Redacta preguntas listas para presentar a la convocante, en español de México.
+6. Prioriza riesgos: {$riskLevels}.
+7. Instrucciones del usuario: {$instructions}
+8. Formato: {$formatMode}. Archivo: {$templateFilename}.
+9. Devuelve solamente HTML limpio correspondiente al bloque solicitado.
+10. Calidad antes que cantidad. Cada fila debe tener evidencia y un impacto concreto.
+
+ESTRUCTURA DEL FORMATO ADJUNTO
+{$templateContext}
+
+DATOS ESTRUCTURADOS COMPACTOS
+{$structuredJson}
+
+CHECKLIST PRIORITARIO
+{$checklistJson}
+
+EXTRACTO DOCUMENTAL PRIORITARIO
+{$documentsText}
+PROMPT;
+    }
+
     private function buildFastDirectClarificationsPrompt(
         Project $project,
         array $checklist,

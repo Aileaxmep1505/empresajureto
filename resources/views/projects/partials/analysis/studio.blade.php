@@ -2276,7 +2276,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // Generación directa de Junta de Aclaraciones, sin cron ni cola
+  // Junta de Aclaraciones directa en tres bloques breves, sin cron ni colas.
   if (modalEstrategia) {
     const generateClarificationsButton = modalEstrategia.querySelector('[data-generate-clarifications]');
     const formatRadios = Array.from(modalEstrategia.querySelectorAll('input[name="formato_ja"]'));
@@ -2296,29 +2296,145 @@ document.addEventListener('DOMContentLoaded', function () {
 
     templateInput?.addEventListener('change', function () {
       const file = templateInput.files?.[0];
-      if (templateName) {
-        templateName.textContent = file ? file.name : 'Seleccionar formato';
-      }
+      if (templateName) templateName.textContent = file ? file.name : 'Seleccionar formato';
     });
 
     syncTemplateVisibility();
+
+    const escapeHtml = function (value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
+    const setClarificationProgress = function (message, progress) {
+      const safeProgress = Math.max(0, Math.min(100, Number(progress || 0)));
+
+      if (wordStatus) {
+        wordStatus.textContent = message + ' · ' + safeProgress + '%';
+      }
+
+      if (progressBox) {
+        progressBox.textContent = message + ' ' + safeProgress + '%';
+        progressBox.classList.add('is-visible');
+      }
+    };
+
+    const applyClarificationResponse = function (data) {
+      if (!data?.html) return;
+
+      generatedReports.clarifications = {
+        title: data.report_title || 'Junta de Aclaraciones - Preguntas Estratégicas',
+        html: data.html,
+        status: data.status || 'processing',
+        progress: Number(data.progress || 0)
+      };
+
+      if (typeof ensureStudioReportItem === 'function') {
+        ensureStudioReportItem('clarifications', generatedReports.clarifications.title);
+      }
+
+      if (wordEditor && activeReportType === 'clarifications') {
+        wordEditor.innerHTML = data.html;
+        wordEditor.setAttribute('contenteditable', data.status === 'completed' ? 'true' : 'false');
+        wordIsDirty = false;
+        updateWordCount();
+      }
+
+      setClarificationProgress(
+        data.message || 'Bloque generado correctamente.',
+        Number(data.progress || 0)
+      );
+    };
+
+    const requestClarificationStep = async function ({
+      reportUrl,
+      csrfToken,
+      step,
+      formatMode,
+      riskLevels,
+      instructions,
+      templateFile
+    }) {
+      const formData = new FormData();
+      formData.append('_token', csrfToken);
+      formData.append('action', 'generate');
+      formData.append('report_type', 'clarifications');
+      formData.append('report_title', 'Junta de Aclaraciones - Preguntas Estratégicas');
+      formData.append('clarification_step', String(step));
+      formData.append('format_mode', formatMode === 'si' ? 'formato_especifico' : 'estandar');
+      formData.append('instructions', instructions);
+
+      riskLevels.forEach(function (risk) {
+        formData.append('risk_levels[]', risk);
+      });
+
+      // El formato solamente se envía en el primer bloque.
+      if (step === 1 && templateFile) {
+        formData.append('template_file', templateFile, templateFile.name);
+      }
+
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(function () {
+        controller.abort();
+      }, 58000);
+
+      try {
+        const response = await fetch(reportUrl, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          credentials: 'same-origin',
+          body: formData,
+          signal: controller.signal
+        });
+
+        const raw = await response.text();
+        let data = {};
+
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch (parseError) {
+          const preview = raw
+            ? raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 420)
+            : 'Respuesta vacía';
+
+          throw new Error('Error HTTP ' + response.status + ': ' + preview);
+        }
+
+        if (!response.ok || data.ok === false || !data.html) {
+          throw new Error(
+            data.message
+            || data.error
+            || ('No se pudo generar el bloque ' + step + '.')
+          );
+        }
+
+        return data;
+      } catch (error) {
+        if (error?.name === 'AbortError') {
+          throw new Error('El bloque ' + step + ' superó 58 segundos. Reduce el contexto documental o vuelve a intentarlo.');
+        }
+
+        throw error;
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    };
 
     if (generateClarificationsButton) {
       generateClarificationsButton.addEventListener('click', async function () {
         const formatMode = modalEstrategia.querySelector('input[name="formato_ja"]:checked')?.value || 'no';
         const riskLevels = [];
 
-        if (modalEstrategia.querySelector('input[name="riesgo_alto"]')?.checked) {
-          riskLevels.push('alto');
-        }
-
-        if (modalEstrategia.querySelector('input[name="riesgo_medio"]')?.checked) {
-          riskLevels.push('medio');
-        }
-
-        if (modalEstrategia.querySelector('input[name="riesgo_no_cumple"]')?.checked) {
-          riskLevels.push('no_cumple');
-        }
+        if (modalEstrategia.querySelector('input[name="riesgo_alto"]')?.checked) riskLevels.push('alto');
+        if (modalEstrategia.querySelector('input[name="riesgo_medio"]')?.checked) riskLevels.push('medio');
+        if (modalEstrategia.querySelector('input[name="riesgo_no_cumple"]')?.checked) riskLevels.push('no_cumple');
 
         const instructions = modalEstrategia.querySelector('.pjd-estrategia-textarea')?.value.trim() || '';
         const templateFile = templateInput?.files?.[0] || null;
@@ -2329,18 +2445,12 @@ document.addEventListener('DOMContentLoaded', function () {
             progressBox.textContent = 'Selecciona el archivo Word, Excel o PDF que se usará como formato.';
             progressBox.classList.add('is-visible');
           }
-
           templateInput?.click();
           return;
         }
 
         generateClarificationsButton.disabled = true;
-        generateClarificationsButton.textContent = 'Analizando bases...';
-
-        if (progressBox) {
-          progressBox.textContent = 'Analizando bases, anexos y riesgos. Esto puede tardar algunos minutos.';
-          progressBox.classList.add('is-visible');
-        }
+        generateClarificationsButton.textContent = 'Generando bloque 1 de 3...';
 
         const initialHtml = `
           <article class="jrt-report-doc jrt-clarifications-report">
@@ -2350,9 +2460,9 @@ document.addEventListener('DOMContentLoaded', function () {
             </header>
             <section>
               <h2>Analizando información</h2>
-              <p>Revisando bases, anexos, checklist e instrucciones específicas.</p>
+              <p>Preparando el diagnóstico y las primeras preguntas.</p>
               <div style="height:10px;border-radius:999px;background:#e6f0ff;overflow:hidden;margin-top:12px;">
-                <div style="width:35%;height:100%;background:#007aff;animation:pjdJaProgress 1.5s ease-in-out infinite alternate;"></div>
+                <div style="width:12%;height:100%;background:#007aff;"></div>
               </div>
             </section>
           </article>`;
@@ -2366,182 +2476,79 @@ document.addEventListener('DOMContentLoaded', function () {
             initialHtml
           );
 
-          if (wordEditor) {
-            wordEditor.setAttribute('contenteditable', 'false');
-          }
-
-          if (wordStatus) {
-            wordStatus.textContent = 'Analizando bases e identificando preguntas...';
-          }
+          if (wordEditor) wordEditor.setAttribute('contenteditable', 'false');
+          setClarificationProgress('Preparando bloque 1 de 3...', 12);
         }
 
         try {
           const reportUrl = @json(route('projects.report', $project));
           const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || @json(csrf_token());
-          const formData = new FormData();
 
-          formData.append('_token', csrfToken);
-          formData.append('action', 'generate');
-          formData.append('report_type', 'clarifications');
-          formData.append('report_title', 'Junta de Aclaraciones - Preguntas Estratégicas');
-          formData.append('format_mode', formatMode === 'si' ? 'formato_especifico' : 'estandar');
-          formData.append('instructions', instructions);
-
-          if (templateFile) {
-            formData.append('template_file', templateFile, templateFile.name);
-          }
-
-          riskLevels.forEach(function (risk) {
-            formData.append('risk_levels[]', risk);
-          });
-
-          const abortController = new AbortController();
-          const requestTimeout = window.setTimeout(function () {
-            abortController.abort();
-          }, 295000);
-
-          let response;
-
-          try {
-            response = await fetch(reportUrl, {
-              method: 'POST',
-              headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-              },
-              credentials: 'same-origin',
-              body: formData,
-              signal: abortController.signal
-            });
-          } finally {
-            window.clearTimeout(requestTimeout);
-          }
-
-          const raw = await response.text();
-
-          console.log('Junta de Aclaraciones HTTP status:', response.status);
-          console.log('Junta de Aclaraciones respuesta:', raw);
-
-          let data = {};
-
-          try {
-            data = raw ? JSON.parse(raw) : {};
-          } catch (parseError) {
-            const responsePreview = raw
-              ? raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 700)
-              : 'Respuesta vacía';
-
-            throw new Error(
-              'Error HTTP ' + response.status + ': ' + responsePreview
-            );
-          }
-
-          if (!response.ok || data.ok === false) {
-            throw new Error(
-              'Error HTTP '
-              + response.status
-              + ': '
-              + (
-                data.message
-                || data.error
-                || 'No se pudo generar la Junta de Aclaraciones.'
-              )
-              + (data.request_id ? ' · Solicitud: ' + data.request_id : '')
-            );
-          }
-
-          if (!data.html) {
-            throw new Error('La IA terminó, pero no devolvió contenido para el documento.');
-          }
-
-          const reportTitle = data.report_title
-            || data.title
-            || 'Junta de Aclaraciones - Preguntas Estratégicas';
-
-          generatedReports.clarifications = {
-            title: reportTitle,
-            html: data.html,
-            template_name: data.template_name || null,
-            status: 'completed',
-            progress: 100
+          const common = {
+            reportUrl,
+            csrfToken,
+            formatMode,
+            riskLevels,
+            instructions,
+            templateFile
           };
 
-          if (typeof ensureStudioReportItem === 'function') {
-            ensureStudioReportItem('clarifications', reportTitle);
-          }
+          generateClarificationsButton.textContent = 'Generando bloque 1 de 3...';
+          const step1 = await requestClarificationStep({ ...common, step: 1 });
+          applyClarificationResponse(step1);
 
-          if (wordTitle) {
-            wordTitle.textContent = reportTitle;
-          }
+          generateClarificationsButton.textContent = 'Generando bloque 2 de 3...';
+          setClarificationProgress('Generando preguntas técnicas y financieras...', 48);
+          const step2 = await requestClarificationStep({ ...common, step: 2 });
+          applyClarificationResponse(step2);
 
-          if (wordEditor) {
-            wordEditor.innerHTML = data.html;
-            wordEditor.setAttribute('contenteditable', 'true');
-            wordIsDirty = false;
-            updateWordCount();
-          }
+          generateClarificationsButton.textContent = 'Finalizando bloque 3 de 3...';
+          setClarificationProgress('Revisando contradicciones y cierre...', 80);
+          const step3 = await requestClarificationStep({ ...common, step: 3 });
+          applyClarificationResponse(step3);
 
-          if (wordEditButton) {
-            wordEditButton.classList.remove('is-off');
-            wordEditButton.setAttribute('aria-pressed', 'true');
-            wordEditButton.setAttribute('title', 'Desactivar edición');
-          }
-
-          if (wordStatus) {
-            wordStatus.textContent = 'Documento finalizado y guardado.';
-          }
-
-          if (progressBox) {
-            progressBox.textContent = 'Junta de Aclaraciones generada correctamente.';
-            progressBox.classList.add('is-visible');
-          }
-
+          if (wordEditor) wordEditor.setAttribute('contenteditable', 'true');
+          if (wordStatus) wordStatus.textContent = 'Documento finalizado y guardado.';
           if (typeof showWordToast === 'function') {
-            showWordToast('Junta de Aclaraciones generada correctamente.');
+            showWordToast('Junta de Aclaraciones finalizada.');
           }
         } catch (error) {
           console.error('Error generando Junta de Aclaraciones:', error);
 
-          const errorMessage = error?.name === 'AbortError'
-            ? 'La petición superó el tiempo permitido por el navegador o el servidor. Revisa storage/logs/direct-reports.log para identificar en qué etapa se detuvo.'
-            : (error?.message || 'No se pudo generar la Junta de Aclaraciones.');
-
-          const escapeHtml = function (value) {
-            return String(value || '')
-              .replace(/&/g, '&amp;')
-              .replace(/</g, '&lt;')
-              .replace(/>/g, '&gt;')
-              .replace(/"/g, '&quot;')
-              .replace(/'/g, '&#039;');
-          };
-
           if (wordEditor) {
             wordEditor.setAttribute('contenteditable', 'true');
-            wordEditor.innerHTML = `
-              <article class="jrt-report-doc jrt-clarifications-report">
-                <header>
-                  <h1>Junta de Aclaraciones - Preguntas Estratégicas</h1>
-                </header>
-                <section>
-                  <h2>No se pudo completar la generación</h2>
-                  <p>${escapeHtml(errorMessage)}</p>
-                  <p><strong>Diagnóstico:</strong> revisa el archivo <code>storage/logs/direct-reports.log</code>.</p>
-                </section>
-              </article>`;
+
+            // Conserva cualquier bloque ya recibido. Solo muestra el error si no existe avance.
+            const hasUsefulContent = wordEditor.querySelector('[data-ja-step]');
+
+            if (!hasUsefulContent) {
+              wordEditor.innerHTML = `
+                <article class="jrt-report-doc">
+                  <header><h1>Junta de Aclaraciones</h1></header>
+                  <section>
+                    <h2>No se pudo completar la generación</h2>
+                    <p>${escapeHtml(error.message || 'Error desconocido')}</p>
+                  </section>
+                </article>`;
+            } else {
+              wordEditor.insertAdjacentHTML(
+                'beforeend',
+                '<section><h2>Generación interrumpida</h2><p>'
+                + escapeHtml(error.message || 'No se pudo generar el siguiente bloque.')
+                + '</p><p>Los bloques terminados permanecen guardados y pueden editarse.</p></section>'
+              );
+            }
+
             updateWordCount();
           }
 
-          if (wordStatus) {
-            wordStatus.textContent = errorMessage;
-          }
-
+          if (wordStatus) wordStatus.textContent = error.message || 'No se pudo completar el documento.';
           if (progressBox) {
-            progressBox.textContent = errorMessage;
+            progressBox.textContent = error.message || 'No se pudo completar la Junta de Aclaraciones.';
             progressBox.classList.add('is-visible');
           }
-
           if (typeof showWordToast === 'function') {
-            showWordToast(errorMessage, true);
+            showWordToast(error.message || 'No se pudo generar la Junta de Aclaraciones.', true);
           }
         } finally {
           generateClarificationsButton.disabled = false;
