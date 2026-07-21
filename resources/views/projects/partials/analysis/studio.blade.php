@@ -811,6 +811,11 @@
   #pjdEstrategiaModal .pjd-btn-primary { background: #2563eb; color: #ffffff; }
   #pjdEstrategiaModal .pjd-btn-primary:hover { background: #1d4ed8; }
 
+
+  @keyframes pjdJaProgress {
+    from { width: 18%; transform: translateX(0); }
+    to { width: 70%; transform: translateX(35%); }
+  }
   /* ==========================================================
      MODAL ARMADO DE PROPUESTA
      ========================================================== */
@@ -2271,7 +2276,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // Generación progresiva de Junta de Aclaraciones con editor Word
+  // Generación directa de Junta de Aclaraciones, sin cron ni cola
   if (modalEstrategia) {
     const generateClarificationsButton = modalEstrategia.querySelector('[data-generate-clarifications]');
     const formatRadios = Array.from(modalEstrategia.querySelectorAll('input[name="formato_ja"]'));
@@ -2291,167 +2296,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
     templateInput?.addEventListener('change', function () {
       const file = templateInput.files?.[0];
-      if (templateName) templateName.textContent = file ? file.name : 'Seleccionar formato';
+      if (templateName) {
+        templateName.textContent = file ? file.name : 'Seleccionar formato';
+      }
     });
 
     syncTemplateVisibility();
 
     if (generateClarificationsButton) {
-      let clarificationsPollingTimer = null;
-      let lastProgressiveHtml = '';
-      let activeClarificationJobId = null;
-      const clarificationsMaxWaitMs = 35 * 60 * 1000;
-      let clarificationsPollingStartedAt = null;
-
-      const stopClarificationsPolling = function () {
-        if (clarificationsPollingTimer) {
-          clearTimeout(clarificationsPollingTimer);
-          clarificationsPollingTimer = null;
-        }
-        clarificationsPollingStartedAt = null;
-        activeClarificationJobId = null;
-      };
-
-      const renderProgressiveHtml = function (data) {
-        if (!data?.html || data.html === lastProgressiveHtml) return;
-        lastProgressiveHtml = data.html;
-
-        generatedReports.clarifications = {
-          title: data.report_title || 'Junta de Aclaraciones - Preguntas Estratégicas',
-          html: data.html,
-          template_name: data.template_name || null,
-          status: data.status || 'processing',
-          progress: Number(data.progress || 0)
-        };
-
-        if (typeof ensureStudioReportItem === 'function') {
-          ensureStudioReportItem('clarifications', generatedReports.clarifications.title);
-        }
-
-        if (wordEditor && activeReportType === 'clarifications') {
-          const workspace = wordEditor.closest('.pjd-word-workspace');
-          const distanceToBottom = workspace
-            ? workspace.scrollHeight - workspace.scrollTop - workspace.clientHeight
-            : 9999;
-          const shouldFollow = distanceToBottom < 180;
-
-          wordEditor.innerHTML = data.html;
-          wordIsDirty = false;
-          updateWordCount();
-
-          if (wordStatus) {
-            wordStatus.textContent = (data.message || 'Generando documento...') + ' · ' + Number(data.progress || 0) + '%';
-          }
-
-          if (shouldFollow && workspace) {
-            requestAnimationFrame(function () {
-              workspace.scrollTop = workspace.scrollHeight;
-            });
-          }
-        }
-      };
-
-      const pollClarificationsStatus = async function (reportUrl, csrfToken, jobId, originalHtml) {
-        try {
-          if (
-            clarificationsPollingStartedAt
-            && (Date.now() - clarificationsPollingStartedAt) > clarificationsMaxWaitMs
-          ) {
-            stopClarificationsPolling();
-            generateClarificationsButton.disabled = false;
-            generateClarificationsButton.innerHTML = originalHtml;
-
-            if (progressBox) {
-              progressBox.textContent = 'El proceso continúa en segundo plano. Puedes cerrar esta ventana y abrir el documento desde Studio.';
-              progressBox.classList.add('is-visible');
-            }
-            return;
-          }
-
-          const statusForm = new FormData();
-          statusForm.append('_token', csrfToken);
-          statusForm.append('action', 'clarifications_status');
-          statusForm.append('job_id', jobId);
-
-          const response = await fetch(reportUrl, {
-            method: 'POST',
-            headers: {
-              'Accept': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest'
-            },
-            credentials: 'same-origin',
-            body: statusForm
-          });
-
-          const raw = await response.text();
-          let data = {};
-
-          try {
-            data = raw ? JSON.parse(raw) : {};
-          } catch (parseError) {
-            throw new Error('El servidor devolvió una respuesta inválida (' + response.status + ').');
-          }
-
-          if (!response.ok || data.ok === false) {
-            throw new Error(data.message || data.error || 'No se pudo consultar el avance.');
-          }
-
-          if (progressBox) {
-            progressBox.textContent = (data.message || 'Procesando...') + ' ' + Number(data.progress || 0) + '%';
-            progressBox.classList.add('is-visible');
-          }
-
-          renderProgressiveHtml(data);
-
-          if (data.status === 'completed') {
-            stopClarificationsPolling();
-            generateClarificationsButton.disabled = false;
-            generateClarificationsButton.innerHTML = originalHtml;
-
-            if (wordStatus) wordStatus.textContent = 'Documento finalizado y guardado.';
-            if (typeof showWordToast === 'function') showWordToast('Junta de Aclaraciones finalizada.');
-            return;
-          }
-
-          if (data.status === 'failed') {
-            stopClarificationsPolling();
-            generateClarificationsButton.disabled = false;
-            generateClarificationsButton.innerHTML = originalHtml;
-
-            if (progressBox) {
-              progressBox.textContent = (data.message || 'La generación no pudo completarse.') + ' El avance ya generado permanece disponible.';
-              progressBox.classList.add('is-visible');
-            }
-
-            if (wordStatus) wordStatus.textContent = 'Proceso detenido. El avance permanece disponible.';
-            return;
-          }
-
-          clarificationsPollingTimer = setTimeout(function () {
-            pollClarificationsStatus(reportUrl, csrfToken, jobId, originalHtml);
-          }, 1800);
-        } catch (error) {
-          clarificationsPollingTimer = setTimeout(function () {
-            pollClarificationsStatus(reportUrl, csrfToken, jobId, originalHtml);
-          }, 5000);
-
-          if (progressBox) {
-            progressBox.textContent = (error.message || 'No se pudo consultar el proceso.') + ' Reintentando...';
-            progressBox.classList.add('is-visible');
-          }
-        }
-      };
-
       generateClarificationsButton.addEventListener('click', async function () {
-        stopClarificationsPolling();
-        lastProgressiveHtml = '';
-
         const formatMode = modalEstrategia.querySelector('input[name="formato_ja"]:checked')?.value || 'no';
         const riskLevels = [];
 
-        if (modalEstrategia.querySelector('input[name="riesgo_alto"]')?.checked) riskLevels.push('alto');
-        if (modalEstrategia.querySelector('input[name="riesgo_medio"]')?.checked) riskLevels.push('medio');
-        if (modalEstrategia.querySelector('input[name="riesgo_no_cumple"]')?.checked) riskLevels.push('no_cumple');
+        if (modalEstrategia.querySelector('input[name="riesgo_alto"]')?.checked) {
+          riskLevels.push('alto');
+        }
+
+        if (modalEstrategia.querySelector('input[name="riesgo_medio"]')?.checked) {
+          riskLevels.push('medio');
+        }
+
+        if (modalEstrategia.querySelector('input[name="riesgo_no_cumple"]')?.checked) {
+          riskLevels.push('no_cumple');
+        }
 
         const instructions = modalEstrategia.querySelector('.pjd-estrategia-textarea')?.value.trim() || '';
         const templateFile = templateInput?.files?.[0] || null;
@@ -2462,15 +2329,16 @@ document.addEventListener('DOMContentLoaded', function () {
             progressBox.textContent = 'Selecciona el archivo Word, Excel o PDF que se usará como formato.';
             progressBox.classList.add('is-visible');
           }
+
           templateInput?.click();
           return;
         }
 
         generateClarificationsButton.disabled = true;
-        generateClarificationsButton.textContent = 'Preparando documento...';
+        generateClarificationsButton.textContent = 'Analizando bases...';
 
         if (progressBox) {
-          progressBox.textContent = 'Subiendo el formato y preparando el proceso...';
+          progressBox.textContent = 'Analizando bases, anexos y riesgos. Esto puede tardar algunos minutos.';
           progressBox.classList.add('is-visible');
         }
 
@@ -2481,19 +2349,30 @@ document.addEventListener('DOMContentLoaded', function () {
               <p>Documento de trabajo en generación.</p>
             </header>
             <section>
-              <h2>Preparando análisis</h2>
-              <p>Revisando bases, anexos, checklist e instrucciones. Las secciones aparecerán aquí conforme se terminen.</p>
+              <h2>Analizando información</h2>
+              <p>Revisando bases, anexos, checklist e instrucciones específicas.</p>
               <div style="height:10px;border-radius:999px;background:#e6f0ff;overflow:hidden;margin-top:12px;">
-                <div style="width:8%;height:100%;background:#007aff;"></div>
+                <div style="width:35%;height:100%;background:#007aff;animation:pjdJaProgress 1.5s ease-in-out infinite alternate;"></div>
               </div>
             </section>
           </article>`;
 
         closeModal(modalEstrategia);
+
         if (typeof openWordEditor === 'function') {
-          openWordEditor('clarifications', 'Junta de Aclaraciones - Preguntas Estratégicas', initialHtml);
-          if (wordEditor) wordEditor.setAttribute('contenteditable', 'false');
-          if (wordStatus) wordStatus.textContent = 'Preparando análisis... 8%';
+          openWordEditor(
+            'clarifications',
+            'Junta de Aclaraciones - Preguntas Estratégicas',
+            initialHtml
+          );
+
+          if (wordEditor) {
+            wordEditor.setAttribute('contenteditable', 'false');
+          }
+
+          if (wordStatus) {
+            wordStatus.textContent = 'Analizando bases e identificando preguntas...';
+          }
         }
 
         try {
@@ -2508,8 +2387,13 @@ document.addEventListener('DOMContentLoaded', function () {
           formData.append('format_mode', formatMode === 'si' ? 'formato_especifico' : 'estandar');
           formData.append('instructions', instructions);
 
-          if (templateFile) formData.append('template_file', templateFile, templateFile.name);
-          riskLevels.forEach(function (risk) { formData.append('risk_levels[]', risk); });
+          if (templateFile) {
+            formData.append('template_file', templateFile, templateFile.name);
+          }
+
+          riskLevels.forEach(function (risk) {
+            formData.append('risk_levels[]', risk);
+          });
 
           const response = await fetch(reportUrl, {
             method: 'POST',
@@ -2527,24 +2411,93 @@ document.addEventListener('DOMContentLoaded', function () {
           try {
             data = raw ? JSON.parse(raw) : {};
           } catch (parseError) {
-            throw new Error('El servidor devolvió una respuesta inválida (' + response.status + ').');
+            throw new Error(
+              'El servidor devolvió una respuesta inválida ('
+              + response.status
+              + '). Revisa storage/logs/laravel.log.'
+            );
           }
 
-          if (!response.ok || data.ok === false || !data.queued || !data.job_id) {
-            throw new Error(data.message || data.error || 'No se pudo iniciar la generación.');
+          if (!response.ok || data.ok === false) {
+            throw new Error(
+              data.message
+              || data.error
+              || 'No se pudo generar la Junta de Aclaraciones.'
+            );
           }
 
-          activeClarificationJobId = data.job_id;
-          generateClarificationsButton.textContent = 'Generando por secciones...';
-          clarificationsPollingStartedAt = Date.now();
+          if (!data.html) {
+            throw new Error('La IA terminó, pero no devolvió contenido para el documento.');
+          }
 
-          if (wordStatus) wordStatus.textContent = 'Proceso enviado a la cola... 10%';
-          pollClarificationsStatus(reportUrl, csrfToken, data.job_id, originalHtml);
+          const reportTitle = data.report_title
+            || data.title
+            || 'Junta de Aclaraciones - Preguntas Estratégicas';
+
+          generatedReports.clarifications = {
+            title: reportTitle,
+            html: data.html,
+            template_name: data.template_name || null,
+            status: 'completed',
+            progress: 100
+          };
+
+          if (typeof ensureStudioReportItem === 'function') {
+            ensureStudioReportItem('clarifications', reportTitle);
+          }
+
+          if (wordTitle) {
+            wordTitle.textContent = reportTitle;
+          }
+
+          if (wordEditor) {
+            wordEditor.innerHTML = data.html;
+            wordEditor.setAttribute('contenteditable', 'true');
+            wordIsDirty = false;
+            updateWordCount();
+          }
+
+          if (wordEditButton) {
+            wordEditButton.classList.remove('is-off');
+            wordEditButton.setAttribute('aria-pressed', 'true');
+            wordEditButton.setAttribute('title', 'Desactivar edición');
+          }
+
+          if (wordStatus) {
+            wordStatus.textContent = 'Documento finalizado y guardado.';
+          }
+
+          if (progressBox) {
+            progressBox.textContent = 'Junta de Aclaraciones generada correctamente.';
+            progressBox.classList.add('is-visible');
+          }
+
+          if (typeof showWordToast === 'function') {
+            showWordToast('Junta de Aclaraciones generada correctamente.');
+          }
         } catch (error) {
+          if (wordEditor) {
+            wordEditor.setAttribute('contenteditable', 'true');
+          }
+
+          if (wordStatus) {
+            wordStatus.textContent = 'No se pudo generar el documento.';
+          }
+
+          if (progressBox) {
+            progressBox.textContent = error.message || 'No se pudo generar la Junta de Aclaraciones.';
+            progressBox.classList.add('is-visible');
+          }
+
+          if (typeof showWordToast === 'function') {
+            showWordToast(
+              error.message || 'No se pudo generar la Junta de Aclaraciones.',
+              true
+            );
+          }
+        } finally {
           generateClarificationsButton.disabled = false;
           generateClarificationsButton.innerHTML = originalHtml;
-          if (wordStatus) wordStatus.textContent = 'No se pudo iniciar el proceso.';
-          if (typeof showWordToast === 'function') showWordToast(error.message || 'No se pudo iniciar la Junta de Aclaraciones.', true);
         }
       });
     }
