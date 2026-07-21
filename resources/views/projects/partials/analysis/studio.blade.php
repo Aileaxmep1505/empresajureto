@@ -2395,34 +2395,58 @@ document.addEventListener('DOMContentLoaded', function () {
             formData.append('risk_levels[]', risk);
           });
 
-          const response = await fetch(reportUrl, {
-            method: 'POST',
-            headers: {
-              'Accept': 'application/json',
-              'X-Requested-With': 'XMLHttpRequest'
-            },
-            credentials: 'same-origin',
-            body: formData
-          });
+          const abortController = new AbortController();
+          const requestTimeout = window.setTimeout(function () {
+            abortController.abort();
+          }, 295000);
+
+          let response;
+
+          try {
+            response = await fetch(reportUrl, {
+              method: 'POST',
+              headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+              },
+              credentials: 'same-origin',
+              body: formData,
+              signal: abortController.signal
+            });
+          } finally {
+            window.clearTimeout(requestTimeout);
+          }
 
           const raw = await response.text();
+
+          console.log('Junta de Aclaraciones HTTP status:', response.status);
+          console.log('Junta de Aclaraciones respuesta:', raw);
+
           let data = {};
 
           try {
             data = raw ? JSON.parse(raw) : {};
           } catch (parseError) {
+            const responsePreview = raw
+              ? raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 700)
+              : 'Respuesta vacía';
+
             throw new Error(
-              'El servidor devolvió una respuesta inválida ('
-              + response.status
-              + '). Revisa storage/logs/laravel.log.'
+              'Error HTTP ' + response.status + ': ' + responsePreview
             );
           }
 
           if (!response.ok || data.ok === false) {
             throw new Error(
-              data.message
-              || data.error
-              || 'No se pudo generar la Junta de Aclaraciones.'
+              'Error HTTP '
+              + response.status
+              + ': '
+              + (
+                data.message
+                || data.error
+                || 'No se pudo generar la Junta de Aclaraciones.'
+              )
+              + (data.request_id ? ' · Solicitud: ' + data.request_id : '')
             );
           }
 
@@ -2476,24 +2500,48 @@ document.addEventListener('DOMContentLoaded', function () {
             showWordToast('Junta de Aclaraciones generada correctamente.');
           }
         } catch (error) {
+          console.error('Error generando Junta de Aclaraciones:', error);
+
+          const errorMessage = error?.name === 'AbortError'
+            ? 'La petición superó el tiempo permitido por el navegador o el servidor. Revisa storage/logs/direct-reports.log para identificar en qué etapa se detuvo.'
+            : (error?.message || 'No se pudo generar la Junta de Aclaraciones.');
+
+          const escapeHtml = function (value) {
+            return String(value || '')
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#039;');
+          };
+
           if (wordEditor) {
             wordEditor.setAttribute('contenteditable', 'true');
+            wordEditor.innerHTML = `
+              <article class="jrt-report-doc jrt-clarifications-report">
+                <header>
+                  <h1>Junta de Aclaraciones - Preguntas Estratégicas</h1>
+                </header>
+                <section>
+                  <h2>No se pudo completar la generación</h2>
+                  <p>${escapeHtml(errorMessage)}</p>
+                  <p><strong>Diagnóstico:</strong> revisa el archivo <code>storage/logs/direct-reports.log</code>.</p>
+                </section>
+              </article>`;
+            updateWordCount();
           }
 
           if (wordStatus) {
-            wordStatus.textContent = 'No se pudo generar el documento.';
+            wordStatus.textContent = errorMessage;
           }
 
           if (progressBox) {
-            progressBox.textContent = error.message || 'No se pudo generar la Junta de Aclaraciones.';
+            progressBox.textContent = errorMessage;
             progressBox.classList.add('is-visible');
           }
 
           if (typeof showWordToast === 'function') {
-            showWordToast(
-              error.message || 'No se pudo generar la Junta de Aclaraciones.',
-              true
-            );
+            showWordToast(errorMessage, true);
           }
         } finally {
           generateClarificationsButton.disabled = false;

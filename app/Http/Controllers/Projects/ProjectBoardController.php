@@ -15,6 +15,7 @@ use App\Services\OpenAiStructurerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Storage;
@@ -2629,10 +2630,20 @@ PROMPT;
     {
         abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
 
-        @set_time_limit(360);
-        @ini_set('max_execution_time', '360');
+        @set_time_limit(300);
+        @ini_set('max_execution_time', '300');
         @ini_set('memory_limit', '768M');
         ignore_user_abort(true);
+
+        $requestId = (string) Str::uuid();
+        $startedAt = microtime(true);
+
+        $this->writeDirectReportLog('REQUEST_RECEIVED', [
+            'request_id' => $requestId,
+            'project_id' => $project->id,
+            'action' => $request->input('action', 'generate'),
+            'report_type' => $request->input('report_type', 'analysis'),
+        ]);
 
         try {
             $action = (string) $request->input('action', 'generate');
@@ -2647,19 +2658,27 @@ PROMPT;
 
                 $this->saveProjectReport($project, $type, $content, $title);
 
+                $this->writeDirectReportLog('REPORT_SAVED', [
+                    'request_id' => $requestId,
+                    'project_id' => $project->id,
+                    'report_type' => $type,
+                    'content_chars' => mb_strlen($content, 'UTF-8'),
+                ]);
+
                 return response()->json([
                     'ok' => true,
                     'status' => 'saved',
+                    'request_id' => $requestId,
                     'saved_at' => now()->format('H:i:s'),
                 ]);
             }
 
-            // Compatibilidad clara con vistas antiguas: ya no existe polling.
             if ($action === 'clarifications_status') {
                 return response()->json([
                     'ok' => false,
                     'status' => 'disabled',
-                    'message' => 'La Junta de Aclaraciones ahora se genera directamente y ya no utiliza cola ni consulta de progreso.',
+                    'request_id' => $requestId,
+                    'message' => 'La Junta de Aclaraciones se genera directamente y ya no utiliza colas ni consulta de progreso.',
                 ], 410);
             }
 
@@ -2683,8 +2702,6 @@ PROMPT;
                 'instructions' => $request->input('instructions', ''),
             ];
 
-            $startedAt = microtime(true);
-
             $prompt = $type === 'clarifications'
                 ? $this->buildFastDirectClarificationsPrompt($project, $checklist, $options)
                 : $this->buildSpecializedReportPrompt($project, $checklist, $type, $options);
@@ -2693,7 +2710,21 @@ PROMPT;
                 ? 'Eres especialista senior en licitaciones públicas mexicanas. Genera una Junta de Aclaraciones precisa, breve, sustentada y lista para editar. Devuelve únicamente HTML limpio, sin markdown.'
                 : 'Eres un generador de reportes HTML profesionales para licitaciones públicas mexicanas. Respeta exactamente la estructura solicitada y devuelve únicamente HTML limpio.';
 
-            $html = '';
+            $this->writeDirectReportLog('AI_CALL_START', [
+                'request_id' => $requestId,
+                'project_id' => $project->id,
+                'report_type' => $type,
+                'prompt_chars' => mb_strlen($prompt, 'UTF-8'),
+                'checklist_count' => count($checklist),
+                'template_name' => $template['filename'] ?? null,
+            ]);
+
+            Log::info('JA directa: iniciando llamada a IA.', [
+                'request_id' => $requestId,
+                'project_id' => $project->id,
+                'report_type' => $type,
+                'prompt_chars' => mb_strlen($prompt, 'UTF-8'),
+            ]);
 
             try {
                 $html = trim((string) $ai->chatRaw([
@@ -2703,7 +2734,18 @@ PROMPT;
 
                 $html = $this->cleanDirectReportHtml($html);
             } catch (\Throwable $aiError) {
+                $this->writeDirectReportLog('AI_CALL_ERROR', [
+                    'request_id' => $requestId,
+                    'project_id' => $project->id,
+                    'report_type' => $type,
+                    'error' => $aiError->getMessage(),
+                    'file' => basename($aiError->getFile()),
+                    'line' => $aiError->getLine(),
+                    'elapsed_seconds' => round(microtime(true) - $startedAt, 2),
+                ]);
+
                 Log::error('Direct report AI generation failed', [
+                    'request_id' => $requestId,
                     'project_id' => $project->id,
                     'report_type' => $type,
                     'error' => $aiError->getMessage(),
@@ -2718,28 +2760,66 @@ PROMPT;
                 );
             }
 
+            $this->writeDirectReportLog('AI_CALL_COMPLETED', [
+                'request_id' => $requestId,
+                'project_id' => $project->id,
+                'report_type' => $type,
+                'response_chars' => mb_strlen($html, 'UTF-8'),
+                'elapsed_seconds' => round(microtime(true) - $startedAt, 2),
+            ]);
+
+            Log::info('JA directa: respuesta de IA recibida.', [
+                'request_id' => $requestId,
+                'project_id' => $project->id,
+                'report_type' => $type,
+                'response_chars' => mb_strlen($html, 'UTF-8'),
+                'elapsed_seconds' => round(microtime(true) - $startedAt, 2),
+            ]);
+
             if ($html === '' || trim(strip_tags($html)) === '') {
                 $html = $type === 'analysis'
                     ? $this->buildExecutiveReportFallbackHtml($project, $checklist)
                     : $this->buildSpecializedReportFallbackHtml($project, $type);
             }
 
-            $this->saveProjectReport($project->fresh(), $type, $html, $title);
+            $freshProject = $project->fresh() ?: $project;
+            $this->saveProjectReport($freshProject, $type, $html, $title);
+
+            $elapsed = round(microtime(true) - $startedAt, 2);
+
+            $this->writeDirectReportLog('REQUEST_COMPLETED', [
+                'request_id' => $requestId,
+                'project_id' => $project->id,
+                'report_type' => $type,
+                'elapsed_seconds' => $elapsed,
+                'html_chars' => mb_strlen($html, 'UTF-8'),
+            ]);
 
             return response()->json([
                 'ok' => true,
                 'status' => 'completed',
                 'queued' => false,
+                'request_id' => $requestId,
                 'html' => $html,
                 'report_type' => $type,
                 'report_title' => $title,
                 'saved_at' => now()->format('H:i:s'),
-                'elapsed_seconds' => round(microtime(true) - $startedAt, 2),
+                'elapsed_seconds' => $elapsed,
                 'template_name' => $template['filename'] ?? null,
                 'template_path' => $template['stored_path'] ?? null,
             ]);
         } catch (\Throwable $e) {
+            $this->writeDirectReportLog('REQUEST_FAILED', [
+                'request_id' => $requestId,
+                'project_id' => $project->id,
+                'error' => $e->getMessage(),
+                'file' => basename($e->getFile()),
+                'line' => $e->getLine(),
+                'elapsed_seconds' => round(microtime(true) - $startedAt, 2),
+            ]);
+
             Log::error('Direct report generation failed', [
+                'request_id' => $requestId,
                 'project_id' => $project->id,
                 'err' => $e->getMessage(),
                 'file' => $e->getFile(),
@@ -2750,8 +2830,39 @@ PROMPT;
             return response()->json([
                 'ok' => false,
                 'status' => 'failed',
+                'request_id' => $requestId,
                 'message' => $e->getMessage(),
             ], 500);
+        }
+    }
+
+    /**
+     * Log independiente para diagnosticar peticiones que el servidor web
+     * interrumpa antes de que Laravel alcance a responder.
+     */
+    private function writeDirectReportLog(string $event, array $context = []): void
+    {
+        try {
+            $directory = storage_path('logs');
+
+            if (!is_dir($directory)) {
+                File::makeDirectory($directory, 0775, true);
+            }
+
+            $line = '[' . now()->format('Y-m-d H:i:s') . '] ' . $event;
+
+            if (!empty($context)) {
+                $line .= ' ' . json_encode(
+                    $context,
+                    JSON_UNESCAPED_UNICODE
+                    | JSON_UNESCAPED_SLASHES
+                    | JSON_INVALID_UTF8_SUBSTITUTE
+                );
+            }
+
+            File::append(storage_path('logs/direct-reports.log'), $line . PHP_EOL);
+        } catch (\Throwable) {
+            // El diagnóstico nunca debe romper la generación del reporte.
         }
     }
 
@@ -2789,7 +2900,7 @@ PROMPT;
                     || $priority === 'alta'
                     || !blank($item['cita'] ?? null);
             })
-            ->take(60)
+            ->take(25)
             ->map(fn ($item) => [
                 'requisito' => Str::limit((string) ($item['requisito'] ?? ''), 320),
                 'descripcion' => Str::limit((string) ($item['descripcion'] ?? ''), 420),
@@ -2825,7 +2936,7 @@ PROMPT;
         ) ?: '[]';
 
         // Contexto deliberadamente compacto para responder rápido.
-        $documentsText = $this->projectGroundedDocumentText($project, 16000);
+        $documentsText = $this->projectGroundedDocumentText($project, 9000);
 
         if (trim($documentsText) === '') {
             $documentsText = 'No existe texto documental extraído. Usa únicamente los datos estructurados y el checklist, sin inventar información.';
@@ -2845,7 +2956,7 @@ PROMPT;
         $templateFilename = trim((string) ($options['template_filename'] ?? ''));
         $templateContext = Str::limit(
             trim((string) ($options['template_context'] ?? '')),
-            3500
+            1800
         );
 
         $projectName = $project->name;
