@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Projects;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\GenerateClarificationsReportJob;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\ProjectChatMessage;
@@ -15,7 +14,6 @@ use App\Services\PythonProjectProcessor;
 use App\Services\OpenAiStructurerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
@@ -2621,46 +2619,48 @@ PROMPT;
         return '<article class="jrt-report-doc"><h1>' . $title . '</h1><section><h2>🔹 Resumen Ejecutivo</h2><p>Reporte generado para el proyecto ' . $projectName . '. No se pudo completar el análisis automático, por lo que se muestra la estructura base para edición.</p></section><section><h2>🗂️ Detalle por Categoría</h2>' . $categoryHtml . '</section><section><h2>📚 Fuente de información</h2><table><thead><tr><th>#</th><th>Documento</th><th>Sección / Numeral</th><th>Página</th><th>Descripción breve</th></tr></thead><tbody><tr><td>1</td><td>Documentos del proyecto</td><td>Sin sección específica</td><td>—</td><td>Información pendiente de extracción o validación.</td></tr></tbody></table></section><section><h2>🧩 Observaciones finales</h2><ul><li>⚠️ Requiere validación manual de fuentes y numerales.</li><li>⚠️ Completar los datos marcados como no explícitos si se encuentran en anexos o contrato.</li></ul></section></article>';
     }
 
+    /**
+     * Genera reportes directamente en la petición HTTP.
+     *
+     * La Junta de Aclaraciones NO usa Jobs, colas, caché de progreso,
+     * workers ni cron. Se realiza una sola llamada compacta al modelo.
+     */
     public function generateReport(Request $request, Project $project, OpenAiStructurerService $ai)
     {
         abort_if($project->user_id !== Auth::id() && Auth::id() !== 1, 403);
 
+        @set_time_limit(360);
+        @ini_set('max_execution_time', '360');
+        @ini_set('memory_limit', '768M');
+        ignore_user_abort(true);
+
         try {
             $action = (string) $request->input('action', 'generate');
-
-            if ($action === 'clarifications_status') {
-                $jobId = trim((string) $request->input('job_id', ''));
-
-                if ($jobId === '') {
-                    return response()->json([
-                        'ok' => false,
-                        'message' => 'Falta el identificador del proceso.',
-                    ], 422);
-                }
-
-                $status = Cache::get("project-report-job:{$jobId}");
-
-                if (!is_array($status)) {
-                    return response()->json([
-                        'ok' => false,
-                        'message' => 'El proceso ya no existe o expiró.',
-                    ], 404);
-                }
-
-                return response()->json(array_merge(['ok' => true], $status));
-            }
-
             $type = $this->normalizeReportType($request->input('report_type', 'analysis'));
             $title = $request->input('report_title') ?: $this->reportTitleForType($type);
 
             if ($action === 'save') {
-                $content = $request->input('report_content', $request->input('draft_content', ''));
+                $content = (string) $request->input(
+                    'report_content',
+                    $request->input('draft_content', '')
+                );
+
                 $this->saveProjectReport($project, $type, $content, $title);
 
                 return response()->json([
                     'ok' => true,
+                    'status' => 'saved',
                     'saved_at' => now()->format('H:i:s'),
                 ]);
+            }
+
+            // Compatibilidad clara con vistas antiguas: ya no existe polling.
+            if ($action === 'clarifications_status') {
+                return response()->json([
+                    'ok' => false,
+                    'status' => 'disabled',
+                    'message' => 'La Junta de Aclaraciones ahora se genera directamente y ya no utiliza cola ni consulta de progreso.',
+                ], 410);
             }
 
             $project->loadMissing(['documents']);
@@ -2683,267 +2683,272 @@ PROMPT;
                 'instructions' => $request->input('instructions', ''),
             ];
 
-            if ($type === 'clarifications') {
-                $jobId = (string) Str::uuid();
-                $cacheKey = "project-report-job:{$jobId}";
+            $startedAt = microtime(true);
 
-                Cache::put($cacheKey, [
-                    'status' => 'queued',
-                    'message' => 'Proceso enviado a la cola. Esperando trabajador...',
-                    'progress' => 10,
-                    'html' => '<article class="jrt-report-doc jrt-clarifications-report"><header><h1>Junta de Aclaraciones - Preguntas Estratégicas</h1><p>Proyecto: ' . e($project->name) . '</p></header><section><h2>Preparando análisis</h2><p>El proceso fue enviado a la cola. El documento se actualizará automáticamente conforme se generen las secciones.</p></section></article>',
-                    'report_type' => 'clarifications',
-                    'report_title' => $title,
-                    'completed_sections' => [],
-                    'template_name' => $template['filename'] ?? null,
-                ], now()->addHour());
+            $prompt = $type === 'clarifications'
+                ? $this->buildFastDirectClarificationsPrompt($project, $checklist, $options)
+                : $this->buildSpecializedReportPrompt($project, $checklist, $type, $options);
 
-                $projectId = (int) $project->id;
-                $userId = Auth::id();
+            $systemMessage = $type === 'clarifications'
+                ? 'Eres especialista senior en licitaciones públicas mexicanas. Genera una Junta de Aclaraciones precisa, breve, sustentada y lista para editar. Devuelve únicamente HTML limpio, sin markdown.'
+                : 'Eres un generador de reportes HTML profesionales para licitaciones públicas mexicanas. Respeta exactamente la estructura solicitada y devuelve únicamente HTML limpio.';
 
-                GenerateClarificationsReportJob::dispatch(
-                    $projectId,
-                    $userId,
-                    $title,
-                    $options,
-                    $cacheKey
-                )->onQueue('reports');
-
-                return response()->json([
-                    'ok' => true,
-                    'queued' => true,
-                    'job_id' => $jobId,
-                    'message' => 'La generación comenzó en segundo plano.',
-                    'template_name' => $template['filename'] ?? null,
-                ], 202);
-            }
-
-            $prompt = $this->buildSpecializedReportPrompt($project, $checklist, $type, $options);
-            $html = null;
+            $html = '';
 
             try {
-                $messages = [
-                    ['role' => 'system', 'content' => 'Eres un generador de reportes HTML profesionales para licitaciones públicas mexicanas. Debes respetar exactamente la estructura solicitada para el tipo de reporte.'],
+                $html = trim((string) $ai->chatRaw([
+                    ['role' => 'system', 'content' => $systemMessage],
                     ['role' => 'user', 'content' => $prompt],
-                ];
+                ]));
 
-                $html = trim((string) $ai->chatRaw($messages));
-                $html = preg_replace('/^```html\s*/i', '', $html);
-                $html = preg_replace('/^```\s*/', '', $html);
-                $html = preg_replace('/```$/', '', trim($html));
+                $html = $this->cleanDirectReportHtml($html);
             } catch (\Throwable $aiError) {
-                Log::warning('Specialized report AI generation failed; using fallback report builder', [
+                Log::error('Direct report AI generation failed', [
                     'project_id' => $project->id,
                     'report_type' => $type,
                     'error' => $aiError->getMessage(),
+                    'file' => $aiError->getFile(),
+                    'line' => $aiError->getLine(),
                 ]);
+
+                throw new \RuntimeException(
+                    'No fue posible generar el documento con IA: ' . $aiError->getMessage(),
+                    0,
+                    $aiError
+                );
             }
 
-            if (!$html || trim(strip_tags($html)) === '') {
+            if ($html === '' || trim(strip_tags($html)) === '') {
                 $html = $type === 'analysis'
                     ? $this->buildExecutiveReportFallbackHtml($project, $checklist)
                     : $this->buildSpecializedReportFallbackHtml($project, $type);
             }
 
-            $this->saveProjectReport($project, $type, $html, $title);
+            $this->saveProjectReport($project->fresh(), $type, $html, $title);
 
             return response()->json([
                 'ok' => true,
+                'status' => 'completed',
+                'queued' => false,
                 'html' => $html,
                 'report_type' => $type,
+                'report_title' => $title,
                 'saved_at' => now()->format('H:i:s'),
+                'elapsed_seconds' => round(microtime(true) - $startedAt, 2),
                 'template_name' => $template['filename'] ?? null,
                 'template_path' => $template['stored_path'] ?? null,
             ]);
         } catch (\Throwable $e) {
-            Log::error('Report generation failed', [
+            Log::error('Direct report generation failed', [
                 'project_id' => $project->id,
                 'err' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'ok' => false,
+                'status' => 'failed',
                 'message' => $e->getMessage(),
             ], 500);
         }
     }
 
-
     /**
-     * Documento visible desde el primer segundo mientras se generan las secciones.
+     * Prompt compacto para una sola llamada directa.
+     * Evita reenviar reportes previos y limita el texto documental.
      */
-    private function buildClarificationsLiveHtml(
-        Project $project,
-        array $sections,
-        string $currentMessage,
-        int $progress,
-        bool $completed = false
-    ): string {
-        $projectName = e($project->name);
-        $status = $completed ? 'Documento finalizado' : 'Generación en progreso';
-        $safeMessage = e($currentMessage);
-        $safeProgress = max(0, min(100, $progress));
-
-        $html = '<article class="jrt-report-doc jrt-clarifications-report jrt-live-report">';
-        $html .= '<header>';
-        $html .= '<h1>Junta de Aclaraciones - Preguntas Estratégicas</h1>';
-        $html .= '<p><strong>Proyecto:</strong> ' . $projectName . '</p>';
-        $html .= '<p>Documento de trabajo sujeto a revisión jurídica, técnica, comercial y directiva.</p>';
-        $html .= '</header>';
-
-        $html .= '<section class="jrt-live-progress" contenteditable="false">';
-        $html .= '<h2>' . e($status) . '</h2>';
-        $html .= '<p>' . $safeMessage . '</p>';
-        $html .= '<div style="height:10px;border-radius:999px;background:#e6f0ff;overflow:hidden;margin:10px 0 6px;">';
-        $html .= '<div style="width:' . $safeProgress . '%;height:100%;background:#007aff;transition:width .25s ease;"></div>';
-        $html .= '</div>';
-        $html .= '<p><strong>Avance:</strong> ' . $safeProgress . '%</p>';
-        $html .= '</section>';
-
-        if (empty($sections)) {
-            $html .= '<section><h2>Preparando análisis</h2><p>Se están revisando las bases, anexos, contrato, checklist y las instrucciones proporcionadas.</p></section>';
-        } else {
-            foreach ($sections as $sectionHtml) {
-                if (is_string($sectionHtml) && trim($sectionHtml) !== '') {
-                    $html .= $sectionHtml;
-                }
-            }
-        }
-
-        if (!$completed) {
-            $html .= '<section class="jrt-live-pending" contenteditable="false">';
-            $html .= '<h2>Siguientes secciones</h2>';
-            $html .= '<p>El documento seguirá actualizándose automáticamente conforme termine cada bloque.</p>';
-            $html .= '</section>';
-        }
-
-        $html .= '</article>';
-
-        return $html;
-    }
-
-    /**
-     * Define los bloques progresivos de Junta de Aclaraciones.
-     */
-    private function clarificationGenerationSections(): array
-    {
-        /*
-         * Tres llamadas en lugar de seis.
-         * Reduce aproximadamente a la mitad el tiempo total sin perder el avance.
-         */
-        return [
-            [
-                'key' => 'diagnosis',
-                'title' => 'Diagnóstico y preguntas legales',
-                'progress' => 35,
-                'instruction' => 'Genera: 1) <section><h2>Resumen Ejecutivo de Hallazgos</h2>...</section>; y 2) <section><h2>Preguntas legales y administrativas</h2>...</section>. Incluye únicamente preguntas relevantes y no duplicadas. Máximo 10 preguntas en este bloque.',
-            ],
-            [
-                'key' => 'core',
-                'title' => 'Preguntas técnicas, financieras y operativas',
-                'progress' => 72,
-                'instruction' => 'Genera tres secciones: <h2>Preguntas técnicas</h2>, <h2>Preguntas financieras y contractuales</h2> y <h2>Preguntas logísticas, fiscales y de seguridad social</h2>. Usa tablas compactas con Número, Prioridad, Página, Numeral/Apartado, Hallazgo, Pregunta/Aclaración, Objetivo, Riesgo y Fuente. Máximo 18 preguntas en total, solo las que tengan evidencia o riesgo real.',
-            ],
-            [
-                'key' => 'closing',
-                'title' => 'Contradicciones, prioridad y fuentes',
-                'progress' => 96,
-                'instruction' => 'Genera las secciones finales: <h2>Contradicciones y errores de bases detectados</h2>, <h2>Preguntas que requieren autorización interna</h2>, <h2>Matriz de prioridad</h2>, <h2>Fuentes documentales</h2> y <h2>Revisión previa al envío</h2>. No repitas preguntas anteriores. Mantén el contenido breve y ejecutivo.',
-            ],
-        ];
-    }
-
-    private function cleanGeneratedReportHtml(string $html): string
-    {
-        $html = trim($html);
-        $html = preg_replace('/^```html\s*/i', '', $html);
-        $html = preg_replace('/^```\s*/', '', $html);
-        $html = preg_replace('/```$/', '', trim($html));
-
-        return trim((string) $html);
-    }
-
-    private function buildClarificationsSectionPrompt(
+    private function buildFastDirectClarificationsPrompt(
         Project $project,
         array $checklist,
-        array $options,
-        array $section,
-        array $generatedSections
+        array $options = []
     ): string {
-        /*
-         * Contexto compacto: antes se reenviaba el prompt completo y hasta
-         * 25,000 caracteres documentales en cada una de seis llamadas.
-         */
-        $structuredData = is_array($project->structured_data) ? $project->structured_data : [];
+        $structuredData = is_array($project->structured_data)
+            ? $project->structured_data
+            : [];
 
-        // Excluye reportes previos para no inflar el contexto.
-        unset($structuredData['generated_reports'], $structuredData['generated_documents']);
+        unset(
+            $structuredData['generated_reports'],
+            $structuredData['generated_documents'],
+            $structuredData['junta_aclaraciones']
+        );
 
         $structured = json_encode(
             $structuredData,
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
+        ) ?: '{}';
 
+        // Solo requisitos que aportan riesgo o evidencia, con máximo de 60.
         $checklistCompact = collect($checklist)
-            ->take(80)
+            ->filter(function ($item) {
+                $compliance = mb_strtolower((string) ($item['cumplimiento'] ?? ''), 'UTF-8');
+                $priority = mb_strtolower((string) ($item['prioridad'] ?? ''), 'UTF-8');
+
+                return in_array($compliance, ['no cumple', 'parcial'], true)
+                    || $priority === 'alta'
+                    || !blank($item['cita'] ?? null);
+            })
+            ->take(60)
             ->map(fn ($item) => [
-                'requisito' => $item['requisito'] ?? $item['requirement'] ?? '',
-                'descripcion' => $item['descripcion'] ?? $item['description'] ?? '',
+                'requisito' => Str::limit((string) ($item['requisito'] ?? ''), 320),
+                'descripcion' => Str::limit((string) ($item['descripcion'] ?? ''), 420),
                 'cumplimiento' => $item['cumplimiento'] ?? '-',
                 'prioridad' => $item['prioridad'] ?? 'Media',
                 'fuente' => $item['fuente'] ?? '',
                 'pagina' => $item['pagina'] ?? null,
-                'cita' => Str::limit((string) ($item['cita'] ?? ''), 280),
+                'cita' => Str::limit((string) ($item['cita'] ?? ''), 320),
             ])
             ->values()
             ->all();
 
+        // Si no hay elementos críticos, conserva una muestra limitada.
+        if (empty($checklistCompact)) {
+            $checklistCompact = collect($checklist)
+                ->take(35)
+                ->map(fn ($item) => [
+                    'requisito' => Str::limit((string) ($item['requisito'] ?? ''), 320),
+                    'descripcion' => Str::limit((string) ($item['descripcion'] ?? ''), 420),
+                    'cumplimiento' => $item['cumplimiento'] ?? '-',
+                    'prioridad' => $item['prioridad'] ?? 'Media',
+                    'fuente' => $item['fuente'] ?? '',
+                    'pagina' => $item['pagina'] ?? null,
+                    'cita' => Str::limit((string) ($item['cita'] ?? ''), 320),
+                ])
+                ->values()
+                ->all();
+        }
+
         $checklistJson = json_encode(
             $checklistCompact,
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
+        ) ?: '[]';
 
-        // 12,000 caracteres suelen ser suficientes para detectar los puntos críticos.
-        $documentsText = $this->projectGroundedDocumentText($project, 12000);
+        // Contexto deliberadamente compacto para responder rápido.
+        $documentsText = $this->projectGroundedDocumentText($project, 16000);
+
+        if (trim($documentsText) === '') {
+            $documentsText = 'No existe texto documental extraído. Usa únicamente los datos estructurados y el checklist, sin inventar información.';
+        }
 
         $riskLevels = collect($options['risk_levels'] ?? ['alto', 'medio', 'no_cumple'])
             ->map(fn ($value) => mb_strtoupper(trim((string) $value), 'UTF-8'))
             ->filter()
             ->implode(', ');
 
-        $instructions = Str::limit(trim((string) ($options['instructions'] ?? '')), 1200);
+        $instructions = Str::limit(
+            trim((string) ($options['instructions'] ?? '')),
+            1800
+        );
+
         $formatMode = trim((string) ($options['format_mode'] ?? 'estandar'));
         $templateFilename = trim((string) ($options['template_filename'] ?? ''));
-        $templateContext = Str::limit(trim((string) ($options['template_context'] ?? '')), 2500);
-        $previousTitles = collect($generatedSections)->keys()->implode(', ');
+        $templateContext = Str::limit(
+            trim((string) ($options['template_context'] ?? '')),
+            3500
+        );
+
         $projectName = $project->name;
 
         return <<<PROMPT
-Eres especialista senior en licitaciones públicas mexicanas y juntas de aclaraciones.
+Genera directamente una Junta de Aclaraciones para el proyecto "{$projectName}".
 
-Genera SOLO el bloque HTML solicitado para el proyecto "{$projectName}".
+OBJETIVO
+Detecta únicamente asuntos relevantes que puedan causar desechamiento, incumplimiento, sobrecostos, restricciones técnicas, problemas contractuales, financieros, fiscales, logísticos o contradicciones entre documentos. Formula preguntas concretas listas para presentar a la convocante.
 
-BLOQUE ACTUAL
-{$section['instruction']}
-
-CONFIGURACIÓN
-- Riesgos prioritarios: {$riskLevels}
-- Instrucciones del usuario: {$instructions}
-- Formato: {$formatMode}
+CONFIGURACIÓN DEL USUARIO
+- Riesgos a priorizar: {$riskLevels}
+- Instrucciones específicas: {$instructions}
+- Formato solicitado: {$formatMode}
 - Archivo de formato: {$templateFilename}
-- Estructura del formato: {$templateContext}
+- Estructura extraída del formato: {$templateContext}
 
-REGLAS
-1. Usa únicamente la evidencia incluida abajo.
-2. No inventes páginas, numerales, leyes, fechas, porcentajes ni citas.
-3. Si una referencia legal no aparece en la evidencia, escribe "Referencia legal sugerida para validación".
-4. Respeta el tono solicitado por el usuario, pero mantén claridad profesional.
-5. Evita preguntas duplicadas y asuntos sin impacto real.
-6. Devuelve únicamente secciones HTML, sin <article>, markdown ni explicaciones.
-7. Las preguntas deben ser concretas y listas para presentar.
-8. Si no existe evidencia suficiente para una pregunta, no la incluyas.
-9. Secciones ya generadas: {$previousTitles}.
+REGLAS OBLIGATORIAS
+1. Usa solamente la evidencia proporcionada.
+2. No inventes páginas, numerales, artículos, leyes, fechas, porcentajes, archivos ni citas.
+3. Cuando la instrucción solicite citar una ley que no aparece en la evidencia, usa: "Referencia legal sugerida para validación jurídica".
+4. No generes preguntas duplicadas ni preguntas sin impacto real.
+5. Prioriza entre 8 y 20 preguntas sólidas; calidad antes que cantidad.
+6. Cada pregunta debe incluir hallazgo, pregunta propuesta, objetivo, riesgo, fuente y página cuando estén disponibles.
+7. Redacta en español de México y aplica el tono indicado por el usuario.
+8. Devuelve únicamente HTML limpio y editable, sin markdown ni bloques de código.
+9. No incluyas rutas internas, valores null ni explicaciones sobre IA.
+10. Si se adjuntó un formato, respeta sus encabezados y orden tanto como sea posible.
+
+ESTRUCTURA HTML
+<article class="jrt-report-doc jrt-clarifications-report">
+  <header>
+    <h1>Junta de Aclaraciones - Preguntas Estratégicas</h1>
+    <p>Proyecto: {$projectName}</p>
+  </header>
+
+  <section>
+    <h2>Resumen Ejecutivo de Hallazgos</h2>
+    <p>Resumen breve y específico.</p>
+    <ul>
+      <li><strong>Total de preguntas propuestas:</strong> número real.</li>
+      <li><strong>Riesgo predominante:</strong> ALTO, MEDIO o BAJO.</li>
+      <li><strong>Temas críticos:</strong> lista breve.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Preguntas recomendadas para presentar</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Número</th>
+          <th>Prioridad</th>
+          <th>Categoría</th>
+          <th>Página</th>
+          <th>Numeral / Apartado</th>
+          <th>Hallazgo detectado</th>
+          <th>Pregunta / Aclaración propuesta</th>
+          <th>Objetivo de la pregunta</th>
+          <th>Riesgo si no se aclara</th>
+          <th>Fuente</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>ALTA</td>
+          <td>Categoría sustentada</td>
+          <td>Página real o Página no identificada</td>
+          <td>Numeral real o No identificado</td>
+          <td>Hallazgo concreto.</td>
+          <td>Pregunta clara y lista para enviar.</td>
+          <td>Confirmación o modificación buscada.</td>
+          <td>Consecuencia concreta.</td>
+          <td>Archivo real y cita breve.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Contradicciones y errores detectados</h2>
+    <table>
+      <thead><tr><th>#</th><th>Tema</th><th>Evidencia</th><th>Impacto</th><th>Acción sugerida</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Preguntas que requieren autorización interna</h2>
+    <ul><li>Incluye solo preguntas sensibles o negociadoras realmente sustentadas.</li></ul>
+  </section>
+
+  <section>
+    <h2>Revisión previa al envío</h2>
+    <ul>
+      <li>Validar páginas, numerales y citas.</li>
+      <li>Confirmar fecha, hora, plataforma y formato de presentación.</li>
+      <li>Revisar preguntas legales con el área jurídica.</li>
+      <li>Revisar equivalencias con el área técnica.</li>
+    </ul>
+  </section>
+</article>
 
 DATOS ESTRUCTURADOS
 {$structured}
@@ -2956,176 +2961,15 @@ EXTRACTO DOCUMENTAL PRIORITARIO
 PROMPT;
     }
 
-    public function processClarificationsReportAsync(
-        int $projectId,
-        ?int $userId,
-        string $title,
-        array $options,
-        string $cacheKey
-    ): void {
-        ignore_user_abort(true);
-        @set_time_limit(0);
-        @ini_set('max_execution_time', '0');
-        @ini_set('memory_limit', '768M');
+    private function cleanDirectReportHtml(string $html): string
+    {
+        $html = trim($html);
+        $html = preg_replace('/^```html\s*/i', '', $html) ?? $html;
+        $html = preg_replace('/^```\s*/', '', $html) ?? $html;
+        $html = preg_replace('/```\s*$/', '', $html) ?? $html;
 
-        try {
-            $project = Project::query()->findOrFail($projectId);
-
-            if ($userId !== 1 && (int) $project->user_id !== (int) $userId) {
-                throw new \RuntimeException('No tienes permiso para procesar este proyecto.');
-            }
-
-            $project->loadMissing(['documents']);
-            $checklist = $this->projectChecklistReportArray($project);
-            $generatedSections = [];
-
-            $initialHtml = $this->buildClarificationsLiveHtml(
-                $project,
-                [],
-                'Analizando bases, anexos, checklist e instrucciones...',
-                12,
-                false
-            );
-
-            Cache::put($cacheKey, [
-                'status' => 'processing',
-                'message' => 'Analizando bases, anexos, checklist e instrucciones...',
-                'progress' => 12,
-                'html' => $initialHtml,
-                'report_type' => 'clarifications',
-                'report_title' => $title,
-                'completed_sections' => [],
-                'template_name' => $options['template_filename'] ?? null,
-            ], now()->addHours(3));
-
-            $ai = app(OpenAiStructurerService::class);
-            $sections = $this->clarificationGenerationSections();
-
-            foreach ($sections as $section) {
-                $beforeHtml = $this->buildClarificationsLiveHtml(
-                    $project,
-                    $generatedSections,
-                    'Generando ' . $section['title'] . '...',
-                    max(12, (int) $section['progress'] - 8),
-                    false
-                );
-
-                Cache::put($cacheKey, [
-                    'status' => 'processing',
-                    'message' => 'Generando ' . $section['title'] . '...',
-                    'progress' => max(12, (int) $section['progress'] - 8),
-                    'html' => $beforeHtml,
-                    'report_type' => 'clarifications',
-                    'report_title' => $title,
-                    'current_section' => $section['key'],
-                    'completed_sections' => array_keys($generatedSections),
-                    'template_name' => $options['template_filename'] ?? null,
-                ], now()->addHours(3));
-
-                $prompt = $this->buildClarificationsSectionPrompt(
-                    $project,
-                    $checklist,
-                    $options,
-                    $section,
-                    $generatedSections
-                );
-
-                $messages = [
-                    [
-                        'role' => 'system',
-                        'content' => 'Eres un especialista en licitaciones públicas mexicanas. Devuelve únicamente la sección HTML solicitada, verificable, sustentada y lista para editar.',
-                    ],
-                    ['role' => 'user', 'content' => $prompt],
-                ];
-
-                try {
-                    $sectionHtml = $this->cleanGeneratedReportHtml(
-                        (string) $ai->chatRaw($messages)
-                    );
-                } catch (\Throwable $sectionError) {
-                    Log::warning('Clarifications progressive section failed', [
-                        'project_id' => $projectId,
-                        'section' => $section['key'],
-                        'error' => $sectionError->getMessage(),
-                    ]);
-
-                    $sectionHtml = '<section><h2>' . e($section['title']) . '</h2><p>No fue posible completar automáticamente este bloque. Requiere revisión manual.</p></section>';
-                }
-
-                if ($sectionHtml === '' || trim(strip_tags($sectionHtml)) === '') {
-                    $sectionHtml = '<section><h2>' . e($section['title']) . '</h2><p>No se encontró evidencia suficiente para generar contenido en este bloque.</p></section>';
-                }
-
-                $generatedSections[$section['key']] = $sectionHtml;
-
-                $partialHtml = $this->buildClarificationsLiveHtml(
-                    $project,
-                    $generatedSections,
-                    $section['title'] . ' completado. Continuando con el siguiente bloque...',
-                    (int) $section['progress'],
-                    false
-                );
-
-                // Guarda también el avance para que pueda descargarse o editarse.
-                $this->saveProjectReport($project->fresh(), 'clarifications', $partialHtml, $title);
-
-                Cache::put($cacheKey, [
-                    'status' => 'processing',
-                    'message' => $section['title'] . ' completado.',
-                    'progress' => (int) $section['progress'],
-                    'html' => $partialHtml,
-                    'report_type' => 'clarifications',
-                    'report_title' => $title,
-                    'current_section' => null,
-                    'completed_sections' => array_keys($generatedSections),
-                    'saved_at' => now()->format('H:i:s'),
-                    'template_name' => $options['template_filename'] ?? null,
-                ], now()->addHours(3));
-            }
-
-            $finalHtml = $this->buildClarificationsLiveHtml(
-                $project,
-                $generatedSections,
-                'Junta de Aclaraciones terminada.',
-                100,
-                true
-            );
-
-            $this->saveProjectReport($project->fresh(), 'clarifications', $finalHtml, $title);
-
-            Cache::put($cacheKey, [
-                'status' => 'completed',
-                'message' => 'Junta de Aclaraciones generada correctamente.',
-                'progress' => 100,
-                'html' => $finalHtml,
-                'report_type' => 'clarifications',
-                'report_title' => $title,
-                'completed_sections' => array_keys($generatedSections),
-                'saved_at' => now()->format('H:i:s'),
-                'template_name' => $options['template_filename'] ?? null,
-            ], now()->addHours(3));
-        } catch (\Throwable $e) {
-            Log::error('Async clarifications report generation failed', [
-                'project_id' => $projectId,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            $cached = Cache::get($cacheKey, []);
-
-            Cache::put($cacheKey, [
-                'status' => 'failed',
-                'message' => $e->getMessage(),
-                'progress' => (int) ($cached['progress'] ?? 100),
-                'html' => $cached['html'] ?? null,
-                'report_type' => 'clarifications',
-                'report_title' => $title,
-                'completed_sections' => $cached['completed_sections'] ?? [],
-                'template_name' => $options['template_filename'] ?? null,
-            ], now()->addHours(3));
-        }
+        return trim($html);
     }
-
 
     /* ============================================================
      |  ACCIONES RAPIDAS DEL PROYECTO DESDE EL MENU
