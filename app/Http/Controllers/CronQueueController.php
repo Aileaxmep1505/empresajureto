@@ -252,8 +252,21 @@ private function validateCronToken(Request $request): void
         (string) config('services.cron_queue.token')
     );
 
+    /*
+    |--------------------------------------------------------------------------
+    | Acepta token por encabezado o por query string
+    |--------------------------------------------------------------------------
+    | Cron-job.org puede enviarlo como encabezado:
+    | X-JURETO-TOKEN: token
+    |
+    | Para pruebas manuales en navegador:
+    | ?token=token
+    */
     $receivedToken = trim(
-        (string) $request->header('X-JURETO-TOKEN')
+        (string) (
+            $request->header('X-JURETO-TOKEN')
+            ?: $request->query('token')
+        )
     );
 
     if ($configuredToken === '') {
