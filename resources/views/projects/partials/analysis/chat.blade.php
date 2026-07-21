@@ -49,10 +49,7 @@
     </svg>
   </button>
 
-  {{-- AJUSTA data-endpoint a tu ruta real de chat --}}
-  <form class="pjd-chat-input" id="pjdChatForm" autocomplete="off"
-        data-endpoint="{{ url('/projects/'.$project->id.'/chat') }}"
-        data-project-id="{{ $project->id }}">
+  <form class="pjd-chat-input" id="pjdChatForm" autocomplete="off">
     @csrf
     <textarea name="message" id="pjdChatInput" rows="1" placeholder="Pregunta a sam…"></textarea>
     <button type="submit" class="pjd-chat-send" id="pjdChatSend" aria-label="Enviar" disabled>
@@ -175,6 +172,8 @@
   background:var(--pjdc-tinta) !important;color:#fff !important;transform:scale(1.06);
 }
 .pjd-left .pjd-msg-col{flex:1;min-width:0}
+/* mismo trato si scripts.blade.php inyecta un div sin clase */
+.pjd-left .pjd-msg.is-assistant > div:not(.pjd-msg-avatar){flex:1;min-width:0}
 .pjd-left .pjd-msg-meta{
   font-size:12.5px !important;
   font-weight:600 !important;
@@ -356,161 +355,71 @@
 
 
 <script>
+/* ============================================================
+   SOLO COMPORTAMIENTO VISUAL.
+   El envío del mensaje lo sigue manejando scripts.blade.php.
+   Aquí NO se intercepta el submit ni se hace fetch.
+   ============================================================ */
 (function () {
   'use strict';
-  if (window.__pjdChatBooted) return;   // evita doble binding con scripts.blade.php
-  window.__pjdChatBooted = true;
+  if (window.__pjdChatUiBooted) return;
+  window.__pjdChatUiBooted = true;
 
   var lista  = document.getElementById('pjdChatList');
   var forma  = document.getElementById('pjdChatForm');
   var campo  = document.getElementById('pjdChatInput');
   var enviar = document.getElementById('pjdChatSend');
   var jump   = document.getElementById('pjdChatJump');
-  var reset  = document.getElementById('pjdChatReset');
-  if (!lista || !forma || !campo) return;
+  if (!lista || !campo) return;
 
-  var ENDPOINT   = forma.dataset.endpoint || '';
-  var PROJECT_ID = forma.dataset.projectId || '';
-  var tokenEl    = forma.querySelector('input[name="_token"]');
-  var TOKEN      = tokenEl ? tokenEl.value : '';
-  var quieto     = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
+  var quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function alFinal(){ lista.scrollTo({ top: lista.scrollHeight, behavior: quieto ? 'auto' : 'smooth' }); }
-  function hora(){ return new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false}); }
-  function esc(t){ var d=document.createElement('div'); d.textContent = t==null?'':String(t); return d.innerHTML; }
 
-  /* textarea que crece */
-  var ALTO_MIN = 32;    // una línea
-  var ALTO_MAX = 150;   // a partir de aquí aparece el scroll
+  /* ---------- textarea que crece ---------- */
+  var ALTO_MIN = 32;
+  var ALTO_MAX = 150;
 
   function ajustar(){
-    campo.style.height='auto';
+    campo.style.height = 'auto';
     var alto = Math.max(ALTO_MIN, Math.min(campo.scrollHeight, ALTO_MAX));
     campo.style.height = alto + 'px';
     campo.style.overflowY = campo.scrollHeight > ALTO_MAX ? 'auto' : 'hidden';
-    enviar.disabled = campo.value.trim()==='';
+    if (enviar) enviar.disabled = campo.value.trim() === '';
   }
   campo.addEventListener('input', ajustar);
   ajustar();
 
-  /* Enter envía · Shift+Enter salta */
-  campo.addEventListener('keydown', function(e){
-    if(e.key==='Enter' && !e.shiftKey){
+  /* Enter envía · Shift+Enter salta línea.
+     requestSubmit dispara el handler de scripts.blade.php, no uno propio. */
+  campo.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if(!enviar.disabled) forma.requestSubmit();
+      if (campo.value.trim() !== '' && forma) forma.requestSubmit();
     }
   });
 
-  /* botón bajar */
-  lista.addEventListener('scroll', function(){
-    var lejos = lista.scrollHeight - lista.scrollTop - lista.clientHeight > 180;
-    if(jump) jump.classList.toggle('is-on', lejos);
-  });
-  if(jump) jump.addEventListener('click', alFinal);
-
-  /* reintentar */
-  lista.addEventListener('click', function(e){
-    if(!e.target.closest('.pjd-retry')) return;
-    var msg = e.target.closest('.pjd-msg');
-    if(msg) msg.remove();
-    mandar(ultimo);
-  });
-
-  /* pintado */
-  function pintarMio(texto){
-    var el=document.createElement('div');
-    el.className='pjd-msg is-user';
-    el.innerHTML='<div class="pjd-msg-body"></div>';
-    el.firstChild.textContent=texto;
-    lista.appendChild(el);
-    alFinal();
-  }
-
-  function pintarSam(){
-    var el=document.createElement('div');
-    el.className='pjd-msg is-assistant';
-    el.innerHTML=
-      '<div class="pjd-msg-avatar">j</div>'+
-      '<div class="pjd-msg-col">'+
-        '<div class="pjd-msg-meta">sam <span>·</span> '+hora()+'</div>'+
-        '<div class="pjd-msg-body"><span class="pjd-typing"><i></i><i></i><i></i></span></div>'+
-      '</div>';
-    lista.appendChild(el);
-    alFinal();
-    return el.querySelector('.pjd-msg-body');
-  }
-
-  function teclear(cuerpo, texto){
-    cuerpo.dataset.raw = texto;
-    if(quieto){ cuerpo.innerHTML = esc(texto).replace(/\n/g,'<br>'); return Promise.resolve(); }
-    cuerpo.innerHTML='<span class="pjd-stream"></span><span class="pjd-caret"></span>';
-    var destino=cuerpo.querySelector('.pjd-stream');
-    var caret=cuerpo.querySelector('.pjd-caret');
-    return new Promise(function(listo){
-      var i=0;
-      var t=setInterval(function(){
-        i+=2;
-        destino.innerHTML=esc(texto.slice(0,i)).replace(/\n/g,'<br>');
-        if(i%24===0) alFinal();
-        if(i>=texto.length){ clearInterval(t); caret.remove(); alFinal(); listo(); }
-      },16);
+  /* Al enviar: limpiar alto y estado del botón */
+  if (forma) {
+    forma.addEventListener('submit', function () {
+      setTimeout(ajustar, 0);
     });
   }
 
-  /* envío */
-  var ocupado=false, ultimo='';
-
-  function mandar(texto){
-    if(ocupado || !texto) return;
-    ocupado=true; ultimo=texto;
-
-    pintarMio(texto);
-    campo.value=''; ajustar();
-    enviar.disabled=true;
-    enviar.classList.add('is-loading');
-
-    var cuerpo=pintarSam();
-
-    fetch(ENDPOINT,{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'Accept':'application/json',
-        'X-CSRF-TOKEN':TOKEN,
-        'X-Requested-With':'XMLHttpRequest'
-      },
-      body:JSON.stringify({ message:texto, project_id:PROJECT_ID })
-    })
-    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-    .then(function(data){
-      return teclear(cuerpo, data.reply || data.message || data.content || '');
-    })
-    .catch(function(err){
-      console.error('[pjd-chat]', err);
-      cuerpo.innerHTML='<span class="pjd-error">No pude responder. Revisa la conexión y vuelve a intentarlo.</span>'+
-                       '<button type="button" class="pjd-retry">Reintentar</button>';
-    })
-    .then(function(){
-      ocupado=false;
-      enviar.classList.remove('is-loading');
-      ajustar();
-      campo.focus();
+  /* ---------- botón bajar ---------- */
+  if (jump) {
+    lista.addEventListener('scroll', function () {
+      var lejos = lista.scrollHeight - lista.scrollTop - lista.clientHeight > 180;
+      jump.classList.toggle('is-on', lejos);
     });
+    jump.addEventListener('click', alFinal);
   }
 
-  forma.addEventListener('submit', function(e){
-    e.preventDefault();
-    mandar(campo.value.trim());
-  });
-
-  /* reiniciar */
-  if(reset){
-    reset.addEventListener('click', function(){
-      if(!confirm('¿Reiniciar la conversación? Se borrarán los mensajes de este chat.')) return;
-      lista.innerHTML='';
-      campo.focus();
-      // Si tienes endpoint de reset, llámalo aquí.
-    });
+  /* ---------- autoscroll cuando llegan mensajes nuevos ---------- */
+  if (window.MutationObserver) {
+    new MutationObserver(function () {
+      var cerca = lista.scrollHeight - lista.scrollTop - lista.clientHeight < 260;
+      if (cerca) alFinal();
+    }).observe(lista, { childList: true, subtree: true });
   }
 
   alFinal();
