@@ -37,6 +37,11 @@ class MailboxService
         try {
             $this->client->connect();
         } catch (\Throwable $e) {
+            \Log::error('ERROR IMAP AL CONECTAR', [
+                'mensaje' => $e->getMessage(),
+                'clase' => get_class($e),
+            ]);
+
             usleep(150 * 1000);
             $this->client->connect();
         }
@@ -158,7 +163,7 @@ class MailboxService
         });
         if ($found) return $found;
 
-        // 3) heurística suave
+        // 3) heurÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­stica suave
         $keywords = [
             'SENT'    => ['sent','enviado','enviados','sentitems'],
             'DRAFTS'  => ['draft','borrador'],
@@ -211,12 +216,12 @@ class MailboxService
     }
 
     /* =========================
-     |  Query helpers (FIX SEARCH vacío)
+     |  Query helpers (FIX SEARCH vacÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o)
      ========================= */
 
     protected function applyAllCriteria($query): void
     {
-        // ✅ Esta función evita: "UID SEARCH: Missing search parameters"
+        // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Esta funciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n evita: "UID SEARCH: Missing search parameters"
         try {
             if (method_exists($query, 'all')) { $query->all(); return; }
         } catch (\Throwable $e) {}
@@ -225,7 +230,7 @@ class MailboxService
             if (method_exists($query, 'whereAll')) { $query->whereAll(); return; }
         } catch (\Throwable $e) {}
 
-        // Si no existe, no hacemos nada; pero normalmente sí existe en Webklex.
+        // Si no existe, no hacemos nada; pero normalmente sÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­ existe en Webklex.
     }
 
     /* =========================
@@ -324,13 +329,11 @@ class MailboxService
             $dateTs   = $dt->timestamp;
         }
 
-        $bodySample = $m->hasHTMLBody()
-            ? strip_tags((string)$m->getHTMLBody())
-            : (string)($m->getTextBody() ?? '');
-
-        $bodySample = html_entity_decode($bodySample, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $bodySample = trim(preg_replace('/\s+/u', ' ', $bodySample));
-        $snippet    = Str::limit($bodySample, 140);
+        /*
+         * No descargar el cuerpo al listar mensajes.
+         * El contenido completo se obtiene al abrir el correo.
+         */
+        $snippet = '';
 
         return [
             'uid'      => (int)$m->getUid(),
@@ -354,7 +357,7 @@ class MailboxService
     }
 
     /* =========================
-     |  List messages (FIX SEARCH vacío)
+     |  List messages (FIX SEARCH vacÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o)
      ========================= */
 
     public function listFromFolder(string $folderKey, array $opts = [])
@@ -362,89 +365,152 @@ class MailboxService
         $this->connect();
 
         $folderKey = strtoupper($folderKey ?: 'INBOX');
-        $limit     = max(10, (int)($opts['limit'] ?? 80));
+        $limit     = min(20, max(10, (int)($opts['limit'] ?? 20)));
         $afterUid  = (int)($opts['after_uid'] ?? 0);
         $onlyAtt   = (bool)($opts['only_with_attachments'] ?? false);
         $priority  = (bool)($opts['priority_only'] ?? false);
         $unseen    = (bool)($opts['unseen_only'] ?? false);
         $q         = Str::lower((string)($opts['q'] ?? ''));
 
-        if ($folderKey === 'PRIORITY') { $folderKey = 'INBOX'; $priority = true; }
+        if ($folderKey === 'PRIORITY') {
+            $folderKey = 'INBOX';
+            $priority = true;
+        }
 
         $box = $this->resolveFolder($folderKey);
-        if (!$box) return collect();
+
+        if (!$box) {
+            return collect();
+        }
 
         $query = $box->query();
 
-        // ✅ SIEMPRE forzar ALL para evitar SEARCH vacío
-        $this->applyAllCriteria($query);
+        if (method_exists($query, 'setFetchBody')) {
+            $query->setFetchBody(false);
+        }
 
-        // Solo acotar por tiempo en SPAM/TRASH
-        if (in_array($folderKey, ['SPAM','TRASH'], true)) {
+        if (method_exists($query, 'setFetchAttachment')) {
+            $query->setFetchAttachment(false);
+        }
+
+        if ($priority && method_exists($query, 'flagged')) {
+            $query->flagged();
+        } else {
+            $this->applyAllCriteria($query);
+        }
+
+        if (in_array($folderKey, ['SPAM', 'TRASH'], true)) {
             $months = max(1, (int)($opts['months'] ?? $this->windowMonths($folderKey)));
+
             if (method_exists($query, 'since')) {
                 $query->since(now()->subMonths($months));
             }
         }
 
-        if ($unseen && method_exists($query, 'unseen')) $query->unseen();
+        if ($unseen && method_exists($query, 'unseen')) {
+            $query->unseen();
+        }
 
-        if (method_exists($query, 'setFetchOrder')) $query->setFetchOrder('desc');
+        if (method_exists($query, 'setFetchOrder')) {
+            $query->setFetchOrder('desc');
+        }
 
         $messages = $query->limit($limit)->get();
 
         if ($afterUid > 0) {
-            $messages = $messages->filter(fn($m)=>(int)$m->getUid() > $afterUid);
+            $messages = $messages->filter(
+                fn($m) => (int)$m->getUid() > $afterUid
+            );
         }
 
-        $rows = $messages->map(fn($m)=>$this->normalize($m, $folderKey));
+        $rows = $messages->map(
+            fn($m) => $this->normalize($m, $folderKey)
+        );
 
-        if ($priority) $rows = $rows->filter(fn($r)=>!empty($r['priority']))->values();
-        if ($onlyAtt)  $rows = $rows->filter(fn($r)=>!empty($r['hasAtt']))->values();
+        if ($priority) {
+            $rows = $rows
+                ->filter(fn($r) => !empty($r['priority']))
+                ->values();
+        }
+
+        if ($onlyAtt) {
+            $rows = $rows
+                ->filter(fn($r) => !empty($r['hasAtt']))
+                ->values();
+        }
 
         if ($q !== '') {
-            $rows = $rows->filter(function($r) use ($q){
+            $rows = $rows->filter(function ($r) use ($q) {
                 return Str::contains(Str::lower($r['from']), $q)
                     || Str::contains(Str::lower($r['subject']), $q)
                     || Str::contains(Str::lower($r['snippet']), $q);
             })->values();
         }
 
-        return $rows->sortByDesc(fn($r)=>$r['dateTs'] ?? 0)->values()->take($limit);
+        return $rows
+            ->sortByDesc(fn($r) => $r['dateTs'] ?? 0)
+            ->values()
+            ->take($limit);
     }
 
     public function apiList(string $folderKey, array $opts = []): array
     {
         $folderKey = strtoupper($folderKey ?: 'INBOX');
-        $limit = max(10, (int)($opts['limit'] ?? 80));
+
+        $limit = min(
+            20,
+            max(10, (int)($opts['limit'] ?? 20))
+        );
+
         $after = (int)($opts['after_uid'] ?? 0);
 
-        if ($folderKey === 'ALL') {
-            $items = collect()
-                ->concat($this->listFromFolder('INBOX', $opts))
-                ->concat($this->listFromFolder('SENT',  $opts))
-                ->concat($this->listFromFolder('ARCHIVE',$opts))
-                ->sortByDesc(fn($r)=>$r['dateTs'] ?? 0)
-                ->values()
-                ->take($limit);
-        } else {
-            $items = $this->listFromFolder($folderKey, $opts);
+        /*
+         * Las consultas con after_uid deben ser actuales porque buscan
+         * mensajes nuevos. Los listados normales pueden usar caché breve.
+         */
+        $usarCache = $after === 0;
+
+        $cacheKey = 'mail:list:' . md5(
+            $folderKey . '|' . json_encode(
+                $opts,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            )
+        );
+
+        $cargar = function () use ($folderKey, $opts, $limit, $after) {
+            if ($folderKey === 'ALL') {
+                $items = collect()
+                    ->concat($this->listFromFolder('INBOX', $opts))
+                    ->concat($this->listFromFolder('SENT', $opts))
+                    ->concat($this->listFromFolder('ARCHIVE', $opts))
+                    ->sortByDesc(fn($r) => $r['dateTs'] ?? 0)
+                    ->values()
+                    ->take($limit);
+            } else {
+                $items = $this->listFromFolder($folderKey, $opts);
+            }
+
+            $maxUid = (int)($items->max('uid') ?? $after);
+
+            return [
+                'ok'      => true,
+                'folder'  => $folderKey,
+                'count'   => (int)$items->count(),
+                'max_uid' => $maxUid,
+                'items'   => $items->values(),
+            ];
+        };
+
+        if (!$usarCache) {
+            return $cargar();
         }
 
-        $maxUid = (int)($items->max('uid') ?? $after);
-
-        return [
-            'ok'      => true,
-            'folder'  => $folderKey,
-            'count'   => (int)$items->count(),
-            'max_uid' => $maxUid,
-            'items'   => $items->values(),
-        ];
+        return \Illuminate\Support\Facades\Cache::remember(
+            $cacheKey,
+            now()->addSeconds(45),
+            $cargar
+        );
     }
-
-    /* =========================
-     |  Message operations
-     ========================= */
 
     public function getMessage(string $folderKey, string $uid)
     {
@@ -454,8 +520,20 @@ class MailboxService
         $box = $this->resolveFolder($folderKey);
         if (!$box) return null;
 
-        // ✅ uid() ya pone criterio, no falla
-        return $box->query()->uid($uid)->get()->first();
+        // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ uid() ya pone criterio, no falla
+        $query = $box->query()->uid($uid);
+
+        // El cuerpo sÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­ se necesita para la previsualizaciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n.
+        if (method_exists($query, 'setFetchBody')) {
+            $query->setFetchBody(true);
+        }
+
+        // Los archivos adjuntos se descargan ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âºnicamente cuando se solicitan.
+        if (method_exists($query, 'setFetchAttachment')) {
+            $query->setFetchAttachment(false);
+        }
+
+        return $query->get()->first();
     }
 
     public function toggleFlag(string $folderKey, string $uid): bool
@@ -580,41 +658,52 @@ class MailboxService
 
     public function counts(): array
     {
-        $this->connect();
-
         $cacheKey = $this->cacheKey('imap.counts');
         $keys = ['INBOX','PRIORITY','DRAFTS','SENT','ARCHIVE','OUTBOX','SPAM','TRASH'];
 
-        return Cache::remember($cacheKey, $this->shortTtl, function () use ($keys) {
+        return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($keys) {
+            $this->connect();
+
             $out = [];
+
             foreach ($keys as $k) {
                 try {
+                    /*
+                     * El conteo PRIORITY anterior descargaba hasta 200 mensajes
+                     * completos y provocaba esperas de mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡s de dos minutos.
+                     */
                     if ($k === 'PRIORITY') {
-                        $rows = $this->listFromFolder('INBOX', ['limit'=>200]);
-                        $out[$k] = (int)$rows->where('priority', 1)->count();
+                        $out[$k] = 0;
                         continue;
                     }
 
                     $box = $this->resolveFolder($k);
-                    if (!$box) { $out[$k]=0; continue; }
+
+                    if (!$box) {
+                        $out[$k] = 0;
+                        continue;
+                    }
 
                     if ($k === 'INBOX') {
                         try {
-                            $out[$k] = (int)$box->messages()->unseen()->count();
+                            $out[$k] = (int) $box->messages()->unseen()->count();
                             continue;
-                        } catch (\Throwable $e) {}
+                        } catch (\Throwable $e) {
+                            $out[$k] = 0;
+                            continue;
+                        }
                     }
 
-                    $st = $box->examine();
-                    $out[$k] = (int)($st->messages ?? 0);
+                    $status = $box->examine();
+                    $out[$k] = (int) ($status->messages ?? 0);
                 } catch (\Throwable $e) {
                     $out[$k] = 0;
                 }
             }
+
             return $out;
         });
     }
-
     public function health(): bool
     {
         try {

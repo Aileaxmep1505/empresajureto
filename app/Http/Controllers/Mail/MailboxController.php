@@ -24,9 +24,18 @@ class MailboxController extends Controller
         $folder = strtoupper((string)$r->get('folder', env('IMAP_DEFAULT_FOLDER','INBOX')));
 
         return view('mail.index', [
-            'counts'  => $this->mailbox->counts(),
+            'counts'  => [
+                'INBOX' => 0,
+                'PRIORITY' => 0,
+                'DRAFTS' => 0,
+                'SENT' => 0,
+                'ARCHIVE' => 0,
+                'OUTBOX' => 0,
+                'SPAM' => 0,
+                'TRASH' => 0,
+            ],
             'current' => $folder,
-            'messages'=> [],
+            'messages' => [],
         ]);
     }
 
@@ -36,7 +45,7 @@ class MailboxController extends Controller
     }
 
     /* =========================
-     |  SHOW (✅ FIX $msg undefined)
+     |  SHOW (ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ FIX $msg undefined)
      ========================= */
 
     public function show(Request $r, string $folder, string $uid)
@@ -49,7 +58,7 @@ class MailboxController extends Controller
         $attachments = [];
         try { $attachments = $msg->getAttachments() ?? []; } catch (\Throwable $e) {}
 
-        // ✅ IMPORTANTE: si es partial=1, devolvemos mail.show (tu vista ya soporta partial)
+        // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ IMPORTANTE: si es partial=1, devolvemos mail.show (tu vista ya soporta partial)
         if ($r->get('partial') == '1') {
             return response()->view('mail.show', compact('msg','folder','uid','attachments'));
         }
@@ -69,7 +78,7 @@ class MailboxController extends Controller
     }
 
     /* =========================
-     |  Envío + APPEND a Enviados
+     |  EnvÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o + APPEND a Enviados
      ========================= */
 
     public function compose()
@@ -152,7 +161,7 @@ class MailboxController extends Controller
             $this->mailbox->appendToSentIfPossible($rawSent);
         }
 
-        return back()->with('ok','Respuesta enviada ✔️');
+        return back()->with('ok','Respuesta enviada ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â');
     }
 
     public function forward(Request $r, string $folder, string $uid)
@@ -201,11 +210,11 @@ class MailboxController extends Controller
             $this->mailbox->appendToSentIfPossible($rawSent);
         }
 
-        return back()->with('ok','Reenviado ✔️');
+        return back()->with('ok','Reenviado ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â');
     }
 
     /* =========================
-     |  Acciones rápidas
+     |  Acciones rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡pidas
      ========================= */
 
     public function toggleFlag(Request $r, string $folder, string $uid)

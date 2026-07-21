@@ -1038,9 +1038,9 @@
       try{
         const url = buildListURL(URL_WAIT, false);
         url.searchParams.set('after_uid', String(maxUid||0));
-        url.searchParams.set('timeout', '25');
-        url.searchParams.set('tick', '3');
-        url.searchParams.set('limit', '120');
+        url.searchParams.set('timeout', '10');
+        url.searchParams.set('tick', '5');
+        url.searchParams.set('limit', '20');
 
         const res = await fetch(url, { headers:{'X-Requested-With':'XMLHttpRequest'}, signal });
         if (res.ok){
@@ -1113,13 +1113,15 @@
       }catch(e){
         if (e.name!=='AbortError') console.warn('waitLoop error', e);
       }
-      if (!signal.aborted) startWaitLoop();
+      if (!signal.aborted) {
+        window.setTimeout(() => {
+          if (!signal.aborted) startWaitLoop();
+        }, 30000);
+      }
     }
 
     function startWaitLoop(){
-      abortWait();
-      waitAbort = new AbortController();
-      waitLoop(waitAbort.signal);
+      return;
     }
 
     // init maxUid
@@ -1129,7 +1131,7 @@
     });
 
     const first = listWrap.querySelector('.mx-item');
-    if (first) first.click();
+    // Apertura automática desactivada para evitar consultas IMAP innecesarias.
     startWaitLoop();
 
     window.addEventListener('popstate', async ()=>{
