@@ -14,10 +14,8 @@ use Throwable;
 class CronQueueController extends Controller
 {
     /**
-     * Prueba básica sin ejecutar la cola.
-     *
-     * URL:
-     * https://TU-DOMINIO.com/cron/queue/ping?token=TU_TOKEN
+     * Comprueba que la ruta, Laravel, la base de datos,
+     * la caché y el token funcionan correctamente.
      */
     public function ping(Request $request): JsonResponse
     {
@@ -36,10 +34,46 @@ class CronQueueController extends Controller
     }
 
     /**
-     * Ejecuta un trabajo de reports o default.
+     * Estado general de la cola.
+     */
+    public function health(Request $request): JsonResponse
+    {
+        $this->validateCronToken($request);
+
+        $diagnostic = $this->buildDiagnostic();
+
+        $this->directLog('HEALTH consultado.', $diagnostic);
+
+        return response()->json([
+            'ok' => true,
+            'status' => 'healthy',
+            'message' => 'El controlador de la cola está disponible.',
+            'diagnostic' => $diagnostic,
+        ]);
+    }
+
+    /**
+     * Muestra los trabajos pendientes y fallidos.
+     */
+    public function status(Request $request): JsonResponse
+    {
+        $this->validateCronToken($request);
+
+        return response()->json([
+            'ok' => true,
+            'status' => 'status_ok',
+            'pending_jobs' => $this->pendingJobsCount(),
+            'pending_by_queue' => $this->pendingJobsByQueue(),
+            'failed_jobs' => $this->failedJobsCount(),
+            'jobs' => $this->pendingJobsList(),
+            'timestamp' => now()->toDateTimeString(),
+        ]);
+    }
+
+    /**
+     * Ejecuta un solo trabajo de la cola.
      *
-     * URL:
-     * https://TU-DOMINIO.com/cron/queue/run?token=TU_TOKEN
+     * La cola reports se atiende antes que default.
      */
     public function run(Request $request): JsonResponse
     {
@@ -55,10 +89,14 @@ class CronQueueController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Lock para evitar workers simultáneos
+        | Evita ejecuciones simultáneas
         |--------------------------------------------------------------------------
+        |
+        | El bloqueo dura 16 minutos. El Job tiene timeout de 900 segundos
+        | y la conexión database tiene retry_after de 1000 segundos.
+        |
         */
-        $lock = Cache::lock('cron-queue-worker-lock', 1900);
+        $lock = Cache::lock('cron-queue-worker-lock', 960);
 
         if (!$lock->get()) {
             $this->directLog('Worker omitido: existe otro proceso activo.', [
@@ -70,13 +108,21 @@ class CronQueueController extends Controller
                 'status' => 'busy',
                 'message' => 'Ya existe un trabajador procesando la cola.',
                 'request_id' => $requestId,
-                'diagnostic' => $this->buildDiagnostic(),
+                'pending_jobs' => $this->pendingJobsCount(),
+                'pending_by_queue' => $this->pendingJobsByQueue(),
+                'failed_jobs' => $this->failedJobsCount(),
+                'timestamp' => now()->toDateTimeString(),
             ]);
         }
 
         try {
-            @set_time_limit(1850);
-            @ini_set('max_execution_time', '1850');
+            /*
+            |--------------------------------------------------------------------------
+            | Permitir ejecución larga
+            |--------------------------------------------------------------------------
+            */
+            @set_time_limit(940);
+            @ini_set('max_execution_time', '940');
             ignore_user_abort(true);
 
             $pendingBefore = $this->pendingJobsByQueue();
@@ -84,46 +130,87 @@ class CronQueueController extends Controller
 
             $this->directLog('Worker iniciando.', [
                 'request_id' => $requestId,
-                'queue_connection' => config('queue.default'),
+                'connection' => config('queue.default'),
                 'queues' => 'reports,default',
                 'pending_before' => $pendingBefore,
                 'failed_before' => $failedBefore,
             ]);
 
-            Log::info('Cron externo: iniciando worker.', [
+            Log::info('Cron queue worker iniciado.', [
                 'request_id' => $requestId,
                 'queues' => 'reports,default',
+                'pending_before' => $pendingBefore,
             ]);
 
+            /*
+            |--------------------------------------------------------------------------
+            | Ejecutar un solo Job
+            |--------------------------------------------------------------------------
+            |
+            | --tries=3 coincide con GenerateClarificationsReportJob.
+            | --timeout=900 es menor que DB_QUEUE_RETRY_AFTER=1000.
+            |
+            */
             $exitCode = Artisan::call('queue:work', [
                 'connection' => config('queue.default'),
                 '--queue' => 'reports,default',
                 '--once' => true,
-                '--tries' => 1,
-                '--timeout' => 1800,
+                '--tries' => 3,
+                '--timeout' => 900,
                 '--sleep' => 1,
                 '--memory' => 512,
                 '--no-interaction' => true,
             ]);
 
             $artisanOutput = trim((string) Artisan::output());
+
             $pendingAfter = $this->pendingJobsByQueue();
             $failedAfter = $this->failedJobsCount();
 
-            $this->directLog('Worker finalizado.', [
+            /*
+            |--------------------------------------------------------------------------
+            | queue:work puede devolver exit code 0 aunque el Job haya fallado
+            |--------------------------------------------------------------------------
+            */
+            $failedDelta = max(
+                0,
+                (int) $failedAfter - (int) $failedBefore
+            );
+
+            $outputIndicatesFailure =
+                str_contains(mb_strtoupper($artisanOutput, 'UTF-8'), 'FAIL')
+                || str_contains(mb_strtoupper($artisanOutput, 'UTF-8'), 'FAILED');
+
+            $jobFailed = $failedDelta > 0 || $outputIndicatesFailure;
+
+            $success = $exitCode === 0 && !$jobFailed;
+
+            $this->directLog(
+                $success ? 'Worker finalizado correctamente.' : 'Worker terminó con fallo.',
+                [
+                    'request_id' => $requestId,
+                    'exit_code' => $exitCode,
+                    'artisan_output' => $artisanOutput,
+                    'pending_after' => $pendingAfter,
+                    'failed_after' => $failedAfter,
+                    'failed_delta' => $failedDelta,
+                ]
+            );
+
+            Log::info('Cron queue worker finalizado.', [
                 'request_id' => $requestId,
+                'success' => $success,
                 'exit_code' => $exitCode,
-                'artisan_output' => $artisanOutput,
                 'pending_after' => $pendingAfter,
                 'failed_after' => $failedAfter,
             ]);
 
             return response()->json([
-                'ok' => $exitCode === 0,
-                'status' => $exitCode === 0 ? 'completed' : 'error',
-                'message' => $exitCode === 0
+                'ok' => $success,
+                'status' => $success ? 'completed' : 'failed',
+                'message' => $success
                     ? 'El worker terminó correctamente.'
-                    : 'El worker terminó con error.',
+                    : 'El worker ejecutó el trabajo, pero el Job falló.',
                 'request_id' => $requestId,
                 'exit_code' => $exitCode,
                 'artisan_output' => $artisanOutput ?: null,
@@ -131,8 +218,9 @@ class CronQueueController extends Controller
                 'pending_after' => $pendingAfter,
                 'failed_before' => $failedBefore,
                 'failed_after' => $failedAfter,
+                'failed_delta' => $failedDelta,
                 'diagnostic' => $this->buildDiagnostic(),
-            ], $exitCode === 0 ? 200 : 500);
+            ], $success ? 200 : 500);
         } catch (Throwable $exception) {
             $this->directLog('Excepción ejecutando el worker.', [
                 'request_id' => $requestId,
@@ -142,7 +230,7 @@ class CronQueueController extends Controller
                 'line' => $exception->getLine(),
             ]);
 
-            Log::error('Cron externo: excepción.', [
+            Log::error('Cron queue worker lanzó una excepción.', [
                 'request_id' => $requestId,
                 'message' => $exception->getMessage(),
                 'file' => $exception->getFile(),
@@ -152,8 +240,8 @@ class CronQueueController extends Controller
             return response()->json([
                 'ok' => false,
                 'status' => 'exception',
-                'request_id' => $requestId,
                 'message' => $exception->getMessage(),
+                'request_id' => $requestId,
                 'exception' => get_class($exception),
                 'file' => basename($exception->getFile()),
                 'line' => $exception->getLine(),
@@ -176,114 +264,106 @@ class CronQueueController extends Controller
     }
 
     /**
-     * Estado general.
-     *
-     * URL:
-     * https://TU-DOMINIO.com/cron/queue/health?token=TU_TOKEN
+     * Libera un lock atorado y restablece trabajos reservados.
      */
-    public function health(Request $request): JsonResponse
+    public function unlock(Request $request): JsonResponse
     {
         $this->validateCronToken($request);
 
-        $diagnostic = $this->buildDiagnostic();
+        try {
+            Cache::lock('cron-queue-worker-lock')->forceRelease();
 
-        $this->directLog('HEALTH consultado.', $diagnostic);
+            $releasedJobs = 0;
 
-        return response()->json([
-            'ok' => true,
-            'status' => 'healthy',
-            'message' => 'El controlador y el token funcionan.',
-            'diagnostic' => $diagnostic,
-        ]);
+            if (
+                config('queue.default') === 'database'
+                && $this->tableExists('jobs')
+            ) {
+                $releasedJobs = DB::table('jobs')
+                    ->whereNotNull('reserved_at')
+                    ->update([
+                        'reserved_at' => null,
+                        'attempts' => 0,
+                    ]);
+            }
+
+            $this->directLog('Worker desbloqueado manualmente.', [
+                'released_jobs' => $releasedJobs,
+            ]);
+
+            return response()->json([
+                'ok' => true,
+                'status' => 'unlocked',
+                'message' => 'El bloqueo del worker fue eliminado.',
+                'released_jobs' => $releasedJobs,
+                'pending_jobs' => $this->pendingJobsCount(),
+                'pending_by_queue' => $this->pendingJobsByQueue(),
+                'failed_jobs' => $this->failedJobsCount(),
+                'timestamp' => now()->toDateTimeString(),
+            ]);
+        } catch (Throwable $exception) {
+            $this->directLog('Error desbloqueando el worker.', [
+                'message' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'ok' => false,
+                'status' => 'error',
+                'message' => $exception->getMessage(),
+            ], 500);
+        }
     }
 
     /**
-     * Lista trabajos pendientes.
+     * Valida el token por encabezado o query string.
      *
-     * URL:
-     * https://TU-DOMINIO.com/cron/queue/status?token=TU_TOKEN
+     * Encabezado:
+     * X-JURETO-TOKEN: token
+     *
+     * Query:
+     * ?token=token
      */
-    public function status(Request $request): JsonResponse
+    private function validateCronToken(Request $request): void
     {
-        $this->validateCronToken($request);
+        $configuredToken = trim(
+            (string) config('services.cron_queue.token')
+        );
 
-        $jobs = [];
+        $receivedToken = trim(
+            (string) (
+                $request->header('X-JURETO-TOKEN')
+                ?: $request->query('token')
+            )
+        );
 
-        try {
-            if (config('queue.default') === 'database') {
-                $jobs = DB::table('jobs')
-                    ->select([
-                        'id',
-                        'queue',
-                        'attempts',
-                        'reserved_at',
-                        'available_at',
-                        'created_at',
-                    ])
-                    ->orderBy('id')
-                    ->limit(30)
-                    ->get()
-                    ->map(fn ($job) => [
-                        'id' => $job->id,
-                        'queue' => $job->queue,
-                        'attempts' => $job->attempts,
-                        'reserved_at' => $job->reserved_at,
-                        'available_at' => $job->available_at,
-                        'created_at' => $job->created_at,
-                    ])
-                    ->values()
-                    ->all();
-            }
-        } catch (Throwable $exception) {
-            $this->directLog('Error consultando trabajos.', [
-                'message' => $exception->getMessage(),
-            ]);
+        if ($configuredToken === '') {
+            $this->directLog('CRON_QUEUE_TOKEN no está configurado.');
+
+            abort(
+                500,
+                'CRON_QUEUE_TOKEN no está configurado en el servidor.'
+            );
         }
 
-        return response()->json([
-            'ok' => true,
-            'jobs' => $jobs,
-            'diagnostic' => $this->buildDiagnostic(),
-        ]);
-    }
-private function validateCronToken(Request $request): void
-{
-    $configuredToken = trim(
-        (string) config('services.cron_queue.token')
-    );
+        if (
+            $receivedToken === ''
+            || !hash_equals($configuredToken, $receivedToken)
+        ) {
+            $this->directLog('Intento con token inválido.', [
+                'ip' => $request->ip(),
+                'received_token_length' => strlen($receivedToken),
+            ]);
 
-    /*
-    |--------------------------------------------------------------------------
-    | Acepta token por encabezado o por query string
-    |--------------------------------------------------------------------------
-    | Cron-job.org puede enviarlo como encabezado:
-    | X-JURETO-TOKEN: token
-    |
-    | Para pruebas manuales en navegador:
-    | ?token=token
-    */
-    $receivedToken = trim(
-        (string) (
-            $request->header('X-JURETO-TOKEN')
-            ?: $request->query('token')
-        )
-    );
-
-    if ($configuredToken === '') {
-        abort(500, 'CRON_QUEUE_TOKEN no está configurado.');
+            abort(403, 'Token de cron inválido.');
+        }
     }
 
-    if (
-        $receivedToken === ''
-        || !hash_equals($configuredToken, $receivedToken)
-    ) {
-        abort(403, 'Token de cron inválido.');
-    }
-}
-
+    /**
+     * Genera diagnóstico general.
+     */
     private function buildDiagnostic(): array
     {
-        $storagePath = storage_path('logs');
+        $storageLogsPath = storage_path('logs');
         $directLogPath = storage_path('logs/cron-queue.log');
 
         return [
@@ -293,6 +373,9 @@ private function validateCronToken(Request $request): void
             'laravel_version' => app()->version(),
 
             'queue_connection' => config('queue.default'),
+            'database_retry_after' => config(
+                'queue.connections.database.retry_after'
+            ),
             'cache_store' => config('cache.default'),
             'log_channel' => config('logging.default'),
 
@@ -306,20 +389,23 @@ private function validateCronToken(Request $request): void
             'pending_by_queue' => $this->pendingJobsByQueue(),
             'failed_jobs' => $this->failedJobsCount(),
 
-            'storage_logs_path' => $storagePath,
-            'storage_logs_exists' => is_dir($storagePath),
-            'storage_logs_writable' => is_writable($storagePath),
+            'storage_logs_path' => $storageLogsPath,
+            'storage_logs_exists' => is_dir($storageLogsPath),
+            'storage_logs_writable' => is_writable($storageLogsPath),
 
             'direct_log_path' => $directLogPath,
             'direct_log_exists' => is_file($directLogPath),
             'direct_log_writable' => is_file($directLogPath)
                 ? is_writable($directLogPath)
-                : is_writable($storagePath),
+                : is_writable($storageLogsPath),
 
             'timestamp' => now()->toDateTimeString(),
         ];
     }
 
+    /**
+     * Escribe en storage/logs/cron-queue.log.
+     */
     private function directLog(string $message, array $context = []): void
     {
         try {
@@ -329,22 +415,29 @@ private function validateCronToken(Request $request): void
                 File::makeDirectory($directory, 0775, true);
             }
 
+            $contextText = empty($context)
+                ? ''
+                : ' ' . json_encode(
+                    $context,
+                    JSON_UNESCAPED_UNICODE
+                    | JSON_UNESCAPED_SLASHES
+                    | JSON_INVALID_UTF8_SUBSTITUTE
+                );
+
             $line = sprintf(
-                "[%s] %s %s%s",
+                "[%s] %s%s%s",
                 now()->format('Y-m-d H:i:s'),
                 $message,
-                empty($context)
-                    ? ''
-                    : json_encode(
-                        $context,
-                        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-                    ),
+                $contextText,
                 PHP_EOL
             );
 
-            File::append(storage_path('logs/cron-queue.log'), $line);
-        } catch (Throwable $exception) {
-            // No lanzamos otra excepción para evitar romper el endpoint.
+            File::append(
+                storage_path('logs/cron-queue.log'),
+                $line
+            );
+        } catch (Throwable) {
+            // No se lanza otra excepción para no romper el endpoint.
         }
     }
 
@@ -352,8 +445,9 @@ private function validateCronToken(Request $request): void
     {
         try {
             DB::connection()->getPdo();
+
             return true;
-        } catch (Throwable $exception) {
+        } catch (Throwable) {
             return false;
         }
     }
@@ -362,7 +456,7 @@ private function validateCronToken(Request $request): void
     {
         try {
             return DB::getSchemaBuilder()->hasTable($table);
-        } catch (Throwable $exception) {
+        } catch (Throwable) {
             return false;
         }
     }
@@ -378,7 +472,7 @@ private function validateCronToken(Request $request): void
             }
 
             return DB::table('jobs')->count();
-        } catch (Throwable $exception) {
+        } catch (Throwable) {
             return null;
         }
     }
@@ -399,7 +493,7 @@ private function validateCronToken(Request $request): void
                 ->pluck('total', 'queue')
                 ->map(fn ($total) => (int) $total)
                 ->all();
-        } catch (Throwable $exception) {
+        } catch (Throwable) {
             return [];
         }
     }
@@ -412,29 +506,45 @@ private function validateCronToken(Request $request): void
             }
 
             return DB::table('failed_jobs')->count();
-        } catch (Throwable $exception) {
+        } catch (Throwable) {
             return null;
         }
     }
-    public function unlock(Request $request): JsonResponse
-{
-    $this->validateCronToken($request);
 
-    try {
-        Cache::forget('cron-queue-worker-lock');
+    private function pendingJobsList(): array
+    {
+        try {
+            if (
+                config('queue.default') !== 'database'
+                || !$this->tableExists('jobs')
+            ) {
+                return [];
+            }
 
-        return response()->json([
-            'ok' => true,
-            'status' => 'unlocked',
-            'message' => 'El bloqueo del worker fue eliminado.',
-            'timestamp' => now()->toDateTimeString(),
-        ]);
-    } catch (Throwable $exception) {
-        return response()->json([
-            'ok' => false,
-            'status' => 'error',
-            'message' => $exception->getMessage(),
-        ], 500);
+            return DB::table('jobs')
+                ->select([
+                    'id',
+                    'queue',
+                    'attempts',
+                    'reserved_at',
+                    'available_at',
+                    'created_at',
+                ])
+                ->orderBy('id')
+                ->limit(30)
+                ->get()
+                ->map(fn ($job) => [
+                    'id' => $job->id,
+                    'queue' => $job->queue,
+                    'attempts' => (int) $job->attempts,
+                    'reserved_at' => $job->reserved_at,
+                    'available_at' => $job->available_at,
+                    'created_at' => $job->created_at,
+                ])
+                ->values()
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
     }
-}
 }

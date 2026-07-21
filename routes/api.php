@@ -43,14 +43,10 @@ Route::post('/webhooks/shopify/orders-paid', [ShopifyWebhookController::class, '
 use App\Http\Controllers\CronQueueController;
 
 
-Route::get('/queue/run', [CronQueueController::class, 'run'])
-    ->name('api.queue.run');
-
-Route::get('/queue/ping', [CronQueueController::class, 'ping'])
-    ->name('api.queue.ping');
-
-Route::get('/queue/status', [CronQueueController::class, 'status'])
-    ->name('api.queue.status');
-
-Route::get('/queue/unlock', [CronQueueController::class, 'unlock'])
-    ->name('api.queue.unlock');
+Route::prefix('queue')->group(function () {
+    Route::get('/ping', [CronQueueController::class, 'ping']);
+    Route::get('/health', [CronQueueController::class, 'health']);
+    Route::get('/status', [CronQueueController::class, 'status']);
+    Route::get('/run', [CronQueueController::class, 'run']);
+    Route::get('/unlock', [CronQueueController::class, 'unlock']);
+});
