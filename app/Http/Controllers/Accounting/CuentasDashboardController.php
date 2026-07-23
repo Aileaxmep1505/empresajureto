@@ -8,7 +8,6 @@ use App\Models\AccountReceivable;
 use App\Models\Company;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 
@@ -16,129 +15,482 @@ class CuentasDashboardController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
     {
-        // ✅ Laravel 12 style (sin $this->middleware())
-        return [new Middleware('auth')];
+        return [
+            new Middleware('auth'),
+        ];
     }
 
     public function index(Request $request)
     {
-        $email = Auth::user()?->email;
         $today = Carbon::today();
 
-        $companies = Company::orderBy('name')->get();
-        $companyId = $request->filled('company_id') ? (int) $request->company_id : null;
+        /*
+        |--------------------------------------------------------------------------
+        | Filtro de compañía
+        |--------------------------------------------------------------------------
+        */
 
-        $rx = AccountReceivable::query()->with('company');
-        $px = AccountPayable::query()->with('company');
+        $companyId = $request->filled('company_id')
+            ? (int) $request->input('company_id')
+            : null;
 
-        if ($email) {
-            $rx->where('created_by', $email);
-            $px->where('created_by', $email);
-        }
+        $companies = Company::query()
+            ->orderBy('name')
+            ->get();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Consultas principales
+        |--------------------------------------------------------------------------
+        |
+        | Se eliminó el filtro por created_by porque probablemente era lo que
+        | provocaba que el dashboard no mostrara ningún registro.
+        |
+        */
+
+        $receivablesQuery = AccountReceivable::query()
+            ->with('company');
+
+        $payablesQuery = AccountPayable::query()
+            ->with('company');
+
         if ($companyId) {
-            $rx->where('company_id', $companyId);
-            $px->where('company_id', $companyId);
+            $receivablesQuery->where('company_id', $companyId);
+            $payablesQuery->where('company_id', $companyId);
         }
 
-        $receivables = (clone $rx)->get();
-        $payables    = (clone $px)->get();
+        $receivables = $receivablesQuery
+            ->orderByRaw('due_date IS NULL')
+            ->orderBy('due_date')
+            ->get();
 
-        $saldoR = fn($r) => max((float)$r->amount - (float)$r->amount_paid, 0.0);
-        $saldoP = fn($p) => max((float)$p->amount - (float)$p->amount_paid, 0.0);
+        $payables = $payablesQuery
+            ->orderByRaw('due_date IS NULL')
+            ->orderBy('due_date')
+            ->get();
 
-        // KPIs
+        /*
+        |--------------------------------------------------------------------------
+        | Funciones auxiliares
+        |--------------------------------------------------------------------------
+        */
+
+        $normalizeStatus = static function ($status): string {
+            return mb_strtolower(trim((string) $status));
+        };
+
+        $parseDate = static function ($value): ?Carbon {
+            if (blank($value)) {
+                return null;
+            }
+
+            try {
+                return Carbon::parse($value)->startOfDay();
+            } catch (\Throwable $exception) {
+                return null;
+            }
+        };
+
+        $receivableBalance = static function ($receivable): float {
+            $amount = (float) ($receivable->amount ?? 0);
+            $amountPaid = (float) ($receivable->amount_paid ?? 0);
+
+            return max($amount - $amountPaid, 0);
+        };
+
+        $payableBalance = static function ($payable): float {
+            $amount = (float) ($payable->amount ?? 0);
+            $amountPaid = (float) ($payable->amount_paid ?? 0);
+
+            return max($amount - $amountPaid, 0);
+        };
+
+        $isReceivableClosed = static function ($receivable) use ($normalizeStatus): bool {
+            return in_array(
+                $normalizeStatus($receivable->status ?? ''),
+                ['cobrado', 'pagado', 'cancelado'],
+                true
+            );
+        };
+
+        $isPayableClosed = static function ($payable) use ($normalizeStatus): bool {
+            return in_array(
+                $normalizeStatus($payable->status ?? ''),
+                ['pagado', 'cobrado', 'cancelado'],
+                true
+            );
+        };
+
+        /*
+        |--------------------------------------------------------------------------
+        | KPI: total por cobrar
+        |--------------------------------------------------------------------------
+        */
+
         $totalPorCobrar = $receivables
-            ->filter(fn($r) => !in_array($r->status, ['cobrado', 'cancelado'], true))
-            ->sum(fn($r) => $saldoR($r));
+            ->reject($isReceivableClosed)
+            ->sum($receivableBalance);
+
+        /*
+        |--------------------------------------------------------------------------
+        | KPI: total por pagar
+        |--------------------------------------------------------------------------
+        */
 
         $totalPorPagar = $payables
-            ->filter(fn($p) => !in_array($p->status, ['pagado', 'cancelado'], true))
-            ->sum(fn($p) => $saldoP($p));
+            ->reject($isPayableClosed)
+            ->sum($payableBalance);
 
+        $totalPorCobrar = (float) $totalPorCobrar;
+        $totalPorPagar = (float) $totalPorPagar;
         $balanceNeto = $totalPorCobrar - $totalPorPagar;
 
+        /*
+        |--------------------------------------------------------------------------
+        | Cobrado durante el mes actual
+        |--------------------------------------------------------------------------
+        */
+
         $cobradoMes = $receivables
-            ->filter(fn($r) => $r->status === 'cobrado' && $r->payment_date && Carbon::parse($r->payment_date)->isSameMonth($today))
-            ->sum(fn($r) => (float)$r->amount);
+            ->filter(function ($receivable) use (
+                $normalizeStatus,
+                $parseDate,
+                $today
+            ) {
+                $status = $normalizeStatus($receivable->status ?? '');
+
+                if (!in_array($status, ['cobrado', 'pagado'], true)) {
+                    return false;
+                }
+
+                $paymentDate = $parseDate($receivable->payment_date ?? null);
+
+                if (!$paymentDate) {
+                    return false;
+                }
+
+                return $paymentDate->year === $today->year
+                    && $paymentDate->month === $today->month;
+            })
+            ->sum(function ($receivable) {
+                /*
+                 * Si deseas sumar únicamente lo efectivamente cobrado,
+                 * se usa amount_paid. Si está vacío, se toma amount.
+                 */
+                $amountPaid = (float) ($receivable->amount_paid ?? 0);
+
+                return $amountPaid > 0
+                    ? $amountPaid
+                    : (float) ($receivable->amount ?? 0);
+            });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Pagado durante el mes actual
+        |--------------------------------------------------------------------------
+        */
 
         $pagadoMes = $payables
-            ->filter(fn($p) => $p->status === 'pagado' && $p->payment_date && Carbon::parse($p->payment_date)->isSameMonth($today))
-            ->sum(fn($p) => (float)$p->amount);
+            ->filter(function ($payable) use (
+                $normalizeStatus,
+                $parseDate,
+                $today
+            ) {
+                $status = $normalizeStatus($payable->status ?? '');
 
-        // Alertas
-        $urgentPayments = $payables->filter(function ($p) use ($today) {
-            if (in_array($p->status, ['pagado', 'cancelado'], true)) return false;
-            $due = $p->due_date ? Carbon::parse($p->due_date) : null;
-            if (!$due) return false;
-            return in_array($p->status, ['urgente', 'atrasado'], true) || $due->lt($today);
-        })->sortBy(fn($p) => $p->due_date)->values();
+                if (!in_array($status, ['pagado', 'cobrado'], true)) {
+                    return false;
+                }
 
-        $overdueReceivables = $receivables->filter(function ($r) use ($today) {
-            if (in_array($r->status, ['cobrado', 'cancelado'], true)) return false;
-            $due = $r->due_date ? Carbon::parse($r->due_date) : null;
-            return $due ? $due->lt($today) : false;
-        })->sortBy(fn($r) => $r->due_date)->values();
+                $paymentDate = $parseDate($payable->payment_date ?? null);
 
-        // Próximos 15 días
-        $upcomingPayments = $payables->filter(function ($p) use ($today) {
-            if (in_array($p->status, ['pagado', 'cancelado'], true)) return false;
-            $due = $p->due_date ? Carbon::parse($p->due_date) : null;
-            if (!$due) return false;
-            return $due->gte($today) && $today->diffInDays($due) <= 15;
-        })->sortBy(fn($p) => $p->due_date)->values();
+                if (!$paymentDate) {
+                    return false;
+                }
 
-        $upcomingReceivables = $receivables->filter(function ($r) use ($today) {
-            if (in_array($r->status, ['cobrado', 'cancelado'], true)) return false;
-            $due = $r->due_date ? Carbon::parse($r->due_date) : null;
-            if (!$due) return false;
-            return $due->gte($today) && $today->diffInDays($due) <= 15;
-        })->sortBy(fn($r) => $r->due_date)->values();
+                return $paymentDate->year === $today->year
+                    && $paymentDate->month === $today->month;
+            })
+            ->sum(function ($payable) {
+                $amountPaid = (float) ($payable->amount_paid ?? 0);
 
-        // Aging (vencido)
-        $aging = ['0-30'=>0.0,'31-60'=>0.0,'61-90'=>0.0,'90+'=>0.0];
-        foreach ($receivables as $r) {
-            if (in_array($r->status, ['cobrado','cancelado'], true)) continue;
-            $due = $r->due_date ? Carbon::parse($r->due_date) : null;
-            if (!$due || !$due->lt($today)) continue;
+                return $amountPaid > 0
+                    ? $amountPaid
+                    : (float) ($payable->amount ?? 0);
+            });
 
-            $days = $due->diffInDays($today);
-            $amt = $saldoR($r);
+        $cobradoMes = (float) $cobradoMes;
+        $pagadoMes = (float) $pagadoMes;
 
-            if ($days <= 30) $aging['0-30'] += $amt;
-            elseif ($days <= 60) $aging['31-60'] += $amt;
-            elseif ($days <= 90) $aging['61-90'] += $amt;
-            else $aging['90+'] += $amt;
+        /*
+        |--------------------------------------------------------------------------
+        | Pagos urgentes o atrasados
+        |--------------------------------------------------------------------------
+        */
+
+        $urgentPayments = $payables
+            ->filter(function ($payable) use (
+                $isPayableClosed,
+                $normalizeStatus,
+                $parseDate,
+                $today
+            ) {
+                if ($isPayableClosed($payable)) {
+                    return false;
+                }
+
+                $status = $normalizeStatus($payable->status ?? '');
+                $dueDate = $parseDate($payable->due_date ?? null);
+
+                /*
+                 * Se considera urgente si:
+                 * - El estado dice urgente o atrasado.
+                 * - La fecha ya venció.
+                 * - Vence durante los próximos tres días.
+                 */
+                if (in_array($status, ['urgente', 'atrasado', 'vencido'], true)) {
+                    return true;
+                }
+
+                if (!$dueDate) {
+                    return false;
+                }
+
+                if ($dueDate->lt($today)) {
+                    return true;
+                }
+
+                $daysUntilDue = $today->diffInDays($dueDate, false);
+
+                return $daysUntilDue >= 0 && $daysUntilDue <= 3;
+            })
+            ->sortBy(function ($payable) use ($parseDate) {
+                return $parseDate($payable->due_date ?? null)?->timestamp
+                    ?? PHP_INT_MAX;
+            })
+            ->values();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Cobros vencidos
+        |--------------------------------------------------------------------------
+        */
+
+        $overdueReceivables = $receivables
+            ->filter(function ($receivable) use (
+                $isReceivableClosed,
+                $parseDate,
+                $today
+            ) {
+                if ($isReceivableClosed($receivable)) {
+                    return false;
+                }
+
+                $dueDate = $parseDate($receivable->due_date ?? null);
+
+                return $dueDate && $dueDate->lt($today);
+            })
+            ->sortBy(function ($receivable) use ($parseDate) {
+                return $parseDate($receivable->due_date ?? null)?->timestamp
+                    ?? PHP_INT_MAX;
+            })
+            ->values();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Próximos pagos: siguientes 15 días
+        |--------------------------------------------------------------------------
+        */
+
+        $upcomingPayments = $payables
+            ->filter(function ($payable) use (
+                $isPayableClosed,
+                $parseDate,
+                $today
+            ) {
+                if ($isPayableClosed($payable)) {
+                    return false;
+                }
+
+                $dueDate = $parseDate($payable->due_date ?? null);
+
+                if (!$dueDate || $dueDate->lt($today)) {
+                    return false;
+                }
+
+                $daysUntilDue = $today->diffInDays($dueDate, false);
+
+                return $daysUntilDue >= 0 && $daysUntilDue <= 15;
+            })
+            ->sortBy(function ($payable) use ($parseDate) {
+                return $parseDate($payable->due_date ?? null)?->timestamp
+                    ?? PHP_INT_MAX;
+            })
+            ->values();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Próximos cobros: siguientes 15 días
+        |--------------------------------------------------------------------------
+        */
+
+        $upcomingReceivables = $receivables
+            ->filter(function ($receivable) use (
+                $isReceivableClosed,
+                $parseDate,
+                $today
+            ) {
+                if ($isReceivableClosed($receivable)) {
+                    return false;
+                }
+
+                $dueDate = $parseDate($receivable->due_date ?? null);
+
+                if (!$dueDate || $dueDate->lt($today)) {
+                    return false;
+                }
+
+                $daysUntilDue = $today->diffInDays($dueDate, false);
+
+                return $daysUntilDue >= 0 && $daysUntilDue <= 15;
+            })
+            ->sortBy(function ($receivable) use ($parseDate) {
+                return $parseDate($receivable->due_date ?? null)?->timestamp
+                    ?? PHP_INT_MAX;
+            })
+            ->values();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Antigüedad de cartera
+        |--------------------------------------------------------------------------
+        |
+        | Estas claves ahora coinciden con las que busca la vista Blade:
+        | Al corriente, 1-30, 31-60, 61-90 y 90+.
+        |
+        */
+
+        $aging = [
+            'Al corriente' => 0.0,
+            '1-30' => 0.0,
+            '31-60' => 0.0,
+            '61-90' => 0.0,
+            '90+' => 0.0,
+        ];
+
+        foreach ($receivables as $receivable) {
+            if ($isReceivableClosed($receivable)) {
+                continue;
+            }
+
+            $balance = $receivableBalance($receivable);
+
+            if ($balance <= 0) {
+                continue;
+            }
+
+            $dueDate = $parseDate($receivable->due_date ?? null);
+
+            /*
+             * Sin fecha o todavía no vencida.
+             */
+            if (!$dueDate || $dueDate->gte($today)) {
+                $aging['Al corriente'] += $balance;
+                continue;
+            }
+
+            $daysOverdue = $dueDate->diffInDays($today);
+
+            if ($daysOverdue <= 30) {
+                $aging['1-30'] += $balance;
+            } elseif ($daysOverdue <= 60) {
+                $aging['31-60'] += $balance;
+            } elseif ($daysOverdue <= 90) {
+                $aging['61-90'] += $balance;
+            } else {
+                $aging['90+'] += $balance;
+            }
         }
 
-        // Flujo 30 días
-        $labels=[]; $inByDay=[]; $outByDay=[]; $netByDay=[];
-        for ($i=0; $i<=30; $i++) {
-            $d = $today->copy()->addDays($i);
-            $key = $d->toDateString();
-            $labels[] = $d->format('d/m');
+        /*
+        |--------------------------------------------------------------------------
+        | Flujo proyectado: próximos 30 días
+        |--------------------------------------------------------------------------
+        */
 
-            $incoming = $receivables->filter(fn($r) =>
-                !in_array($r->status, ['cobrado','cancelado'], true) &&
-                $r->due_date && Carbon::parse($r->due_date)->toDateString() === $key
-            )->sum(fn($r) => $saldoR($r));
+        $labels = [];
+        $inByDay = [];
+        $outByDay = [];
+        $netByDay = [];
 
-            $outgoing = $payables->filter(fn($p) =>
-                !in_array($p->status, ['pagado','cancelado'], true) &&
-                $p->due_date && Carbon::parse($p->due_date)->toDateString() === $key
-            )->sum(fn($p) => $saldoP($p));
+        /*
+         * Se indexan los registros por fecha para evitar recorrer todas las
+         * colecciones nuevamente por cada uno de los 31 días.
+         */
 
-            $inByDay[] = (float)$incoming;
-            $outByDay[] = (float)$outgoing;
-            $netByDay[] = (float)($incoming - $outgoing);
+        $receivablesByDate = $receivables
+            ->reject($isReceivableClosed)
+            ->filter(fn ($receivable) => filled($receivable->due_date))
+            ->groupBy(function ($receivable) use ($parseDate) {
+                return $parseDate($receivable->due_date ?? null)?->toDateString()
+                    ?? 'invalid-date';
+            });
+
+        $payablesByDate = $payables
+            ->reject($isPayableClosed)
+            ->filter(fn ($payable) => filled($payable->due_date))
+            ->groupBy(function ($payable) use ($parseDate) {
+                return $parseDate($payable->due_date ?? null)?->toDateString()
+                    ?? 'invalid-date';
+            });
+
+        for ($day = 0; $day <= 30; $day++) {
+            $date = $today->copy()->addDays($day);
+            $dateKey = $date->toDateString();
+
+            $labels[] = $date->format('d/m');
+
+            $incoming = collect($receivablesByDate->get($dateKey, []))
+                ->sum($receivableBalance);
+
+            $outgoing = collect($payablesByDate->get($dateKey, []))
+                ->sum($payableBalance);
+
+            $incoming = (float) $incoming;
+            $outgoing = (float) $outgoing;
+
+            $inByDay[] = $incoming;
+            $outByDay[] = $outgoing;
+            $netByDay[] = $incoming - $outgoing;
         }
 
-        $alertsCount = $urgentPayments->count() + $overdueReceivables->count();
+        /*
+        |--------------------------------------------------------------------------
+        | Total de alertas
+        |--------------------------------------------------------------------------
+        */
+
+        $alertsCount = $urgentPayments->count()
+            + $overdueReceivables->count();
 
         return view('accounting.cuentas_dashboard', compact(
-            'companies','companyId',
-            'totalPorCobrar','totalPorPagar','balanceNeto','cobradoMes','pagadoMes','alertsCount',
-            'urgentPayments','overdueReceivables','upcomingPayments','upcomingReceivables',
-            'aging','labels','inByDay','outByDay','netByDay'
+            'companies',
+            'companyId',
+            'totalPorCobrar',
+            'totalPorPagar',
+            'balanceNeto',
+            'cobradoMes',
+            'pagadoMes',
+            'alertsCount',
+            'urgentPayments',
+            'overdueReceivables',
+            'upcomingPayments',
+            'upcomingReceivables',
+            'aging',
+            'labels',
+            'inByDay',
+            'outByDay',
+            'netByDay'
         ));
     }
 }
