@@ -300,12 +300,11 @@ public function store(Request $request, PythonProjectProcessor $processor)
                 );
 
                 $structured = $result['structured_data'];
-                $ai = app(OpenAiStructurerService::class);
 
                 $structured = $controller->ensureComplianceMatrix(
                     $project->fresh('documents'),
                     $structured,
-                    $ai
+                    null
                 );
 
                 $newChecklist = $controller->processorChecklist(
@@ -1365,7 +1364,7 @@ PROMPT;
             $structured = $this->ensureComplianceMatrix(
                 $project->fresh('documents'),
                 $structured,
-                app(OpenAiStructurerService::class)
+                null
             );
 
             $newChecklist = $this->processorChecklist(
@@ -4383,7 +4382,7 @@ PROMPT;
                     $structured = $controller->ensureComplianceMatrix(
                         $project->fresh('documents'),
                         $structured,
-                        app(OpenAiStructurerService::class)
+                        null
                     );
 
                     $project->structured_data = $structured;
