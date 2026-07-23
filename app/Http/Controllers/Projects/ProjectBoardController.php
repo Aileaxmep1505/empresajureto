@@ -300,7 +300,18 @@ public function store(Request $request, PythonProjectProcessor $processor)
                 );
 
                 $structured = $result['structured_data'];
-                $newChecklist = $controller->processorChecklist($structured, $project);
+                $ai = app(OpenAiStructurerService::class);
+
+                $structured = $controller->ensureComplianceMatrix(
+                    $project->fresh('documents'),
+                    $structured,
+                    $ai
+                );
+
+                $newChecklist = $controller->processorChecklist(
+                    $structured,
+                    $project
+                );
 
                 $project->structured_data = $structured;
                 $project->checklist = $newChecklist;
@@ -1350,7 +1361,17 @@ PROMPT;
             );
 
             $structured = $result['structured_data'];
-            $newChecklist = $this->processorChecklist($structured, $project);
+
+            $structured = $this->ensureComplianceMatrix(
+                $project->fresh('documents'),
+                $structured,
+                app(OpenAiStructurerService::class)
+            );
+
+            $newChecklist = $this->processorChecklist(
+                $structured,
+                $project
+            );
 
             if (!empty($structured)) {
                 $sd = is_array($project->structured_data) ? $project->structured_data : [];
@@ -4353,8 +4374,19 @@ PROMPT;
                 $structured = $result['structured_data'];
 
                 if (is_array($structured) && !empty($structured)) {
-                    $current = is_array($project->structured_data) ? $project->structured_data : [];
-                    $project->structured_data = array_replace_recursive($current, $structured);
+                    $current = is_array($project->structured_data)
+                        ? $project->structured_data
+                        : [];
+
+                    $structured = array_replace_recursive($current, $structured);
+
+                    $structured = $controller->ensureComplianceMatrix(
+                        $project->fresh('documents'),
+                        $structured,
+                        app(OpenAiStructurerService::class)
+                    );
+
+                    $project->structured_data = $structured;
                 }
 
                 $newChecklist = $controller->processorChecklist($structured, $project);
@@ -5158,5 +5190,924 @@ public function search(Request $request)
         'stateOptions' => DB::table($table)->select($stateCol)->distinct()->pluck($stateCol)->filter()->sort()->values(),
     ]);
 }
+/**
+ * Garantiza que structured_data siempre incluya:
+ *
+ * matriz.secciones[
+ *   {
+ *     title: string,
+ *     items: [
+ *       {
+ *         question: string,
+ *         answer: string,
+ *         risk: ALTO|MEDIO|BAJO|NULO,
+ *         fuente: string,
+ *         pagina: string,
+ *         cita: string
+ *       }
+ *     ]
+ *   }
+ * ]
+ */
+private function ensureComplianceMatrix(
+    Project $project,
+    array $structured,
+    ?OpenAiStructurerService $ai = null
+): array {
+    /*
+    |--------------------------------------------------------------------------
+    | 1. Recuperar una matriz que venga con otro nombre
+    |--------------------------------------------------------------------------
+    */
+    $possibleMatrices = [
+        data_get($structured, 'matriz.secciones'),
+        data_get($structured, 'matriz.items'),
+        data_get($structured, 'matriz_cumplimiento.secciones'),
+        data_get($structured, 'matriz_cumplimiento'),
+        data_get($structured, 'compliance_matrix.sections'),
+        data_get($structured, 'compliance_matrix'),
+        data_get($structured, 'analisis.matriz.secciones'),
+        data_get($structured, 'analisis.matriz_cumplimiento'),
+        data_get($structured, 'requisitos.secciones'),
+    ];
 
+    foreach ($possibleMatrices as $candidate) {
+        $normalized = $this->normalizeComplianceMatrixSections($candidate);
+
+        if (!empty($normalized)) {
+            $structured['matriz'] = [
+                'secciones' => $this->completeComplianceMatrixQuestions(
+                    $normalized,
+                    $structured
+                ),
+            ];
+
+            return $structured;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 2. Intentar construir la matriz con la IA
+    |--------------------------------------------------------------------------
+    */
+    if ($ai) {
+        try {
+            $documentsText = $this->projectGroundedDocumentText(
+                $project,
+                90000
+            );
+
+            if (trim($documentsText) !== '') {
+                $generatedSections = $this->generateComplianceMatrixWithAi(
+                    $project,
+                    $structured,
+                    $documentsText,
+                    $ai
+                );
+
+                if (!empty($generatedSections)) {
+                    $structured['matriz'] = [
+                        'secciones' => $generatedSections,
+                    ];
+
+                    return $structured;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error('No fue posible generar la matriz de cumplimiento.', [
+                'project_id' => $project->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | 3. Estructura de respaldo
+    |--------------------------------------------------------------------------
+    | Aunque la IA falle, la pantalla nunca quedará vacía.
+    */
+    $structured['matriz'] = [
+        'secciones' => $this->buildDefaultComplianceMatrix($structured),
+    ];
+
+    return $structured;
+}
+
+/**
+ * Normaliza diferentes formatos históricos de matriz.
+ */
+private function normalizeComplianceMatrixSections($candidate): array
+{
+    if (!is_array($candidate) || empty($candidate)) {
+        return [];
+    }
+
+    /*
+     * Algunas respuestas pueden envolver las secciones nuevamente.
+     */
+    if (
+        isset($candidate['secciones'])
+        && is_array($candidate['secciones'])
+    ) {
+        $candidate = $candidate['secciones'];
+    }
+
+    if (
+        isset($candidate['sections'])
+        && is_array($candidate['sections'])
+    ) {
+        $candidate = $candidate['sections'];
+    }
+
+    /*
+     * Si recibimos directamente una lista de preguntas,
+     * la convertimos en una sola sección.
+     */
+    $isDirectItemList = collect($candidate)->every(function ($item) {
+        if (!is_array($item)) {
+            return false;
+        }
+
+        return isset($item['question'])
+            || isset($item['pregunta'])
+            || isset($item['requisito']);
+    });
+
+    if ($isDirectItemList) {
+        $candidate = [
+            [
+                'title' => 'Requisitos generales',
+                'items' => $candidate,
+            ],
+        ];
+    }
+
+    return collect($candidate)
+        ->filter(fn ($section) => is_array($section))
+        ->map(function ($section, $sectionIndex) {
+            $rawItems = $section['items']
+                ?? $section['preguntas']
+                ?? $section['questions']
+                ?? $section['requisitos']
+                ?? [];
+
+            if (!is_array($rawItems)) {
+                $rawItems = [];
+            }
+
+            $items = collect($rawItems)
+                ->filter(fn ($item) => is_array($item))
+                ->map(function ($item, $itemIndex) {
+                    return [
+                        'question' => $this->matrixTextValue(
+                            $item['question']
+                                ?? $item['pregunta']
+                                ?? $item['requisito']
+                                ?? 'Concepto ' . ($itemIndex + 1)
+                        ),
+                        'answer' => $this->matrixTextValue(
+                            $item['answer']
+                                ?? $item['respuesta']
+                                ?? $item['descripcion']
+                                ?? $item['valor']
+                                ?? 'No se encontró evidencia suficiente en los documentos revisados.'
+                        ),
+                        'risk' => $this->normalizeMatrixRisk(
+                            $item['risk']
+                                ?? $item['riesgo']
+                                ?? $item['nivel_riesgo']
+                                ?? 'NULO'
+                        ),
+                        'fuente' => $this->matrixTextValue(
+                            $item['fuente']
+                                ?? $item['source']
+                                ?? $item['archivo']
+                                ?? ''
+                        ),
+                        'pagina' => $this->matrixTextValue(
+                            $item['pagina']
+                                ?? $item['page']
+                                ?? ''
+                        ),
+                        'cita' => $this->matrixTextValue(
+                            $item['cita']
+                                ?? $item['quote']
+                                ?? $item['evidencia']
+                                ?? $item['fragmento']
+                                ?? ''
+                        ),
+                    ];
+                })
+                ->filter(fn ($item) => trim($item['question']) !== '')
+                ->values()
+                ->all();
+
+            return [
+                'title' => $this->matrixTextValue(
+                    $section['title']
+                        ?? $section['titulo']
+                        ?? $section['name']
+                        ?? 'Sección ' . ($sectionIndex + 1)
+                ),
+                'items' => $items,
+            ];
+        })
+        ->filter(fn ($section) => !empty($section['items']))
+        ->values()
+        ->all();
+}
+
+/**
+ * Genera exclusivamente la matriz de cumplimiento.
+ */
+private function generateComplianceMatrixWithAi(
+    Project $project,
+    array $structured,
+    string $documentsText,
+    OpenAiStructurerService $ai
+): array {
+    $structuredJson = json_encode(
+        $structured,
+        JSON_UNESCAPED_UNICODE
+        | JSON_UNESCAPED_SLASHES
+        | JSON_INVALID_UTF8_SUBSTITUTE
+    );
+
+    $projectName = $project->name;
+
+    $prompt = <<<PROMPT
+Eres un especialista senior en licitaciones públicas mexicanas.
+
+Analiza los documentos del proyecto "{$projectName}" y genera exclusivamente
+una matriz de cumplimiento en JSON.
+
+REGLAS OBLIGATORIAS:
+
+1. Responde solamente con JSON válido.
+2. No uses markdown ni bloques de código.
+3. No inventes información.
+4. Debes incluir las 18 preguntas solicitadas, aunque la información no exista.
+5. Cuando el documento no contenga la respuesta, escribe:
+   "No se encontró evidencia suficiente en los documentos revisados."
+6. No escribas null.
+7. El riesgo únicamente puede ser:
+   "ALTO", "MEDIO", "BAJO" o "NULO".
+8. El riesgo representa el impacto para participar o cumplir:
+   - ALTO: puede impedir participar, causar desechamiento o incumplimiento grave.
+   - MEDIO: requiere validación, gestión o aclaración.
+   - BAJO: impacto reducido o requisito sencillo.
+   - NULO: dato informativo, ausencia explícita o sin riesgo identificado.
+9. En fuente usa el nombre real del archivo cuando esté disponible.
+10. En página no inventes números. Usa cadena vacía cuando no esté identificada.
+11. En cita incluye un fragmento breve y fiel. Si no existe, usa cadena vacía.
+12. Las respuestas deben ser completas, claras y útiles para tomar decisiones.
+
+ESTRUCTURA JSON EXACTA:
+
+{
+  "secciones": [
+    {
+      "title": "Requisitos generales",
+      "items": [
+        {
+          "question": "¿En qué Entidad(es) Federativa(s) o estado(s) se realizará el servicio o entrega de bienes?",
+          "answer": "",
+          "risk": "NULO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿A qué Unidades Requirientes (ej. hospitales, clínicas, almacenes específicos) se deben entregar los productos o prestar los servicios?",
+          "answer": "",
+          "risk": "NULO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Tienen algún costo las bases de participación?",
+          "answer": "",
+          "risk": "NULO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Qué tipo de contrato se celebrará (abierto, cerrado, mixto)?",
+          "answer": "",
+          "risk": "BAJO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Se menciona explícitamente si el evento está bajo la cobertura de algún Tratado de Libre Comercio?",
+          "answer": "",
+          "risk": "MEDIO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        }
+      ]
+    },
+    {
+      "title": "Requisitos legal financiero",
+      "items": [
+        {
+          "question": "¿Se exige estar dado de alta en algún padrón de proveedores específico o contar con cédula de proveedor vigente?",
+          "answer": "",
+          "risk": "MEDIO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Cuáles son las condiciones o restricciones explícitas para subcontratar/subrogar?",
+          "answer": "",
+          "risk": "ALTO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Se requiere demostrar capacidad financiera (ej. declaraciones anuales, estados financieros, capital contable)?",
+          "answer": "",
+          "risk": "NULO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Se exige acreditar experiencia previa (ej. presentación de contratos similares, currículum de la empresa)?",
+          "answer": "",
+          "risk": "BAJO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Cuáles son las causas explícitas de desechamiento o descalificación de la propuesta?",
+          "answer": "",
+          "risk": "NULO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Qué tipos y periodos de garantías se solicitan presentar (ej. garantía de cumplimiento, de anticipo, de los bienes/vicios ocultos)?",
+          "answer": "",
+          "risk": "MEDIO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Solicitan o exigen presentar póliza de responsabilidad civil?",
+          "answer": "",
+          "risk": "NULO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        }
+      ]
+    },
+    {
+      "title": "Requisitos técnicos",
+      "items": [
+        {
+          "question": "¿Bajo qué condición se exigen los bienes a entregar (ej. nuevos, originales, de modelo reciente, sin uso)?",
+          "answer": "",
+          "risk": "MEDIO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Se exige algún origen específico (país de fabricación) para los productos ofertados?",
+          "answer": "",
+          "risk": "NULO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Qué grado mínimo de contenido o integración nacional se exige?",
+          "answer": "",
+          "risk": "ALTO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Cómo se debe certificar o acreditar el cumplimiento de las Normas Oficiales Mexicanas (NOMs)? (ej. certificados de calidad, dictámenes de laboratorios de prueba).",
+          "answer": "",
+          "risk": "BAJO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Se deben entregar muestras físicas de los productos como parte de la propuesta técnica?",
+          "answer": "",
+          "risk": "BAJO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        },
+        {
+          "question": "¿Existe cláusula de subrogación obligatoria en caso de fallas del equipo?",
+          "answer": "",
+          "risk": "NULO",
+          "fuente": "",
+          "pagina": "",
+          "cita": ""
+        }
+      ]
+    }
+  ]
+}
+
+DATOS ESTRUCTURADOS DISPONIBLES:
+
+{$structuredJson}
+
+DOCUMENTOS DEL PROYECTO:
+
+{$documentsText}
+PROMPT;
+
+    $response = trim((string) $ai->chatRaw([
+        [
+            'role' => 'system',
+            'content' => 'Genera únicamente JSON válido para una matriz de cumplimiento de licitación. No agregues markdown.',
+        ],
+        [
+            'role' => 'user',
+            'content' => $prompt,
+        ],
+    ]));
+
+    $response = preg_replace('/^```json\s*/i', '', $response) ?? $response;
+    $response = preg_replace('/^```\s*/', '', $response) ?? $response;
+    $response = preg_replace('/```\s*$/', '', $response) ?? $response;
+    $response = trim($response);
+
+    $decoded = json_decode($response, true);
+
+    if (!is_array($decoded)) {
+        Log::warning('La IA devolvió una matriz JSON inválida.', [
+            'project_id' => $project->id,
+            'json_error' => json_last_error_msg(),
+            'response_preview' => Str::limit($response, 1000),
+        ]);
+
+        return [];
+    }
+
+    return $this->normalizeComplianceMatrixSections(
+        $decoded['secciones']
+            ?? $decoded['sections']
+            ?? $decoded
+    );
+}
+
+/**
+ * Crea la estructura fija cuando no puede ejecutarse la IA.
+ */
+private function buildDefaultComplianceMatrix(array $structured = []): array
+{
+    $definitions = $this->complianceMatrixQuestionDefinitions();
+
+    return collect($definitions)
+        ->map(function ($section) use ($structured) {
+            return [
+                'title' => $section['title'],
+                'items' => collect($section['items'])
+                    ->map(function ($definition) use ($structured) {
+                        $answer = $this->findMatrixAnswerInStructuredData(
+                            $structured,
+                            $definition['question'],
+                            $definition['keywords']
+                        );
+
+                        return [
+                            'question' => $definition['question'],
+                            'answer' => $answer !== ''
+                                ? $answer
+                                : 'No se encontró evidencia suficiente en los documentos revisados.',
+                            'risk' => $definition['risk'],
+                            'fuente' => '',
+                            'pagina' => '',
+                            'cita' => '',
+                        ];
+                    })
+                    ->values()
+                    ->all(),
+            ];
+        })
+        ->values()
+        ->all();
+}
+
+/**
+ * Completa preguntas faltantes sin eliminar las que ya generó la IA.
+ */
+private function completeComplianceMatrixQuestions(
+    array $sections,
+    array $structured
+): array {
+    $existingItems = collect($sections)
+        ->flatMap(fn ($section) => $section['items'] ?? [])
+        ->filter(fn ($item) => is_array($item))
+        ->values();
+
+    return collect($this->complianceMatrixQuestionDefinitions())
+        ->map(function ($definitionSection) use ($existingItems, $structured) {
+            $items = collect($definitionSection['items'])
+                ->map(function ($definition) use ($existingItems, $structured) {
+                    $expectedQuestion = $definition['question'];
+
+                    $match = $existingItems->first(function ($item) use (
+                        $expectedQuestion,
+                        $definition
+                    ) {
+                        $currentQuestion = $item['question'] ?? '';
+
+                        return $this->matrixQuestionsAreSimilar(
+                            $currentQuestion,
+                            $expectedQuestion,
+                            $definition['keywords']
+                        );
+                    });
+
+                    if (is_array($match)) {
+                        return [
+                            'question' => $expectedQuestion,
+                            'answer' => $this->matrixTextValue(
+                                $match['answer']
+                                    ?? 'No se encontró evidencia suficiente en los documentos revisados.'
+                            ),
+                            'risk' => $this->normalizeMatrixRisk(
+                                $match['risk'] ?? $definition['risk']
+                            ),
+                            'fuente' => $this->matrixTextValue(
+                                $match['fuente'] ?? ''
+                            ),
+                            'pagina' => $this->matrixTextValue(
+                                $match['pagina'] ?? ''
+                            ),
+                            'cita' => $this->matrixTextValue(
+                                $match['cita'] ?? ''
+                            ),
+                        ];
+                    }
+
+                    $answer = $this->findMatrixAnswerInStructuredData(
+                        $structured,
+                        $expectedQuestion,
+                        $definition['keywords']
+                    );
+
+                    return [
+                        'question' => $expectedQuestion,
+                        'answer' => $answer !== ''
+                            ? $answer
+                            : 'No se encontró evidencia suficiente en los documentos revisados.',
+                        'risk' => $definition['risk'],
+                        'fuente' => '',
+                        'pagina' => '',
+                        'cita' => '',
+                    ];
+                })
+                ->values()
+                ->all();
+
+            return [
+                'title' => $definitionSection['title'],
+                'items' => $items,
+            ];
+        })
+        ->values()
+        ->all();
+}
+
+private function complianceMatrixQuestionDefinitions(): array
+{
+    return [
+        [
+            'title' => 'Requisitos generales',
+            'items' => [
+                [
+                    'question' => '¿En qué Entidad(es) Federativa(s) o estado(s) se realizará el servicio o entrega de bienes?',
+                    'risk' => 'NULO',
+                    'keywords' => ['entidad federativa', 'estado', 'lugar entrega'],
+                ],
+                [
+                    'question' => '¿A qué Unidades Requirientes (ej. hospitales, clínicas, almacenes específicos) se deben entregar los productos o prestar los servicios?',
+                    'risk' => 'NULO',
+                    'keywords' => ['unidad requirente', 'hospital', 'clínica', 'almacén'],
+                ],
+                [
+                    'question' => '¿Tienen algún costo las bases de participación?',
+                    'risk' => 'NULO',
+                    'keywords' => ['costo bases', 'bases gratuitas', 'obtención gratuita'],
+                ],
+                [
+                    'question' => '¿Qué tipo de contrato se celebrará (abierto, cerrado, mixto)?',
+                    'risk' => 'BAJO',
+                    'keywords' => ['contrato abierto', 'contrato cerrado', 'contrato mixto'],
+                ],
+                [
+                    'question' => '¿Se menciona explícitamente si el evento está bajo la cobertura de algún Tratado de Libre Comercio?',
+                    'risk' => 'MEDIO',
+                    'keywords' => ['tratado de libre comercio', 'tlc', 'cobertura tratado'],
+                ],
+            ],
+        ],
+        [
+            'title' => 'Requisitos legal financiero',
+            'items' => [
+                [
+                    'question' => '¿Se exige estar dado de alta en algún padrón de proveedores específico o contar con cédula de proveedor vigente?',
+                    'risk' => 'MEDIO',
+                    'keywords' => ['padrón proveedores', 'rup', 'rupc', 'registro proveedores'],
+                ],
+                [
+                    'question' => '¿Cuáles son las condiciones o restricciones explícitas para subcontratar/subrogar?',
+                    'risk' => 'ALTO',
+                    'keywords' => ['subcontratación', 'subcontratar', 'subrogación'],
+                ],
+                [
+                    'question' => '¿Se requiere demostrar capacidad financiera (ej. declaraciones anuales, estados financieros, capital contable)?',
+                    'risk' => 'NULO',
+                    'keywords' => ['capacidad financiera', 'estados financieros', 'capital contable'],
+                ],
+                [
+                    'question' => '¿Se exige acreditar experiencia previa (ej. presentación de contratos similares, currículum de la empresa)?',
+                    'risk' => 'BAJO',
+                    'keywords' => ['experiencia previa', 'contratos similares', 'currículum empresa'],
+                ],
+                [
+                    'question' => '¿Cuáles son las causas explícitas de desechamiento o descalificación de la propuesta?',
+                    'risk' => 'NULO',
+                    'keywords' => ['desechamiento', 'descalificación', 'causas de desechamiento'],
+                ],
+                [
+                    'question' => '¿Qué tipos y periodos de garantías se solicitan presentar (ej. garantía de cumplimiento, de anticipo, de los bienes/vicios ocultos)?',
+                    'risk' => 'MEDIO',
+                    'keywords' => ['garantía cumplimiento', 'vicios ocultos', 'fianza'],
+                ],
+                [
+                    'question' => '¿Solicitan o exigen presentar póliza de responsabilidad civil?',
+                    'risk' => 'NULO',
+                    'keywords' => ['responsabilidad civil', 'póliza responsabilidad'],
+                ],
+            ],
+        ],
+        [
+            'title' => 'Requisitos técnicos',
+            'items' => [
+                [
+                    'question' => '¿Bajo qué condición se exigen los bienes a entregar (ej. nuevos, originales, de modelo reciente, sin uso)?',
+                    'risk' => 'MEDIO',
+                    'keywords' => ['bienes nuevos', 'sin uso', 'originales', 'modelo reciente'],
+                ],
+                [
+                    'question' => '¿Se exige algún origen específico (país de fabricación) para los productos ofertados?',
+                    'risk' => 'NULO',
+                    'keywords' => ['origen bienes', 'país fabricación', 'fabricados en méxico'],
+                ],
+                [
+                    'question' => '¿Qué grado mínimo de contenido o integración nacional se exige?',
+                    'risk' => 'ALTO',
+                    'keywords' => ['contenido nacional', 'integración nacional', 'porcentaje nacional'],
+                ],
+                [
+                    'question' => '¿Cómo se debe certificar o acreditar el cumplimiento de las Normas Oficiales Mexicanas (NOMs)? (ej. certificados de calidad, dictámenes de laboratorios de prueba).',
+                    'risk' => 'BAJO',
+                    'keywords' => ['normas oficiales mexicanas', 'nom', 'certificado calidad'],
+                ],
+                [
+                    'question' => '¿Se deben entregar muestras físicas de los productos como parte de la propuesta técnica?',
+                    'risk' => 'BAJO',
+                    'keywords' => ['muestras físicas', 'muestras productos'],
+                ],
+                [
+                    'question' => '¿Existe cláusula de subrogación obligatoria en caso de fallas del equipo?',
+                    'risk' => 'NULO',
+                    'keywords' => ['subrogación obligatoria', 'fallas equipo', 'sustitución equipo'],
+                ],
+            ],
+        ],
+    ];
+}
+
+private function matrixTextValue($value): string
+{
+    if (is_null($value)) {
+        return '';
+    }
+
+    if (is_bool($value)) {
+        return $value ? 'Sí' : 'No';
+    }
+
+    if (is_scalar($value)) {
+        return trim(preg_replace(
+            '/\s+/u',
+            ' ',
+            strip_tags((string) $value)
+        ));
+    }
+
+    if (is_object($value)) {
+        $value = (array) $value;
+    }
+
+    if (!is_array($value)) {
+        return '';
+    }
+
+    foreach ([
+        'respuesta',
+        'answer',
+        'valor',
+        'value',
+        'texto',
+        'descripcion',
+        'description',
+        'content',
+    ] as $key) {
+        if (!array_key_exists($key, $value)) {
+            continue;
+        }
+
+        $candidate = $this->matrixTextValue($value[$key]);
+
+        if ($candidate !== '') {
+            return $candidate;
+        }
+    }
+
+    return collect($value)
+        ->map(fn ($item) => $this->matrixTextValue($item))
+        ->filter()
+        ->unique()
+        ->implode(' ');
+}
+
+private function normalizeMatrixRisk($risk): string
+{
+    $risk = mb_strtoupper(
+        $this->matrixTextValue($risk),
+        'UTF-8'
+    );
+
+    return in_array($risk, ['ALTO', 'MEDIO', 'BAJO', 'NULO'], true)
+        ? $risk
+        : 'NULO';
+}
+
+private function normalizeMatrixComparableText(string $text): string
+{
+    $text = Str::ascii(mb_strtolower($text, 'UTF-8'));
+    $text = preg_replace('/[^a-z0-9\s]/', ' ', $text) ?? $text;
+    $text = preg_replace('/\s+/', ' ', $text) ?? $text;
+
+    return trim($text);
+}
+
+private function matrixQuestionsAreSimilar(
+    string $current,
+    string $expected,
+    array $keywords = []
+): bool {
+    $currentNormalized = $this->normalizeMatrixComparableText($current);
+    $expectedNormalized = $this->normalizeMatrixComparableText($expected);
+
+    if ($currentNormalized === '' || $expectedNormalized === '') {
+        return false;
+    }
+
+    similar_text(
+        $currentNormalized,
+        $expectedNormalized,
+        $percentage
+    );
+
+    if ($percentage >= 54) {
+        return true;
+    }
+
+    foreach ($keywords as $keyword) {
+        $normalizedKeyword = $this->normalizeMatrixComparableText($keyword);
+
+        if (
+            $normalizedKeyword !== ''
+            && str_contains($currentNormalized, $normalizedKeyword)
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Busca respuestas que hayan sido guardadas fuera de matriz.secciones.
+ */
+private function findMatrixAnswerInStructuredData(
+    array $structured,
+    string $question,
+    array $keywords
+): string {
+    $ignoredKeys = [
+        'generated_reports',
+        'generated_documents',
+        'matriz',
+        'checklist_sugerido',
+        'checklist',
+    ];
+
+    $walk = function ($value, string $path = '') use (
+        &$walk,
+        $question,
+        $keywords,
+        $ignoredKeys
+    ): string {
+        if (is_array($value)) {
+            foreach ($value as $key => $item) {
+                if (in_array((string) $key, $ignoredKeys, true)) {
+                    continue;
+                }
+
+                if (is_array($item)) {
+                    $label = $this->matrixTextValue(
+                        $item['pregunta']
+                            ?? $item['question']
+                            ?? $item['titulo']
+                            ?? $item['title']
+                            ?? $item['requisito']
+                            ?? $key
+                    );
+
+                    if (
+                        $this->matrixQuestionsAreSimilar(
+                            $label,
+                            $question,
+                            $keywords
+                        )
+                    ) {
+                        $answer = $this->matrixTextValue(
+                            $item['respuesta']
+                                ?? $item['answer']
+                                ?? $item['descripcion']
+                                ?? $item['valor']
+                                ?? $item['value']
+                                ?? ''
+                        );
+
+                        if ($answer !== '') {
+                            return $answer;
+                        }
+                    }
+
+                    $nested = $walk(
+                        $item,
+                        $path . '.' . $key
+                    );
+
+                    if ($nested !== '') {
+                        return $nested;
+                    }
+
+                    continue;
+                }
+
+                $label = $this->matrixTextValue($key);
+
+                if (
+                    $this->matrixQuestionsAreSimilar(
+                        $label,
+                        $question,
+                        $keywords
+                    )
+                ) {
+                    $answer = $this->matrixTextValue($item);
+
+                    if ($answer !== '') {
+                        return $answer;
+                    }
+                }
+            }
+        }
+
+        return '';
+    };
+
+    return $walk($structured);
+}
 }
