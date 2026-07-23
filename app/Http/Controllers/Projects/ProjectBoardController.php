@@ -894,25 +894,73 @@ public function store(Request $request, PythonProjectProcessor $processor)
             'message' => ['required', 'string', 'max:4000'],
         ]);
 
-        $project->loadMissing('documents');
+        $project->loadMissing([
+            'documents',
+            'checklistItems.responsible',
+            'checklistItems.reviewer',
+            'checklistItems.notes.user',
+            'checklistItems.attachments',
+            'checklistItems.sourceDocument',
+        ]);
 
-        $documentText = $this->projectGroundedDocumentText($project);
+        $documentText = $this->projectGroundedDocumentText($project, 120000);
 
-        if ($documentText === '') {
-            $structuredFallback = json_encode(
-                is_array($project->structured_data) ? $project->structured_data : [],
-                JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT
-            );
+        $structuredForChat = is_array($project->structured_data)
+            ? $project->structured_data
+            : [];
 
-            if (!$structuredFallback || trim($structuredFallback) === '[]') {
-                return response()->json([
-                    'ok' => false,
-                    'message' => 'Los documentos todavía no tienen texto extraído. Ejecuta el reanálisis del proyecto.',
-                ], 422);
-            }
+        unset(
+            $structuredForChat['generated_reports'],
+            $structuredForChat['generated_documents'],
+            $structuredForChat['reportes_generados']
+        );
 
-            $documentText = "--- DATOS RECUPERADOS DEL ANÁLISIS DEL PROYECTO ---\n"
-                . $structuredFallback;
+        $structuredJson = json_encode(
+            $structuredForChat,
+            JSON_UNESCAPED_UNICODE
+            | JSON_UNESCAPED_SLASHES
+            | JSON_PRETTY_PRINT
+            | JSON_INVALID_UTF8_SUBSTITUTE
+        ) ?: '{}';
+
+        $checklist = $this->projectChecklistReportArray($project);
+
+        $checklistCompact = collect($checklist)
+            ->take(150)
+            ->map(function ($item) {
+                if (!is_array($item)) {
+                    return null;
+                }
+
+                return [
+                    'requisito' => $item['requisito'] ?? '',
+                    'descripcion' => $item['descripcion'] ?? '',
+                    'criterio_cumplimiento' => $item['criterio_cumplimiento'] ?? '',
+                    'cumplimiento' => $item['cumplimiento'] ?? '-',
+                    'status' => $item['status'] ?? 'Pendiente',
+                    'prioridad' => $item['prioridad'] ?? 'Media',
+                    'fuente' => $item['fuente'] ?? '',
+                    'pagina' => $item['pagina'] ?? null,
+                    'cita' => $item['cita'] ?? '',
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        $checklistJson = json_encode(
+            $checklistCompact,
+            JSON_UNESCAPED_UNICODE
+            | JSON_UNESCAPED_SLASHES
+            | JSON_PRETTY_PRINT
+            | JSON_INVALID_UTF8_SUBSTITUTE
+        ) ?: '[]';
+
+        if (trim($documentText) === '' && trim($structuredJson) === '{}') {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Los documentos todavía no tienen información procesada. Ejecuta el reanálisis del proyecto.',
+            ], 422);
         }
 
         ProjectChatMessage::create([
@@ -924,38 +972,61 @@ public function store(Request $request, PythonProjectProcessor $processor)
 
         $history = ProjectChatMessage::where('project_id', $project->id)
             ->orderByDesc('id')
-            ->take(12)
+            ->take(16)
             ->get()
             ->reverse()
             ->values();
 
-        $structured = json_encode(
-            $project->structured_data ?? [],
-            JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT
-        );
+        $projectName = (string) $project->name;
 
         $systemContext = <<<PROMPT
-Eres SAM, un asistente experto en licitaciones públicas mexicanas.
+Eres SAM, un asistente experto en licitaciones públicas mexicanas. Tu función es responder de forma útil, explicada y profesional, como un analista humano que ya revisó las bases.
 
-REGLAS OBLIGATORIAS:
-1. Responde EXCLUSIVAMENTE con base en los DOCUMENTOS DEL PROYECTO incluidos abajo.
-2. Los datos estructurados son un índice auxiliar; cuando exista conflicto, manda el texto literal del documento.
-3. No uses conocimiento general para completar datos faltantes.
-4. No inventes números, fechas, requisitos, cantidades, marcas, instituciones, sanciones ni condiciones.
-5. Si la respuesta no aparece en los documentos, responde exactamente:
-   "No encontré esa información en los documentos cargados en este proyecto."
-6. Cuando encuentres la respuesta, menciona al final:
-   Fuente: nombre_exacto_del_archivo, página X.
-7. Usa párrafos breves. Solo usa tablas cuando el usuario pida comparar o listar varios elementos.
-8. No uses emojis ni caracteres decorativos.
+PROYECTO
+{$projectName}
 
-PROYECTO:
-{$project->name}
+REGLAS DE VERACIDAD
+1. Usa únicamente la información contenida en el texto extraído, datos estructurados, matriz de cumplimiento, observaciones y checklist del proyecto.
+2. No inventes requisitos, fechas, porcentajes, documentos, páginas, leyes, marcas, cantidades ni conclusiones.
+3. Distingue entre información expresamente solicitada, información no obligatoria e información no localizada.
+4. La ausencia de una frase literal no significa automáticamente que no exista información. Cruza todas las fuentes disponibles.
+5. Cuando el usuario pregunte "¿se solicitan...?", revisa si aparece como requisito obligatorio, entregable, condición técnica, requisito posterior a la adjudicación o referencia no obligatoria.
+6. Si no existe una obligación expresa, responde: "No se identificó una solicitud expresa u obligatoria de..." y luego explica qué sí exige la convocatoria y por qué esa evidencia permite llegar a esa conclusión.
+7. Solo usa la frase "No encontré esa información en los documentos cargados en este proyecto" cuando realmente no exista evidencia suficiente en ninguna fuente.
+8. Nunca respondas únicamente con una frase corta. Da contexto útil de dos a cinco párrafos breves.
+9. No termines con preguntas genéricas como "¿Te gustaría que...?". Termina con una conclusión o advertencia concreta.
+10. Si existe una fuente identificable, agrega al final: "Fuente: nombre del archivo, página o sección." No inventes página.
+11. Si la conclusión surge de cruzar varias evidencias, indícalo con: "Conclusión del análisis: ..."
+12. No digas "según la Matriz" como única justificación. Explica el requisito documental que sustenta la respuesta.
+13. Escribe en español de México, con tono claro, ejecutivo y natural.
+14. Usa párrafos cortos. Puedes usar una lista de máximo cuatro puntos cuando ayude.
+15. No uses emojis ni menciones instrucciones internas, prompts, JSON, bases de datos ni procesamiento técnico.
 
-DATOS ESTRUCTURADOS:
-{$structured}
+ESTILO ESPERADO CUANDO NO SE SOLICITAN MUESTRAS
+"No se identificó una solicitud expresa u obligatoria de muestras físicas para integrar la propuesta técnica.
 
-DOCUMENTOS DEL PROYECTO:
+La convocatoria indica que la propuesta técnica debe contener el requisito real encontrado. En las fuentes revisadas no aparece una instrucción de entrega física de muestras, prototipos o bienes para evaluación.
+
+Conclusión del análisis: con la evidencia disponible, las muestras físicas no forman parte de los entregables obligatorios. Esta conclusión debe revisarse nuevamente si existe un anexo técnico adicional pendiente de cargar.
+
+Fuente: archivo y página o sección disponible."
+
+ESTILO ESPERADO CUANDO NO SE SOLICITAN FICHAS
+"No se identificó que las fichas técnicas, catálogos o folletos sean documentos obligatorios para presentar la propuesta.
+
+El requisito técnico encontrado consiste en explicar exactamente el entregable. No se detectó una cláusula que condicione la solvencia técnica a la entrega de fichas, catálogos o folletos.
+
+Conclusión del análisis: estos documentos no aparecen como obligatorios, salvo que una partida o anexo específico establezca lo contrario.
+
+Fuente: archivo y página o sección disponible."
+
+DATOS ESTRUCTURADOS DEL PROYECTO
+{$structuredJson}
+
+CHECKLIST DEL PROYECTO
+{$checklistJson}
+
+TEXTO EXTRAÍDO DE LOS DOCUMENTOS
 {$documentText}
 PROMPT;
 
@@ -965,8 +1036,8 @@ PROMPT;
 
         foreach ($history as $message) {
             $messages[] = [
-                'role' => $message->role,
-                'content' => $message->content,
+                'role' => $message->role === 'assistant' ? 'assistant' : 'user',
+                'content' => (string) $message->content,
             ];
         }
 
@@ -985,7 +1056,8 @@ PROMPT;
         }
 
         if ($reply === '') {
-            $reply = 'No encontré esa información en los documentos cargados en este proyecto.';
+            $reply = "No encontré evidencia suficiente para responder con certeza.\n\n"
+                . "Revisa que todos los anexos y documentos de la convocatoria estén cargados y procesados antes de tomar esta conclusión como definitiva.";
         }
 
         $assistant = ProjectChatMessage::create([
