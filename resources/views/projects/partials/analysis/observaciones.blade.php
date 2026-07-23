@@ -431,6 +431,16 @@
     height: 16px;
   }
 
+  #pjdObservacionesComponent .pjd-obs-empty {
+    padding: 18px 20px;
+    border: 1px dashed var(--obs-line);
+    border-radius: 10px;
+    background: #f9fafb;
+    color: var(--obs-muted);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
   @media (max-width: 760px) {
     #pjdObservacionesComponent { padding: 12px; }
     #pjdObservacionesComponent .pjd-obs-stack { padding: 12px; }
@@ -448,11 +458,262 @@
   @php
     $obsSparkle = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.7 5.1L19 10l-5.3 1.9L12 17l-1.7-5.1L5 10l5.3-1.9L12 3Z"></path><path d="M19 4v4"></path><path d="M17 6h4"></path><path d="M5 16v4"></path><path d="M3 18h4"></path></svg>';
 
-    // Datos ampliados con citas y fuentes simulando la respuesta de IA
-    $obsSections = collect(data_get($sd, 'observaciones.secciones', []))
-      ->filter(fn ($section) => is_array($section))
+    /*
+    |--------------------------------------------------------------------------
+    | Normalización de observaciones
+    |--------------------------------------------------------------------------
+    | El procesador y el controlador pueden devolver nombres históricos:
+    | title/titulo/name, text/descripcion/respuesta, quote/cita/evidencia,
+    | source/fuente/documento y también listas planas sin "secciones".
+    | Aquí unificamos todo para que la vista nunca descarte información válida.
+    */
+
+    $obsRaw = data_get($sd, 'observaciones.secciones');
+
+    if (!is_array($obsRaw) || empty($obsRaw)) {
+      $obsRaw = data_get($sd, 'observaciones', []);
+    }
+
+    if (!is_array($obsRaw) || empty($obsRaw)) {
+      $obsRaw = data_get($sd, 'hallazgos.observaciones', []);
+    }
+
+    if (!is_array($obsRaw) || empty($obsRaw)) {
+      $obsRaw = data_get($sd, 'hallazgos', []);
+    }
+
+    $obsText = function ($value, string $fallback = '') use (&$obsText) {
+      if (is_null($value)) return $fallback;
+      if (is_bool($value)) return $value ? 'Sí' : 'No';
+
+      if (is_scalar($value)) {
+        $value = trim((string) $value);
+        return $value !== '' ? $value : $fallback;
+      }
+
+      if (is_object($value)) {
+        $value = (array) $value;
+      }
+
+      if (is_array($value)) {
+        foreach (['text', 'texto', 'descripcion', 'description', 'respuesta', 'valor', 'contenido', 'content', 'titulo', 'title', 'nombre', 'name'] as $key) {
+          if (array_key_exists($key, $value)) {
+            $candidate = $obsText($value[$key]);
+            if ($candidate !== '') return $candidate;
+          }
+        }
+
+        $parts = [];
+        foreach ($value as $item) {
+          $candidate = $obsText($item);
+          if ($candidate !== '') $parts[] = $candidate;
+        }
+
+        $joined = trim(implode(' ', array_unique($parts)));
+        return $joined !== '' ? $joined : $fallback;
+      }
+
+      return $fallback;
+    };
+
+    $normalizeObsItem = function ($item) use ($obsText) {
+      if (is_string($item)) {
+        return [
+          'title' => 'Observación detectada',
+          'text' => trim($item),
+          'quote' => '',
+          'source' => '',
+          'page' => '',
+        ];
+      }
+
+      if (is_object($item)) {
+        $item = (array) $item;
+      }
+
+      if (!is_array($item)) {
+        return null;
+      }
+
+      $title = $obsText(
+        $item['title']
+          ?? $item['titulo']
+          ?? $item['name']
+          ?? $item['nombre']
+          ?? $item['hallazgo']
+          ?? $item['tipo']
+          ?? 'Observación detectada',
+        'Observación detectada'
+      );
+
+      $body = $obsText(
+        $item['text']
+          ?? $item['texto']
+          ?? $item['descripcion']
+          ?? $item['description']
+          ?? $item['respuesta']
+          ?? $item['detalle']
+          ?? $item['contenido']
+          ?? ''
+      );
+
+      if ($body === '' && $title !== 'Observación detectada') {
+        $body = $title;
+      }
+
+      if ($body === '') {
+        return null;
+      }
+
+      return [
+        'title' => $title,
+        'text' => $body,
+        'quote' => $obsText(
+          $item['quote']
+            ?? $item['cita']
+            ?? $item['evidencia']
+            ?? $item['fragmento']
+            ?? $item['source_quote']
+            ?? ''
+        ),
+        'source' => $obsText(
+          $item['source']
+            ?? $item['fuente']
+            ?? $item['documento']
+            ?? $item['archivo']
+            ?? $item['filename']
+            ?? $item['source_name']
+            ?? ''
+        ),
+        'page' => $obsText(
+          $item['page']
+            ?? $item['pagina']
+            ?? $item['página']
+            ?? $item['source_page']
+            ?? ''
+        ),
+      ];
+    };
+
+    $canonicalSections = [
+      'Discrepancia de Tiempos/Fechas' => [],
+      'Requisito Ilegal o Abusivo' => [],
+      'Ambigüedad Técnica' => [],
+      'Otro' => [],
+    ];
+
+    $resolveObsSection = function (string $value): string {
+      $value = mb_strtolower(trim($value), 'UTF-8');
+
+      if (
+        str_contains($value, 'tiempo')
+        || str_contains($value, 'fecha')
+        || str_contains($value, 'plazo')
+        || str_contains($value, 'horario')
+        || str_contains($value, 'calendario')
+      ) {
+        return 'Discrepancia de Tiempos/Fechas';
+      }
+
+      if (
+        str_contains($value, 'ilegal')
+        || str_contains($value, 'abusiv')
+        || str_contains($value, 'restrict')
+        || str_contains($value, 'desech')
+        || str_contains($value, 'fianza')
+        || str_contains($value, 'garant')
+        || str_contains($value, 'cumplimiento fiscal')
+        || str_contains($value, 'propuesta conjunta')
+      ) {
+        return 'Requisito Ilegal o Abusivo';
+      }
+
+      if (
+        str_contains($value, 'ambigu')
+        || str_contains($value, 'técnic')
+        || str_contains($value, 'tecnic')
+        || str_contains($value, 'contradic')
+        || str_contains($value, 'confusión')
+        || str_contains($value, 'confusion')
+        || str_contains($value, 'error de sujeto')
+      ) {
+        return 'Ambigüedad Técnica';
+      }
+
+      return 'Otro';
+    };
+
+    foreach ((array) $obsRaw as $sectionKey => $section) {
+      if (is_object($section)) {
+        $section = (array) $section;
+      }
+
+      $looksLikeSection = is_array($section)
+        && (
+          array_key_exists('items', $section)
+          || array_key_exists('observaciones', $section)
+          || array_key_exists('hallazgos', $section)
+          || array_key_exists('title', $section)
+          || array_key_exists('titulo', $section)
+        );
+
+      if ($looksLikeSection) {
+        $sectionTitle = $obsText(
+          $section['title']
+            ?? $section['titulo']
+            ?? $section['name']
+            ?? $section['nombre']
+            ?? (is_string($sectionKey) ? $sectionKey : 'Otro'),
+          'Otro'
+        );
+
+        $items = $section['items']
+          ?? $section['observaciones']
+          ?? $section['hallazgos']
+          ?? $section['data']
+          ?? [];
+
+        if (!is_array($items)) {
+          $items = [$items];
+        }
+
+        foreach ($items as $item) {
+          $normalized = $normalizeObsItem($item);
+          if (!$normalized) continue;
+
+          $target = $resolveObsSection($sectionTitle . ' ' . $normalized['title'] . ' ' . $normalized['text']);
+          $canonicalSections[$target][] = $normalized;
+        }
+
+        continue;
+      }
+
+      $normalized = $normalizeObsItem($section);
+      if (!$normalized) continue;
+
+      $target = $resolveObsSection(
+        (is_string($sectionKey) ? $sectionKey : '')
+        . ' '
+        . $normalized['title']
+        . ' '
+        . $normalized['text']
+      );
+
+      $canonicalSections[$target][] = $normalized;
+    }
+
+    $obsSections = collect($canonicalSections)
+      ->map(fn ($items, $title) => [
+        'title' => $title,
+        'items' => collect($items)
+          ->filter(fn ($item) => is_array($item) && !empty($item['text']))
+          ->unique(fn ($item) => mb_strtolower(trim(($item['title'] ?? '') . '|' . ($item['text'] ?? '')), 'UTF-8'))
+          ->values()
+          ->all(),
+      ])
+      ->filter(fn ($section) => !empty($section['items']))
       ->values()
-      ->all()
+      ->all();
   @endphp
 
   <div id="pjdObservacionesComponent" class="pjd-obs-root">
@@ -480,21 +741,21 @@
 
             <div class="pjd-obs-card-body">
               <div class="pjd-obs-list">
-                @foreach($section['items'] as $itemIndex => $item)
+                @forelse(($section['items'] ?? []) as $itemIndex => $item)
                   {{-- Mantenemos el primer ítem abierto por defecto --}}
                   <article class="pjd-obs-row {{ ($sectionIndex === 0 && $itemIndex === 0) ? 'is-open' : '' }}">
                     <div class="pjd-obs-row-main">
 
                       {{-- Encabezado del Row (Título y Trash) --}}
                       <div class="pjd-obs-row-header">
-                        <h4 class="pjd-obs-row-title">{{ mb_strtoupper($item['title']) }}</h4>
+                        <h4 class="pjd-obs-row-title">{{ mb_strtoupper($item['title'] ?? 'Observación detectada', 'UTF-8') }}</h4>
                         <button type="button" class="pjd-obs-trash" title="Eliminar visual" aria-label="Eliminar observación">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
                         </button>
                       </div>
 
                       {{-- Texto Principal --}}
-                      <p class="pjd-obs-row-text">{{ $item['text'] }}</p>
+                      <p class="pjd-obs-row-text">{{ $item['text'] ?? 'Sin descripción disponible.' }}</p>
 
                       {{-- Bloque Extra Expandible --}}
                       <div class="pjd-obs-row-extra">
@@ -517,7 +778,10 @@
                               FUENTE ORIGINAL
                             </div>
                             <div class="pjd-obs-source-link">
-                              <a href="#">{{ $item['source'] }}</a>
+                              <span>{{ $item['source'] }}</span>
+                              @if(!empty($item['page']))
+                                <small style="display:block;margin-top:4px;color:#64748b;">Página o sección: {{ $item['page'] }}</small>
+                              @endif
                             </div>
                           </div>
                         @endif
@@ -535,7 +799,11 @@
                       </div>
                     </div>
                   </article>
-                @endforeach
+                @empty
+                  <div class="pjd-obs-empty">
+                    No hay observaciones en esta categoría.
+                  </div>
+                @endforelse
               </div>
             </div>
           </section>
