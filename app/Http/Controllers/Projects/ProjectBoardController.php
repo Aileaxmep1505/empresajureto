@@ -221,10 +221,10 @@ public function store(Request $request, PythonProjectProcessor $processor)
 
     if (!$withoutDocuments) {
         $rules['files'] = 'required|array|min:1|max:9';
-        $rules['files.*'] = 'file|mimes:pdf,docx,doc|max:25600';
+        $rules['files.*'] = 'file|mimes:pdf,docx,doc|max:61440';
     } else {
         $rules['files'] = 'nullable|array|max:9';
-        $rules['files.*'] = 'file|mimes:pdf,docx,doc|max:25600';
+        $rules['files.*'] = 'file|mimes:pdf,docx,doc|max:61440';
     }
 
     $request->validate($rules);
