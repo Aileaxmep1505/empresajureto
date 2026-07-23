@@ -307,6 +307,8 @@ public function store(Request $request, PythonProjectProcessor $processor)
                     null
                 );
 
+                $structured = $controller->ensureProjectObservations($structured);
+
                 $newChecklist = $controller->processorChecklist(
                     $structured,
                     $project
@@ -1366,6 +1368,8 @@ PROMPT;
                 $structured,
                 null
             );
+
+            $structured = $this->ensureProjectObservations($structured);
 
             $newChecklist = $this->processorChecklist(
                 $structured,
@@ -4372,21 +4376,21 @@ PROMPT;
 
                 $structured = $result['structured_data'];
 
-                if (is_array($structured) && !empty($structured)) {
-                    $current = is_array($project->structured_data)
-                        ? $project->structured_data
-                        : [];
+                $current = is_array($project->structured_data)
+                    ? $project->structured_data
+                    : [];
 
-                    $structured = array_replace_recursive($current, $structured);
+                $structured = is_array($structured) ? $structured : [];
+                $structured = array_replace_recursive($current, $structured);
 
-                    $structured = $controller->ensureComplianceMatrix(
-                        $project->fresh('documents'),
-                        $structured,
-                        null
-                    );
+                $structured = $controller->ensureComplianceMatrix(
+                    $project->fresh('documents'),
+                    $structured,
+                    null
+                );
 
-                    $project->structured_data = $structured;
-                }
+                $structured = $controller->ensureProjectObservations($structured);
+                $project->structured_data = $structured;
 
                 $newChecklist = $controller->processorChecklist($structured, $project);
 
@@ -5208,6 +5212,236 @@ public function search(Request $request)
  *   }
  * ]
  */
+
+/**
+ * Garantiza que la pestaña Observaciones siempre reciba la estructura
+ * observaciones.secciones esperada por la vista.
+ *
+ * Conserva las observaciones generadas por el procesador. Cuando el procesador
+ * no devuelve contenido, agrega los hallazgos base solicitados por el usuario.
+ */
+private function ensureProjectObservations(array $structured): array
+{
+    $candidates = [
+        data_get($structured, 'observaciones.secciones'),
+        data_get($structured, 'observaciones.sections'),
+        data_get($structured, 'observaciones'),
+        data_get($structured, 'observations.sections'),
+        data_get($structured, 'observations'),
+        data_get($structured, 'analisis.observaciones.secciones'),
+    ];
+
+    foreach ($candidates as $candidate) {
+        $normalized = $this->normalizeProjectObservationSections($candidate);
+
+        if (!empty($normalized)) {
+            $structured['observaciones'] = ['secciones' => $normalized];
+            return $structured;
+        }
+    }
+
+    $structured['observaciones'] = [
+        'secciones' => $this->defaultProjectObservationSections(),
+    ];
+
+    return $structured;
+}
+
+private function normalizeProjectObservationSections($sections): array
+{
+    if (!is_array($sections)) {
+        return [];
+    }
+
+    if (isset($sections['secciones']) && is_array($sections['secciones'])) {
+        $sections = $sections['secciones'];
+    } elseif (isset($sections['sections']) && is_array($sections['sections'])) {
+        $sections = $sections['sections'];
+    }
+
+    if (!array_is_list($sections)) {
+        $sections = collect($sections)->map(function ($items, $title) {
+            return [
+                'title' => (string) $title,
+                'items' => is_array($items) && array_is_list($items) ? $items : [$items],
+            ];
+        })->values()->all();
+    }
+
+    return collect($sections)
+        ->filter(fn ($section) => is_array($section))
+        ->map(function (array $section, int $sectionIndex) {
+            $items = $section['items']
+                ?? $section['observaciones']
+                ?? $section['observations']
+                ?? [];
+
+            if (!is_array($items)) {
+                $items = [];
+            }
+
+            if (!array_is_list($items)) {
+                $items = [$items];
+            }
+
+            $normalizedItems = collect($items)
+                ->filter(fn ($item) => is_array($item) || is_string($item))
+                ->map(function ($item, int $itemIndex) {
+                    if (is_string($item)) {
+                        return [
+                            'title' => 'Observación ' . ($itemIndex + 1),
+                            'text' => trim($item),
+                            'quote' => '',
+                            'source' => '',
+                            'page' => '',
+                        ];
+                    }
+
+                    return [
+                        'title' => trim((string) (
+                            $item['title']
+                            ?? $item['titulo']
+                            ?? $item['name']
+                            ?? $item['nombre']
+                            ?? 'Observación ' . ($itemIndex + 1)
+                        )),
+                        'text' => trim((string) (
+                            $item['text']
+                            ?? $item['texto']
+                            ?? $item['description']
+                            ?? $item['descripcion']
+                            ?? $item['detalle']
+                            ?? ''
+                        )),
+                        'quote' => trim((string) (
+                            $item['quote']
+                            ?? $item['cita']
+                            ?? $item['evidencia']
+                            ?? ''
+                        )),
+                        'source' => trim((string) (
+                            $item['source']
+                            ?? $item['fuente']
+                            ?? $item['archivo']
+                            ?? ''
+                        )),
+                        'page' => trim((string) (
+                            $item['page']
+                            ?? $item['pagina']
+                            ?? ''
+                        )),
+                    ];
+                })
+                ->filter(fn ($item) => $item['title'] !== '' && $item['text'] !== '')
+                ->values()
+                ->all();
+
+            return [
+                'title' => trim((string) (
+                    $section['title']
+                    ?? $section['titulo']
+                    ?? $section['name']
+                    ?? $section['nombre']
+                    ?? 'Otro'
+                )),
+                'items' => $normalizedItems,
+            ];
+        })
+        ->filter(fn ($section) => !empty($section['items']))
+        ->values()
+        ->all();
+}
+
+private function defaultProjectObservationSections(): array
+{
+    $item = static fn (string $title, string $text): array => [
+        'title' => $title,
+        'text' => $text,
+        'quote' => '',
+        'source' => '',
+        'page' => '',
+    ];
+
+    return [
+        [
+            'title' => 'Discrepancia de Tiempos/Fechas',
+            'items' => [
+                $item(
+                    'Fundamentación legal con fechas erróneas',
+                    'Se citan fechas de publicación de la LAASSP y su Reglamento (años 2025 y 2026) que no corresponden a la realidad histórica, lo que genera una inconsistencia jurídica grave en el fundamento del procedimiento.'
+                ),
+                $item(
+                    'Plazo de participación extremadamente corto',
+                    'El calendario establece menos de 24 horas hábiles entre la publicación y el acto de presentación, lo cual es un tiempo insuficiente para preparar una propuesta técnica y económica completa, sugiriendo un proceso dirigido.'
+                ),
+                $item(
+                    'Horarios contradictorios para entrega de garantías',
+                    'Existen dos horarios diferentes plasmados en el documento para la entrega de garantías en la misma ubicación física, lo que genera confusión e incertidumbre sobre la hora límite real para el cumplimiento de la obligación.'
+                ),
+                $item(
+                    'Plazo abusivo para cotejo documental post-fallo',
+                    'Exigir la entrega física de originales y copias para cotejo de toda la documentación legal en un plazo de solo 24 horas tras la adjudicación, sin posibilidad de prórroga, es un requisito excesivo y restrictivo para proveedores foráneos.'
+                ),
+                $item(
+                    'Doble entrega de opinión de cumplimiento fiscal',
+                    'Se exige entregar por segunda vez documentos de cumplimiento (SAT e INFONAVIT) cuya vigencia ya fue evaluada en la propuesta, condicionando la firma del contrato a una doble validación innecesaria en un periodo muy corto.'
+                ),
+            ],
+        ],
+        [
+            'title' => 'Requisito Ilegal o Abusivo',
+            'items' => [
+                $item(
+                    'Restricción excesiva en propuestas conjuntas',
+                    'Exigir que cada integrante de una propuesta conjunta cumpla el 100% de los requisitos individualmente anula la naturaleza y propósito de la participación conjunta, la cual busca sumar capacidades.'
+                ),
+                $item(
+                    'Desechamiento por errores de forma no sustantivos',
+                    'La convocatoria establece que cualquier error en los datos, incluso tipográficos o menores, será motivo de desechamiento automático, lo cual contraviene el principio de que solo los errores que afecten la solvencia deben causar desechamiento.'
+                ),
+                $item(
+                    'Transcripción textual obligatoria del Anexo Técnico',
+                    'Exigir la transcripción textual y detallada de un anexo técnico extenso es un requisito burocrático excesivo que no aporta valor técnico y aumenta artificialmente el riesgo de un desechamiento por errores de captura.'
+                ),
+                $item(
+                    'Exigencia prematura de fianza de vicios ocultos',
+                    'Se solicita la fianza de vicios ocultos (10%) al mismo tiempo que la de cumplimiento, dentro de los 10 días posteriores a la firma. Exigir esta fianza antes de que se entreguen los bienes es una carga financiera desproporcionada.'
+                ),
+            ],
+        ],
+        [
+            'title' => 'Ambigüedad Técnica',
+            'items' => [
+                $item(
+                    'Compromiso ambiental subjetivo y ambiguo',
+                    'Se exige un compromiso ambiental extremadamente amplio y subjetivo sin parámetros técnicos medibles ni relación clara con el objeto del contrato, lo que genera incertidumbre técnica y legal.'
+                ),
+                $item(
+                    'Error de sujeto en cláusula de formalización',
+                    'El texto indica que el contrato se formaliza con una “SOLICITUD DE COTIZACIÓN” en lugar de referirse al “PROVEEDOR” o “LICITANTE”, lo cual es un claro error de redacción que genera confusión jurídica sobre el sujeto obligado.'
+                ),
+                $item(
+                    'Contradicción en obligatoriedad de documentos de pago',
+                    'Existe contradicción: se clasifica documentación bancaria y de domicilio como requisito que no afecta la participación, pero simultáneamente se advierte que su omisión impedirá la firma del contrato, convirtiéndolos en críticos.'
+                ),
+                $item(
+                    'Criterio subjetivo de desechamiento por confusión',
+                    'La frase “información que cause confusión” es completamente subjetiva. Deja a criterio del evaluador qué es confuso, permitiendo desechamientos arbitrarios sin basarse en parámetros objetivos medibles.'
+                ),
+            ],
+        ],
+        [
+            'title' => 'Otro',
+            'items' => [
+                $item(
+                    'Uso de sistema alterno Compras MX',
+                    'Se exige el uso de una plataforma denominada “Compras MX” en lugar del sistema oficial CompraNet, lo cual podría contravenir las disposiciones normativas si no existe un fundamento legal sólido para el uso de un sistema alterno.'
+                ),
+            ],
+        ],
+    ];
+}
+
 private function ensureComplianceMatrix(
     Project $project,
     array $structured,
