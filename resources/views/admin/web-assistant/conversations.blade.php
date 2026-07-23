@@ -587,25 +587,30 @@
     return 'Sistema';
   }
 
-  function renderMessages(items){
-    if(!items || !items.length){
-      messages.innerHTML = '<div class="jrt-advisor-empty"><div><strong>Sin mensajes</strong>Esta conversación aún no tiene mensajes.</div></div>';
-      return;
-    }
-
-    messages.innerHTML = items.map(function(item){
-      const role = ['user','advisor','assistant','system'].includes(item.role) ? item.role : 'system';
-      return `
-        <div class="jrt-advisor-msg ${role}">
-          <strong>${escapeHtml(roleLabel(role))}</strong><br>
-          ${escapeHtml(item.content).replace(/\n/g, '<br>')}
-          <span class="jrt-advisor-msg-time">${escapeHtml(item.time || '')}</span>
-        </div>
-      `;
-    }).join('');
-
-    messages.scrollTop = messages.scrollHeight;
+ function renderMessages(items){
+  if(!items || !items.length){
+    messages.innerHTML = '<div class="jrt-advisor-empty"><div><strong>Sin mensajes</strong>Esta conversación aún no tiene mensajes.</div></div>';
+    return;
   }
+
+  messages.innerHTML = items.map(function(item){
+    const role = ['user','advisor','assistant','system'].includes(item.role) ? item.role : 'system';
+
+    const content = role === 'assistant'
+      ? String(item.content || '').replace(/\n/g, '<br>')
+      : escapeHtml(item.content).replace(/\n/g, '<br>');
+
+    return `
+      <div class="jrt-advisor-msg ${role}">
+        <strong>${escapeHtml(roleLabel(role))}</strong><br>
+        ${content}
+        <span class="jrt-advisor-msg-time">${escapeHtml(item.time || '')}</span>
+      </div>
+    `;
+  }).join('');
+
+  messages.scrollTop = messages.scrollHeight;
+}
 
   function setActiveButtons(conversation){
     activeStatus = conversation?.handoff_status || null;
@@ -669,8 +674,10 @@
     }
   }
 
-  async function postAction(endpoint, payload = {}){
-    if(!activeId) return null;
+  async function postAction(endpoint, payload = {}) {
+    if (!activeId) {
+      throw new Error('No hay una conversación seleccionada.');
+    }
 
     const response = await fetch(url(endpoint, activeId), {
       method: 'POST',
@@ -680,13 +687,34 @@
         'X-CSRF-TOKEN': CSRF,
         'X-Requested-With': 'XMLHttpRequest'
       },
+      credentials: 'same-origin',
       body: JSON.stringify(payload)
     });
 
-    const data = await response.json();
+    const rawResponse = await response.text();
+    let data = {};
 
-    if(!response.ok || !data.ok){
-      throw new Error(data.message || 'Error');
+    try {
+      data = rawResponse ? JSON.parse(rawResponse) : {};
+    } catch (error) {
+      console.error('Respuesta no JSON del servidor:', rawResponse);
+      throw new Error(
+        'Laravel devolvió una respuesta inválida. Revisa storage/logs/laravel.log. Código HTTP: ' + response.status
+      );
+    }
+
+    if (!response.ok || data.ok !== true) {
+      console.error('Error al ejecutar la acción:', {
+        status: response.status,
+        response: data
+      });
+
+      throw new Error(
+        data.message
+        || data.error
+        || data.exception
+        || `No se pudo completar la acción. Código HTTP: ${response.status}`
+      );
     }
 
     return data;
@@ -731,21 +759,43 @@
     }
   });
 
-  form.addEventListener('submit', async function(event){
+  form.addEventListener('submit', async function(event) {
     event.preventDefault();
 
     const message = input.value.trim();
-    if(!message || !activeId) return;
 
-    try{
+    if (!message) {
+      alert('Escribe un mensaje antes de enviarlo.');
+      input.focus();
+      return;
+    }
+
+    if (!activeId) {
+      alert('Selecciona una conversación.');
+      return;
+    }
+
+    try {
       sendBtn.disabled = true;
-      await postAction(REPLY_URL, { message });
+      input.disabled = true;
+      sendBtn.textContent = 'Enviando...';
+
+      await postAction(REPLY_URL, { message: message });
+
       input.value = '';
       await loadConversation(activeId);
-    } catch(error){
-      alert('No pude enviar el mensaje.');
+    } catch (error) {
+      console.error(error);
+      alert(error.message || 'No pude enviar el mensaje.');
     } finally {
-      sendBtn.disabled = false;
+      const closed = activeStatus === 'closed';
+      sendBtn.disabled = closed;
+      input.disabled = closed;
+      sendBtn.textContent = 'Enviar';
+
+      if (!closed) {
+        input.focus();
+      }
     }
   });
 

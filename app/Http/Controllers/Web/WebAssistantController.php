@@ -14,7 +14,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
-
+use App\Mail\WebAssistantHandoffMail;
+use Illuminate\Support\Facades\Mail;
 class WebAssistantController extends Controller
 {
     private int $inactiveMinutes = 120;
@@ -276,6 +277,16 @@ class WebAssistantController extends Controller
             }
 
             $conversation->save();
+$advisorEmail = trim((string) env('WEB_ASSISTANT_ADVISOR_EMAIL', ''));
+
+if (filter_var($advisorEmail, FILTER_VALIDATE_EMAIL)) {
+    try {
+        Mail::to($advisorEmail)
+            ->send(new WebAssistantHandoffMail($conversation));
+    } catch (\Throwable $e) {
+        report($e);
+    }
+}
         }
 
         $freshStatus = (string) (

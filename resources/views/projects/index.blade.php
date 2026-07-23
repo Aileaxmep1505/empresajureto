@@ -3078,12 +3078,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     return;
                 }
 
-                if (uploadStatus) {
-                    uploadStatus.style.background = '#dcfce7';
-                    uploadStatus.style.borderColor = '#bbf7d0';
-                    uploadStatus.style.color = '#15803d';
-                    uploadStatus.textContent = '¡Listo! Abriendo el proyecto…';
-                }
+              if (uploadStatus) {
+    uploadStatus.style.background = '#dcfce7';
+    uploadStatus.style.borderColor = '#bbf7d0';
+    uploadStatus.style.color = '#15803d';
+    uploadStatus.textContent = noDocs
+        ? '¡Listo! Abriendo el proyecto…'
+        : '¡Proyecto creado! El análisis continúa en segundo plano. Abriendo el proyecto…';
+}
 
                 const target = json.redirect_url || json.redirect;
                 setTimeout(() => { window.location.href = target; }, 600);
