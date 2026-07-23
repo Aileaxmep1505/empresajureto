@@ -31,106 +31,282 @@ class ReceivableController extends Controller implements HasMiddleware
 
     public function index(Request $request)
     {
-        $companies = Company::orderBy('name')->get();
+        $today = Carbon::today();
+
+        $companies = Company::query()
+            ->orderBy('name')
+            ->get();
 
         $user = Auth::user();
         $email = $user?->email;
         $userId = $user?->id;
 
-        $companyId = $request->filled('company_id') ? (int) $request->company_id : null;
+        $companyId = $request->filled('company_id')
+            ? (int) $request->input('company_id')
+            : null;
 
         /*
         |--------------------------------------------------------------------------
         | Sincronizar publicaciones de venta
         |--------------------------------------------------------------------------
-        | Si una Publication es venta, se crea como AccountReceivable
-        | para que aparezca en cuentas por cobrar, dashboard y alertas.
+        |
+        | Se conserva la sincronización. Sin embargo, la consulta principal ya
+        | no filtra por created_by, porque los registros históricos pueden tener
+        | un correo, un ID de usuario, otro usuario o un valor NULL.
+        |
         */
-        $this->syncVentaPublicationsToReceivables($companyId, $email, $userId);
 
-        $q = AccountReceivable::query()
-            ->with('company')
-            ->orderByDesc('due_date');
+        $this->syncVentaPublicationsToReceivables(
+            $companyId,
+            $email,
+            $userId
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Consulta base
+        |--------------------------------------------------------------------------
+        */
+
+        $query = AccountReceivable::query()
+            ->with('company');
 
         if ($companyId) {
-            $q->where('company_id', $companyId);
+            $query->where('company_id', $companyId);
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Filtro por usuario
+        | Scope recibido desde dashboard
         |--------------------------------------------------------------------------
-        | Compatible con created_by guardado como email o como ID de usuario.
         */
-        if ($userId || $email) {
-            $q->where(function ($w) use ($userId, $email) {
-                if ($userId) {
-                    $w->orWhere('created_by', $userId);
-                }
 
-                if ($email) {
-                    $w->orWhere('created_by', $email);
-                }
-            });
-        }
-
-        $scope = $request->get('scope');
-        $today = Carbon::today();
+        $scope = trim((string) $request->input('scope', ''));
 
         if ($scope === 'open') {
-            $q->whereNotIn('status', ['cobrado', 'cancelado']);
+            $query->whereNotIn('status', [
+                'cobrado',
+                'pagado',
+                'cancelado',
+            ]);
         }
 
         if ($scope === 'overdue') {
-            $q->whereNotIn('status', ['cobrado', 'cancelado'])
-              ->whereDate('due_date', '<', $today);
+            $query
+                ->whereNotIn('status', [
+                    'cobrado',
+                    'pagado',
+                    'cancelado',
+                ])
+                ->whereNotNull('due_date')
+                ->whereDate('due_date', '<', $today);
         }
 
         if ($scope === 'upcoming') {
-            $q->whereNotIn('status', ['cobrado', 'cancelado'])
-              ->whereDate('due_date', '>=', $today)
-              ->whereDate('due_date', '<=', $today->copy()->addDays(15));
+            $query
+                ->whereNotIn('status', [
+                    'cobrado',
+                    'pagado',
+                    'cancelado',
+                ])
+                ->whereNotNull('due_date')
+                ->whereDate('due_date', '>=', $today)
+                ->whereDate(
+                    'due_date',
+                    '<=',
+                    $today->copy()->addDays(15)
+                );
         }
 
-        if ($request->filled('status') && $request->status !== 'all') {
-            $status = $this->normalizeStatus((string) $request->status);
-            $q->where('status', $status);
+        /*
+        |--------------------------------------------------------------------------
+        | Tipo de documento
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $request->filled('document_type') &&
+            $request->input('document_type') !== 'all'
+        ) {
+            $query->where(
+                'document_type',
+                $request->input('document_type')
+            );
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Estado de cobranza
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $request->filled('collection_status') &&
+            $request->input('collection_status') !== 'all'
+        ) {
+            $query->where(
+                'collection_status',
+                $request->input('collection_status')
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Estado del documento
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $request->filled('status') &&
+            $request->input('status') !== 'all'
+        ) {
+            $status = $this->normalizeStatus(
+                (string) $request->input('status')
+            );
+
+            if ($status === 'vencido') {
+                $query
+                    ->whereIn('status', [
+                        'pendiente',
+                        'parcial',
+                        'vencido',
+                    ])
+                    ->whereNotNull('due_date')
+                    ->whereDate('due_date', '<', $today);
+            } elseif ($status === 'pendiente') {
+                $query
+                    ->where('status', 'pendiente')
+                    ->where(function ($where) use ($today) {
+                        $where
+                            ->whereNull('due_date')
+                            ->orWhereDate('due_date', '>=', $today);
+                    });
+            } else {
+                $query->where('status', $status);
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Buscador
+        |--------------------------------------------------------------------------
+        */
 
         if ($request->filled('search')) {
-            $s = trim($request->search);
+            $search = trim((string) $request->input('search'));
 
-            $q->where(function ($w) use ($s) {
-                $w->where('client_name', 'like', "%{$s}%")
-                  ->orWhere('folio', 'like', "%{$s}%")
-                  ->orWhere('reference', 'like', "%{$s}%")
-                  ->orWhere('invoice_number', 'like', "%{$s}%")
-                  ->orWhere('description', 'like', "%{$s}%");
+            $query->where(function ($where) use ($search) {
+                $where
+                    ->where('client_name', 'like', "%{$search}%")
+                    ->orWhere('folio', 'like', "%{$search}%")
+                    ->orWhere('reference', 'like', "%{$search}%")
+                    ->orWhere('invoice_number', 'like', "%{$search}%")
+                    ->orWhere('title', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhereHas('company', function ($companyQuery) use ($search) {
+                        $companyQuery->where(
+                            'name',
+                            'like',
+                            "%{$search}%"
+                        );
+                    });
             });
         }
 
-        $items = $q->paginate(20)->withQueryString();
+        /*
+        |--------------------------------------------------------------------------
+        | Consulta completa para KPIs y paneles laterales
+        |--------------------------------------------------------------------------
+        */
 
-        $all = (clone $q)->get();
+        $summaryItems = (clone $query)->get();
 
-        $totPending = $all
-            ->filter(fn ($r) => !in_array($r->status, ['cobrado', 'cancelado'], true))
-            ->sum(fn ($r) => max((float) $r->amount - (float) $r->amount_paid, 0));
+        $balance = static function ($receivable): float {
+            $amount = (float) ($receivable->amount ?? 0);
+            $amountPaid = (float) ($receivable->amount_paid ?? 0);
 
-        $totOverdue = $all
-            ->filter(function ($r) use ($today) {
-                if (in_array($r->status, ['cobrado', 'cancelado'], true)) {
+            return max($amount - $amountPaid, 0);
+        };
+
+        $isClosed = static function ($receivable): bool {
+            $status = mb_strtolower(
+                trim((string) ($receivable->status ?? ''))
+            );
+
+            return in_array(
+                $status,
+                ['cobrado', 'pagado', 'cancelado'],
+                true
+            );
+        };
+
+        $activeItems = $summaryItems
+            ->reject($isClosed)
+            ->values();
+
+        $totPending = (float) $activeItems->sum($balance);
+
+        $totOverdue = (float) $activeItems
+            ->filter(function ($receivable) use ($today) {
+                if (empty($receivable->due_date)) {
                     return false;
                 }
 
-                $due = $r->due_date ? Carbon::parse($r->due_date) : null;
-
-                return $due ? $due->lt($today) : false;
+                try {
+                    return Carbon::parse($receivable->due_date)
+                        ->startOfDay()
+                        ->lt($today);
+                } catch (\Throwable $exception) {
+                    return false;
+                }
             })
-            ->sum(fn ($r) => max((float) $r->amount - (float) $r->amount_paid, 0));
+            ->sum($balance);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Ordenamiento
+        |--------------------------------------------------------------------------
+        */
+
+        $sort = trim((string) $request->input('sort', 'due_date'));
+
+        switch ($sort) {
+            case 'amount':
+                $query
+                    ->orderByRaw(
+                        'GREATEST(COALESCE(amount, 0) - COALESCE(amount_paid, 0), 0) DESC'
+                    )
+                    ->orderByDesc('id');
+                break;
+
+            case 'client':
+                $query
+                    ->orderBy('client_name')
+                    ->orderByDesc('id');
+                break;
+
+            case 'due_date':
+            default:
+                $query
+                    ->orderByRaw('due_date IS NULL')
+                    ->orderBy('due_date')
+                    ->orderByDesc('id');
+                break;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Paginación
+        |--------------------------------------------------------------------------
+        */
+
+        $items = $query
+            ->paginate(20)
+            ->withQueryString();
 
         return view('accounting.receivables.index', compact(
             'items',
+            'summaryItems',
             'companies',
             'totPending',
             'totOverdue'
