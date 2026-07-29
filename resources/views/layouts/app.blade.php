@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" href="{{ asset('images/logo-icon.png') }}">
   <link rel="shortcut icon" type="image/png" href="{{ asset('images/logo-icon.png') }}">
   <link rel="apple-touch-icon" href="{{ asset('images/logo-icon.png') }}">
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo-mail.png') }}">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo-icon.png') }}">
 
   <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}?v={{ time() }}">
   @stack('styles')
