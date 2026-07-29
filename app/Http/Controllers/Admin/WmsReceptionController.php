@@ -426,9 +426,20 @@ class WmsReceptionController extends Controller
         if (Schema::hasColumn('catalog_items', 'photo_2')) $itemColumns[] = 'photo_2';
         if (Schema::hasColumn('catalog_items', 'photo_3')) $itemColumns[] = 'photo_3';
 
+        // Reconocer también los códigos de presentación (caja/paquete), no solo sku/gtin/nombre.
+        // Si el código escaneado es una caja, guardamos su factor de piezas por producto.
+        $qUp = strtoupper($q);
+        $matchedUnitsByItem = [];
+        foreach (\App\Models\CatalogItemBarcode::query()
+            ->whereRaw('UPPER(barcode) = ?', [$qUp])
+            ->get(['catalog_item_id', 'units']) as $pm) {
+            $matchedUnitsByItem[(int) $pm->catalog_item_id] = max(1, (int) $pm->units);
+        }
+        $presItemIds = array_keys($matchedUnitsByItem);
+
         $items = CatalogItem::query()
             ->select($itemColumns)
-            ->where(function ($qq) use ($q) {
+            ->where(function ($qq) use ($q, $presItemIds) {
                 $qq->where('name', 'like', "%{$q}%")
                    ->orWhere('sku', 'like', "%{$q}%")
                    ->orWhere('meli_gtin', 'like', "%{$q}%")
@@ -437,6 +448,10 @@ class WmsReceptionController extends Controller
 
                 if (is_numeric($q)) {
                     $qq->orWhere('id', (int) $q);
+                }
+
+                if (!empty($presItemIds)) {
+                    $qq->orWhereIn('id', $presItemIds);
                 }
             })
             ->orderBy('name')
@@ -484,7 +499,8 @@ class WmsReceptionController extends Controller
             $locationsById,
             $warehouseLocations,
             $warehouseLocationMap,
-            $warehouseId
+            $warehouseId,
+            $matchedUnitsByItem
         ) {
             $rec = null;
 
@@ -530,6 +546,8 @@ class WmsReceptionController extends Controller
                 'gtin' => (string) ($it->meli_gtin ?? ''),
                 'meli_gtin' => (string) ($it->meli_gtin ?? ''),
                 'stock' => (int) ($it->stock ?? 0),
+                // Piezas que representa UN escaneo del código buscado: factor de la caja, o 1.
+                'scan_units' => $matchedUnitsByItem[(int) $it->id] ?? 1,
                 'brand_name' => (string) ($it->brand_name ?? ''),
                 'model_name' => (string) ($it->model_name ?? ''),
                 'description' => (string) ($it->description ?? ''),

@@ -134,31 +134,38 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
 
-  .acc-dash {
-    font-family: 'Quicksand', sans-serif;
-    font-weight: 500;
-    color: #333333;
-    --bg: #f9fafb;
+  :root {
+    --bg: #f4f5f7;
     --card: #ffffff;
-    --ink: #111111;
-    --text-main: #333333;
-    --muted: #888888;
-    --line: #ebebeb;
+    --input-bg: #f9fafb;
+    --ink-dark: #0f172a;
+    --ink: #334155;
+    --muted: #64748b;
+    --muted-light: #94a3b8;
+    --line: #e2e8f0;
     --blue: #007aff;
-    --blue-soft: #e6f0ff;
+    --blue-soft: #eff6ff;
     --success: #15803d;
-    --success-soft: #e6ffe6;
-    --danger: #ff4a4a;
-    --danger-soft: #ffebeb;
-    --warning: #b45309;
-    --warning-soft: #fffbeb;
-    
-    max-width: 1380px;
-    margin: 0 auto;
-    padding: 24px 0 40px;
+    --success-soft: #f0fdf4;
+    --danger: #ef4444;
+    --danger-soft: #fef2f2;
+    --warning: #c2410c;
+    --warning-soft: #fff7ed;
   }
 
-  /* HEADERS & FILTERS */
+  body {
+    background-color: var(--bg);
+  }
+
+  .acc-dash {
+    font-family: 'Quicksand', sans-serif;
+    color: var(--ink);
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 16px;
+  }
+
+  /* HEADERS */
   .acc-head2 {
     display: flex;
     align-items: flex-start;
@@ -168,96 +175,148 @@
   }
 
   .acc-title {
-    font-size: 2.2rem;
-    line-height: 1.1;
+    font-size: 2.25rem;
     font-weight: 700;
-    color: var(--ink);
+    color: var(--ink-dark);
     letter-spacing: -0.02em;
-    margin: 0;
+    margin: 0 0 4px 0;
   }
 
   .acc-sub {
-    margin-top: 6px;
     color: var(--muted);
-    font-size: 1rem;
+    font-size: 1.05rem;
     font-weight: 500;
   }
 
+  /* TOOLBAR & BUTTONS */
   .acc-filtersWrap {
     display: flex;
     justify-content: flex-end;
-    margin-bottom: 24px;
+    margin-bottom: 32px;
   }
 
   .acc-filters2 {
     display: flex;
     align-items: center;
     gap: 12px;
-    flex-wrap: wrap;
-  }
-
-  .acc-select {
-    min-width: 240px;
-    height: 44px;
-    border: 1px solid var(--line);
-    background: var(--card);
-    color: var(--ink);
-    border-radius: 8px;
-    padding: 0 16px;
-    font-family: 'Quicksand', sans-serif;
-    font-weight: 600;
-    font-size: 0.95rem;
-    outline: none;
-    transition: all 0.2s ease;
-    cursor: pointer;
-  }
-
-  .acc-select:focus {
-    border-color: var(--blue);
-    box-shadow: 0 0 0 3px var(--blue-soft);
   }
 
   .acc-filter-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 44px;
     background: transparent;
     color: var(--muted);
     border: none;
     border-radius: 8px;
     padding: 0 20px;
+    height: 42px;
     font-family: 'Quicksand', sans-serif;
     font-weight: 600;
     font-size: 0.95rem;
     text-decoration: none;
-    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     transition: all 0.2s ease;
+    cursor: pointer;
   }
 
   .acc-filter-btn:hover {
-    background: var(--card);
-    color: var(--ink);
+    background: #f9fafb;
+    color: var(--ink-dark);
+    transform: translateY(-1px);
   }
-  
+
   .acc-filter-btn:active {
     transform: scale(0.98);
   }
 
-  /* REUSABLE CARD BASE */
+  /* CUSTOM SELECT RULES (Regla 7) */
+  .custom-select-wrapper {
+    position: relative;
+    min-width: 260px;
+    user-select: none;
+  }
+  .custom-select-trigger {
+    height: 42px;
+    background: var(--input-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .custom-select-wrapper.open .custom-select-trigger {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-soft);
+  }
+  .custom-select-trigger svg {
+    width: 18px;
+    height: 18px;
+    color: var(--muted-light);
+    transition: transform 0.2s ease;
+  }
+  .custom-select-wrapper.open .custom-select-trigger svg {
+    transform: rotate(180deg);
+  }
+  .custom-select-options {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px) scale(0.98);
+    transition: all 0.2s ease;
+    z-index: 50;
+    overflow: hidden;
+  }
+  .custom-select-wrapper.open .custom-select-options {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+  }
+  .custom-select-option {
+    padding: 12px 16px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .custom-select-option:hover {
+    background: var(--input-bg);
+    color: var(--blue);
+  }
+  .custom-select-option.selected {
+    font-weight: 700;
+    color: var(--blue);
+    background: var(--blue-soft);
+  }
+
+  /* COMMON CARDS */
   .acc-kpi, .acc-mini, .acc-panel, .acc-item, .acc-reminders, .acc-empty {
     background: var(--card);
     border: 1px solid var(--line);
     border-radius: 16px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.02);
-    transition: all 0.25s ease;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
     text-decoration: none;
     display: block;
+    color: inherit;
   }
 
-  .acc-kpi:hover, .acc-mini:hover, .acc-item:hover {
+  .acc-kpi:hover, .acc-mini:hover, .acc-item:hover, .acc-reminders:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.04);
   }
 
   /* GRIDS */
@@ -272,18 +331,18 @@
   .acc-kpi {
     padding: 24px;
   }
-
+  
   .acc-kpi-top {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
   }
 
   .acc-kpi-icon {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -300,89 +359,91 @@
   }
 
   .acc-kpi-value {
-    font-size: 2.2rem;
+    font-size: 2.1rem;
     line-height: 1.1;
     font-weight: 700;
+    color: var(--ink-dark);
+    margin: 0 0 6px 0;
     letter-spacing: -0.02em;
-    color: var(--ink);
-    margin: 12px 0 8px;
   }
 
   .acc-kpi-sub {
     font-size: 0.9rem;
-    color: var(--muted);
     font-weight: 500;
+    color: var(--muted);
   }
 
-  /* KPI Colors (Apple-style pastel icon backgrounds) */
+  /* Theme mappings for KPIs */
   .acc-kpi.top-blue .acc-kpi-icon { background: var(--blue-soft); color: var(--blue); }
   .acc-kpi.top-amber .acc-kpi-icon { background: var(--warning-soft); color: var(--warning); }
-  .acc-kpi.top-rose .acc-kpi-icon { background: var(--success-soft); color: var(--success); } /* Balance neto mapped to green */
+  .acc-kpi.top-rose .acc-kpi-icon { background: var(--success-soft); color: var(--success); }
   .acc-kpi.top-red .acc-kpi-icon { background: var(--danger-soft); color: var(--danger); }
 
   /* MINI KPIs */
   .acc-mini {
     padding: 20px 24px;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 16px;
   }
 
   .acc-mini-l .icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     margin-bottom: 12px;
   }
 
   .acc-mini-l .name {
     font-size: 1rem;
     font-weight: 700;
-    color: var(--ink);
+    color: var(--ink-dark);
+    margin-bottom: 2px;
   }
 
   .acc-mini-l .amount {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     color: var(--muted);
-    margin-top: 4px;
     font-weight: 500;
   }
 
   .acc-mini-r {
-    font-size: 1.8rem;
-    line-height: 1;
+    font-size: 1.85rem;
     font-weight: 700;
+    letter-spacing: -0.02em;
   }
 
-  /* Mini KPI Colors */
+  /* Theme mappings for Mini KPIs */
   .acc-mini.red .icon, .acc-mini.soft-red .icon { background: var(--danger-soft); color: var(--danger); }
   .acc-mini.red .acc-mini-r, .acc-mini.soft-red .acc-mini-r { color: var(--danger); }
+  
   .acc-mini.yellow .icon { background: var(--warning-soft); color: var(--warning); }
   .acc-mini.yellow .acc-mini-r { color: var(--warning); }
+  
   .acc-mini.green .icon { background: var(--success-soft); color: var(--success); }
   .acc-mini.green .acc-mini-r { color: var(--success); }
 
-  /* ANALYTICS PANELS */
+  /* ANALYTICS (Charts & Aging) */
   .acc-analytics {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+    grid-template-columns: minmax(0, 2.2fr) minmax(340px, 1fr);
     gap: 24px;
     margin: 32px 0 24px;
   }
 
   .acc-panel {
-    padding: 24px;
+    padding: 24px 28px;
   }
 
   .acc-panel-title {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: 700;
-    color: var(--ink);
+    color: var(--ink-dark);
     margin-bottom: 24px;
   }
 
@@ -392,46 +453,42 @@
     height: 320px;
   }
 
-  /* AGING LIST */
   .acc-aging-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
   }
 
   .acc-aging-item {
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 16px;
-    background: var(--card);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .acc-aging-top {
     display: flex;
     justify-content: space-between;
-    gap: 12px;
     align-items: center;
-    margin-bottom: 12px;
   }
 
   .acc-aging-name {
     font-weight: 600;
     font-size: 0.95rem;
-    color: var(--text-main);
+    color: var(--ink);
   }
 
   .acc-aging-meta {
     display: flex;
-    gap: 12px;
     align-items: center;
+    gap: 8px;
     color: var(--muted);
-    font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 500;
   }
 
   .acc-aging-meta strong {
-    color: var(--ink);
-    font-size: 1rem;
+    color: var(--ink-dark);
+    font-size: 0.95rem;
     font-weight: 700;
   }
 
@@ -439,7 +496,7 @@
     width: 100%;
     height: 6px;
     border-radius: 999px;
-    background: var(--bg);
+    background: var(--line);
     overflow: hidden;
   }
 
@@ -447,9 +504,10 @@
     display: block;
     height: 100%;
     border-radius: 999px;
+    transition: width 0.4s ease;
   }
 
-  /* Aging Colors */
+  /* Aging Colors Map */
   .acc-aging-item.green .acc-progress > span { background: var(--success); }
   .acc-aging-item.yellow .acc-progress > span { background: var(--warning); }
   .acc-aging-item.orange .acc-progress > span { background: #f97316; }
@@ -459,9 +517,9 @@
   /* LIST SECTIONS */
   .acc-lists {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 24px;
-    margin-bottom: 24px;
+    margin-bottom: 32px;
   }
 
   .acc-list-title {
@@ -477,16 +535,16 @@
     margin: 0;
     font-size: 1.1rem;
     font-weight: 700;
+    color: var(--ink-dark);
     letter-spacing: -0.01em;
-    color: var(--ink);
   }
 
   .acc-link-all {
-    text-decoration: none;
     color: var(--blue);
     font-weight: 600;
     font-size: 0.95rem;
-    transition: all 0.2s ease;
+    text-decoration: none;
+    transition: color 0.2s;
   }
 
   .acc-link-all:hover {
@@ -494,7 +552,7 @@
   }
 
   .acc-item {
-    padding: 20px 24px;
+    padding: 24px;
     margin-bottom: 16px;
   }
 
@@ -506,6 +564,7 @@
     margin-bottom: 16px;
   }
 
+  /* BADGES */
   .acc-badges {
     display: flex;
     align-items: center;
@@ -513,22 +572,21 @@
     flex-wrap: wrap;
   }
 
-  /* BADGES */
   .acc-badge {
     display: inline-flex;
     align-items: center;
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 0.85rem;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 0.8rem;
     font-weight: 700;
-    line-height: 1;
     border: none;
   }
 
   .acc-badge.danger { background: var(--danger-soft); color: var(--danger); }
   .acc-badge.warning { background: var(--warning-soft); color: var(--warning); }
   .acc-badge.info { background: var(--blue-soft); color: var(--blue); }
-  .acc-badge.gray { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+  .acc-badge.gray { background: var(--input-bg); color: var(--muted); border: 1px solid var(--line); }
 
   .acc-item-amount {
     text-align: right;
@@ -537,27 +595,26 @@
   .acc-item-amount strong {
     display: block;
     font-size: 1.25rem;
-    line-height: 1.1;
     font-weight: 700;
-    color: var(--ink);
+    color: var(--ink-dark);
   }
 
   .acc-item-amount span {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
-    margin-top: 4px;
+    margin-top: 2px;
     display: block;
   }
 
   .acc-item-main {
-    margin-bottom: 16px;
+    margin-bottom: 20px;
   }
 
   .acc-item-main .title {
     font-size: 1.05rem;
     font-weight: 700;
-    color: var(--ink);
+    color: var(--ink-dark);
     margin-bottom: 4px;
   }
 
@@ -588,20 +645,40 @@
 
   .acc-item-foot .late {
     color: var(--danger);
-    font-weight: 700;
   }
 
+  .acc-item-foot .arr {
+    color: var(--muted-light);
+    font-size: 1.2rem;
+    line-height: 1;
+    transition: transform 0.2s ease, color 0.2s ease;
+  }
+  
+  .acc-item:hover .acc-item-foot .arr {
+    transform: translateX(4px);
+    color: var(--blue);
+  }
+
+  /* EMPTY STATES */
   .acc-empty {
-    padding: 40px 24px;
+    padding: 48px 24px;
     text-align: center;
     color: var(--muted);
-    font-weight: 600;
-    font-size: 0.95rem;
+    font-weight: 500;
+    font-size: 1rem;
+    background: transparent;
+    border: 1px dashed var(--muted-light);
+    box-shadow: none;
+  }
+  
+  .acc-empty:hover {
+    transform: none;
+    box-shadow: none;
   }
 
   /* REMINDERS */
   .acc-reminders {
-    padding: 24px;
+    padding: 24px 28px;
   }
 
   .acc-rem-head {
@@ -609,16 +686,16 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
   }
 
   .acc-rem-title {
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     font-weight: 700;
-    color: var(--ink);
+    color: var(--ink-dark);
   }
 
   .acc-rem-count {
@@ -632,7 +709,7 @@
     background: var(--danger-soft);
     color: var(--danger);
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
   }
 
   .acc-rem-item {
@@ -650,8 +727,9 @@
   }
 
   .acc-rem-item:hover {
-    background: var(--bg);
-    transform: translateY(-1px);
+    background: var(--input-bg);
+    transform: translateY(-2px);
+    border-color: var(--blue-soft);
   }
 
   .acc-rem-item .l {
@@ -661,35 +739,33 @@
   }
 
   .acc-rem-item .ico {
-    font-size: 1.2rem;
+    font-size: 1.25rem;
     color: var(--danger);
   }
 
   .acc-rem-item .tx strong {
     display: block;
-    color: var(--ink);
+    color: var(--ink-dark);
     font-size: 1rem;
     font-weight: 700;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
   }
 
   .acc-rem-item .tx span {
     color: var(--muted);
-    font-weight: 600;
+    font-weight: 500;
     font-size: 0.9rem;
   }
 
   .acc-rem-item .r {
     color: var(--danger);
-    font-weight: 700;
+    font-weight: 600;
     font-size: 0.95rem;
-    white-space: nowrap;
   }
 
   /* RESPONSIVE */
   @media (max-width: 1200px){
-    .acc-grid-4,
-    .acc-lists {
+    .acc-grid-4, .acc-lists {
       grid-template-columns: repeat(2, minmax(0,1fr));
     }
     .acc-analytics {
@@ -697,24 +773,34 @@
     }
   }
 
-  @media (max-width: 780px){
-    .acc-head2,
+  @media (max-width: 768px){
+    .acc-dash {
+      padding: 24px 12px;
+    }
+    .acc-head2 {
+      flex-direction: column;
+      gap: 12px;
+    }
     .acc-filtersWrap {
+      justify-content: flex-start;
+    }
+    .acc-filters2 {
+      width: 100%;
       flex-direction: column;
       align-items: stretch;
     }
-    .acc-grid-4,
-    .acc-lists {
-      grid-template-columns: 1fr;
-    }
-    .acc-select {
+    .custom-select-wrapper {
       width: 100%;
     }
-    .acc-kpi-value {
-      font-size: 1.8rem;
+    .acc-filter-btn {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--line);
     }
-    .acc-item-head,
-    .acc-item-foot {
+    .acc-grid-4, .acc-lists {
+      grid-template-columns: 1fr;
+    }
+    .acc-item-head, .acc-item-foot {
       flex-direction: column;
       align-items: flex-start;
     }
@@ -722,6 +808,13 @@
       text-align: left;
       margin-top: 12px;
     }
+    .acc-item-foot .left {
+      gap: 8px;
+      flex-direction: column;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .acc-item-foot .arr { align-self: flex-end; }
   }
 </style>
 
@@ -734,21 +827,25 @@
   </div>
 
   <div class="acc-filtersWrap">
-    <form class="acc-filters2" method="GET" action="{{ route('accounting.dashboard') }}">
-      <select name="company_id" class="acc-select" onchange="this.form.submit()">
+    <form class="acc-filters2" method="GET" action="{{ route('accounting.dashboard') }}" id="dashFilterForm">
+      <!-- SELECT NATIVO (Se oculta y se reemplaza visualmente con JS) -->
+      <select name="company_id" class="acc-select">
         <option value="">Todas las compañías</option>
         @foreach($companies as $c)
           <option value="{{ $c->id }}" @selected($companyId==$c->id)>{{ $c->name }}</option>
         @endforeach
       </select>
-      <a class="acc-filter-btn" href="{{ route('accounting.dashboard') }}">Limpiar</a>
+      
+      <a class="acc-filter-btn" href="{{ route('accounting.dashboard') }}">Limpiar filtros</a>
     </form>
   </div>
 
   <div class="acc-grid-4">
     <a class="acc-kpi top-blue" href="{{ route('accounting.receivables.index', $q(['scope'=>'open'])) }}">
       <div class="acc-kpi-top">
-        <div class="acc-kpi-icon">↗</div>
+        <div class="acc-kpi-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H7M17 7V17"></path></svg>
+        </div>
         <div class="acc-kpi-label">Por cobrar</div>
       </div>
       <div class="acc-kpi-value">{{ $fmt0($totalPorCobrar ?? 0) }}</div>
@@ -757,7 +854,9 @@
 
     <a class="acc-kpi top-amber" href="{{ route('accounting.payables.index', $q(['scope'=>'open'])) }}">
       <div class="acc-kpi-top">
-        <div class="acc-kpi-icon">↘</div>
+        <div class="acc-kpi-icon">
+             <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 7L7 17M7 17H17M7 17V7"></path></svg>
+        </div>
         <div class="acc-kpi-label">Por pagar</div>
       </div>
       <div class="acc-kpi-value">{{ $fmt0($totalPorPagar ?? 0) }}</div>
@@ -766,7 +865,9 @@
 
     <a class="acc-kpi top-rose" href="{{ route('accounting.dashboard', $q()) }}#cashflow">
       <div class="acc-kpi-top">
-        <div class="acc-kpi-icon">$</div>
+        <div class="acc-kpi-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
         <div class="acc-kpi-label">Balance neto</div>
       </div>
       <div class="acc-kpi-value">
@@ -777,18 +878,22 @@
 
     <a class="acc-kpi top-red" href="{{ route('accounting.alerts', $q()) }}">
       <div class="acc-kpi-top">
-        <div class="acc-kpi-icon">⚠</div>
+        <div class="acc-kpi-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+        </div>
         <div class="acc-kpi-label">Alertas</div>
       </div>
       <div class="acc-kpi-value">{{ (int)($alertsCount ?? 0) }}</div>
-      <div class="acc-kpi-sub">{{ $urgentPayments->count() }} pagos · {{ $overdueReceivables->count() }} cobros vencidos</div>
+      <div class="acc-kpi-sub">{{ $urgentPayments->count() }} pagos · {{ $overdueReceivables->count() }} cobros</div>
     </a>
   </div>
 
   <div class="acc-grid-4">
     <a class="acc-mini red" href="{{ route('accounting.receivables.index', $q(['scope'=>'overdue'])) }}">
       <div class="acc-mini-l">
-        <span class="icon">⚠</span>
+        <div class="icon">
+             <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
         <div class="name">Atrasados</div>
         <div class="amount">{{ $fmt2($atrasadosMonto) }}</div>
       </div>
@@ -797,7 +902,9 @@
 
     <a class="acc-mini soft-red" href="{{ route('accounting.payables.index', $q(['scope'=>'urgent'])) }}">
       <div class="acc-mini-l">
-        <span class="icon">🕒</span>
+        <div class="icon">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
         <div class="name">Urgentes</div>
         <div class="amount">{{ $fmt2($urgentesMonto) }}</div>
       </div>
@@ -806,7 +913,9 @@
 
     <a class="acc-mini yellow" href="{{ route('accounting.payables.index', $q(['scope'=>'upcoming'])) }}">
       <div class="acc-mini-l">
-        <span class="icon">↗</span>
+        <div class="icon">
+             <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+        </div>
         <div class="name">Pendientes</div>
         <div class="amount">{{ $fmt2($pendientesMonto) }}</div>
       </div>
@@ -815,7 +924,9 @@
 
     <a class="acc-mini green" href="{{ route('accounting.dashboard', $q()) }}#upcoming">
       <div class="acc-mini-l">
-        <span class="icon">✓</span>
+        <div class="icon">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+        </div>
         <div class="name">Pagados</div>
         <div class="amount">{{ $fmt2($pagadosMonto) }}</div>
       </div>
@@ -871,7 +982,7 @@
     <div>
       <div class="acc-list-title left">
         <h3>PAGOS URGENTES / ATRASADOS</h3>
-        <a class="acc-link-all" href="{{ route('accounting.payables.index', $q(['scope'=>'urgent'])) }}">Ver todos →</a>
+        <a class="acc-link-all" href="{{ route('accounting.payables.index', $q(['scope'=>'urgent'])) }}">Ver todos</a>
       </div>
 
       @if($urgentPayments->count())
@@ -883,10 +994,10 @@
             $toneClass = $meta['tone'] === 'danger' ? 'danger' : 'warning';
           @endphp
 
-          <a class="acc-item {{ $toneClass }}" href="{{ route('accounting.payables.show',$p) }}">
+          <a class="acc-item" href="{{ route('accounting.payables.show',$p) }}">
             <div class="acc-item-head">
               <div class="acc-badges">
-                <span class="acc-badge {{ $meta['tone'] === 'danger' ? 'danger' : 'warning' }}">● {{ $meta['status'] }}</span>
+                <span class="acc-badge {{ $toneClass }}">{{ $meta['status'] }}</span>
                 <span class="acc-badge gray">{{ $meta['cycle'] }}</span>
                 @if(!empty($p->reference))
                   <span class="acc-badge gray">#{{ $p->reference }}</span>
@@ -911,19 +1022,19 @@
                   <span>📎 {{ $p->attachments_count }}</span>
                 @endif
               </div>
-              <div>›</div>
+              <div class="arr">›</div>
             </div>
           </a>
         @endforeach
       @else
-        <div class="acc-empty">Sin pagos urgentes</div>
+        <div class="acc-empty">No hay pagos urgentes en este momento.</div>
       @endif
     </div>
 
     <div>
       <div class="acc-list-title right">
         <h3>COBROS VENCIDOS</h3>
-        <a class="acc-link-all" href="{{ route('accounting.receivables.index', $q(['scope'=>'overdue'])) }}">Ver todos →</a>
+        <a class="acc-link-all" href="{{ route('accounting.receivables.index', $q(['scope'=>'overdue'])) }}">Ver todos</a>
       </div>
 
       @if($overdueReceivables->count())
@@ -935,10 +1046,10 @@
             $partial = ((float)$r->amount_paid > 0 && (float)$r->amount_paid < (float)$r->amount);
           @endphp
 
-          <a class="acc-item {{ $partial ? 'info' : 'warning' }}" href="{{ route('accounting.receivables.show',$r) }}">
+          <a class="acc-item" href="{{ route('accounting.receivables.show',$r) }}">
             <div class="acc-item-head">
               <div class="acc-badges">
-                <span class="acc-badge {{ $partial ? 'info' : 'warning' }}">● {{ $partial ? 'Parcial' : 'Factura' }}</span>
+                <span class="acc-badge {{ $partial ? 'info' : 'warning' }}">{{ $partial ? 'Parcial' : 'Factura' }}</span>
                 <span class="acc-badge gray">{{ $meta['cycle'] }}</span>
                 @if(!empty($r->reference))
                   <span class="acc-badge gray">#{{ $r->reference }}</span>
@@ -963,12 +1074,12 @@
                   <span>📎 {{ $r->attachments_count }}</span>
                 @endif
               </div>
-              <div>›</div>
+              <div class="arr">›</div>
             </div>
           </a>
         @endforeach
       @else
-        <div class="acc-empty">Sin cobros vencidos</div>
+        <div class="acc-empty">No tienes cobros vencidos. ¡Excelente!</div>
       @endif
     </div>
   </div>
@@ -983,10 +1094,10 @@
             $dueDate = $formatDueDate($p->due_date);
           @endphp
 
-          <a class="acc-item {{ $meta['tone'] === 'danger' ? 'danger' : 'warning' }}" href="{{ route('accounting.payables.show',$p) }}">
+          <a class="acc-item" href="{{ route('accounting.payables.show',$p) }}">
             <div class="acc-item-head">
               <div class="acc-badges">
-                <span class="acc-badge {{ $meta['tone'] === 'danger' ? 'danger' : 'warning' }}">● {{ $meta['status'] }}</span>
+                <span class="acc-badge {{ $meta['tone'] === 'danger' ? 'danger' : 'warning' }}">{{ $meta['status'] }}</span>
                 <span class="acc-badge gray">Mensual</span>
               </div>
               <div class="acc-item-amount">
@@ -1005,12 +1116,12 @@
                 <span>📅 {{ $dueDate }}</span>
                 <span class="late">{{ $meta['due_text'] }}</span>
               </div>
-              <div>›</div>
+              <div class="arr">›</div>
             </div>
           </a>
         @endforeach
       @else
-        <div class="acc-empty">Sin pagos próximos</div>
+        <div class="acc-empty">Sin pagos próximos registrados.</div>
       @endif
     </div>
 
@@ -1023,10 +1134,10 @@
             $dueDate = $formatDueDate($r->due_date);
           @endphp
 
-          <a class="acc-item info" href="{{ route('accounting.receivables.show',$r) }}">
+          <a class="acc-item" href="{{ route('accounting.receivables.show',$r) }}">
             <div class="acc-item-head">
               <div class="acc-badges">
-                <span class="acc-badge info">● {{ $meta['status'] }}</span>
+                <span class="acc-badge info">{{ $meta['status'] }}</span>
                 <span class="acc-badge gray">Factura</span>
               </div>
               <div class="acc-item-amount">
@@ -1045,12 +1156,12 @@
                 <span>📅 {{ $dueDate }}</span>
                 <span>{{ $meta['due_text'] }}</span>
               </div>
-              <div>›</div>
+              <div class="arr">›</div>
             </div>
           </a>
         @endforeach
       @else
-        <div class="acc-empty">Sin cobros próximos</div>
+        <div class="acc-empty">Sin cobros próximos registrados.</div>
       @endif
     </div>
   </div>
@@ -1058,7 +1169,7 @@
   <div class="acc-reminders">
     <div class="acc-rem-head">
       <div class="acc-rem-title">
-        <span style="color:var(--blue)">◌</span>
+        <svg width="22" height="22" fill="none" stroke="var(--blue)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
         <span>Recordatorios</span>
       </div>
       <div class="acc-rem-count">{{ $reminders->count() }}</div>
@@ -1067,7 +1178,9 @@
     @forelse($reminders as $rem)
       <a href="{{ $rem['url'] }}" class="acc-rem-item">
         <div class="l">
-          <div class="ico">⚠</div>
+          <div class="ico">
+              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          </div>
           <div class="tx">
             <strong>{{ $rem['title'] }}</strong>
             <span>{{ $fmt2($rem['amount']) }}</span>
@@ -1076,13 +1189,83 @@
         <div class="r">{{ $rem['meta']['due_text'] }}</div>
       </a>
     @empty
-      <div class="acc-empty" style="border-style:dashed;">Sin recordatorios pendientes</div>
+      <div class="acc-empty">No hay recordatorios pendientes. Todo está al día.</div>
     @endforelse
   </div>
 </div>
 
+<!-- SCRIPTS (Mantiene JS original de Chart y agrega Custom Select UI) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
+  // ===== LÓGICA DE CUSTOM SELECT (Regla 7) =====
+  document.addEventListener('DOMContentLoaded', function() {
+    const selects = document.querySelectorAll('select.acc-select');
+    
+    selects.forEach(select => {
+      // Ocultar select nativo
+      select.style.display = 'none';
+
+      // Crear envoltorio
+      const wrapper = document.createElement('div');
+      wrapper.className = 'custom-select-wrapper';
+      select.parentNode.insertBefore(wrapper, select);
+      wrapper.appendChild(select);
+
+      // Crear botón/trigger visual
+      const trigger = document.createElement('div');
+      trigger.className = 'custom-select-trigger';
+      
+      const selectedOptionText = select.options.length > 0 ? select.options[select.selectedIndex].text : '';
+      trigger.innerHTML = `<span>${selectedOptionText}</span>
+                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg>`;
+      wrapper.appendChild(trigger);
+
+      // Crear contenedor de opciones
+      const optionsContainer = document.createElement('div');
+      optionsContainer.className = 'custom-select-options';
+      wrapper.appendChild(optionsContainer);
+
+      // Poblar opciones
+      Array.from(select.options).forEach((option, index) => {
+        const optionDiv = document.createElement('div');
+        optionDiv.className = 'custom-select-option' + (option.selected ? ' selected' : '');
+        optionDiv.textContent = option.text;
+        
+        optionDiv.addEventListener('click', function(e) {
+          e.stopPropagation();
+          // Asignar valor al select nativo
+          select.value = option.value;
+          // Actualizar UI
+          trigger.querySelector('span').textContent = option.text;
+          wrapper.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
+          optionDiv.classList.add('selected');
+          wrapper.classList.remove('open');
+          
+          // Disparar evento change manualmente (para ejecutar onchange="this.form.submit()")
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        
+        optionsContainer.appendChild(optionDiv);
+      });
+
+      // Toggle dropdown
+      trigger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        // Cerrar otros dropdowns abiertos
+        document.querySelectorAll('.custom-select-wrapper').forEach(w => {
+          if (w !== wrapper) w.classList.remove('open');
+        });
+        wrapper.classList.toggle('open');
+      });
+    });
+
+    // Cerrar clickeando afuera
+    document.addEventListener('click', function() {
+      document.querySelectorAll('.custom-select-wrapper').forEach(w => w.classList.remove('open'));
+    });
+  });
+
+  // ===== LÓGICA DE CHART.JS (Intacta con variables de color del tema) =====
   const labels = @json($labels ?? []);
   const incoming = @json($inByDay ?? []);
   const outgoing = @json($outByDay ?? []);
@@ -1095,6 +1278,11 @@
       window.cashflowChartInstance.destroy();
     }
 
+    // Colores mapeados al sistema de diseño
+    const colorBlue = '#007aff';
+    const colorWarning = '#c2410c';
+    const colorSuccess = '#15803d';
+
     window.cashflowChartInstance = new Chart(ctx, {
       type: 'bar',
       data: {
@@ -1103,35 +1291,35 @@
           {
             label: 'Por Cobrar',
             data: incoming,
-            backgroundColor: 'rgba(37, 99, 235, 0.85)',
-            borderColor: 'rgba(37, 99, 235, 1)',
+            backgroundColor: 'rgba(0, 122, 255, 0.85)',
+            borderColor: colorBlue,
             borderWidth: 1,
-            borderRadius: 8,
+            borderRadius: 6,
             maxBarThickness: 28,
           },
           {
             label: 'Por Pagar',
             data: outgoing,
-            backgroundColor: 'rgba(245, 158, 11, 0.90)',
-            borderColor: 'rgba(245, 158, 11, 1)',
+            backgroundColor: 'rgba(194, 65, 12, 0.85)',
+            borderColor: colorWarning,
             borderWidth: 1,
-            borderRadius: 8,
+            borderRadius: 6,
             maxBarThickness: 28,
           },
           {
             type: 'line',
             label: 'Neto',
             data: net,
-            borderColor: 'rgba(21, 128, 61, 1)',
-            backgroundColor: 'rgba(21, 128, 61, 0.12)',
+            borderColor: colorSuccess,
+            backgroundColor: 'rgba(21, 128, 61, 0.1)',
             borderWidth: 3,
             tension: 0.35,
             pointRadius: 3,
             pointHoverRadius: 5,
-            pointBackgroundColor: 'rgba(21, 128, 61, 1)',
+            pointBackgroundColor: colorSuccess,
             pointBorderColor: '#ffffff',
             pointBorderWidth: 2,
-            fill: false,
+            fill: true,
             yAxisID: 'y'
           }
         ]
@@ -1149,17 +1337,22 @@
             position: 'bottom',
             labels: {
               usePointStyle: true,
-              boxWidth: 10,
-              padding: 18,
-              color: '#888888',
+              boxWidth: 8,
+              padding: 20,
+              color: '#64748b',
               font: {
-                size: 12,
-                weight: '700',
+                size: 13,
+                weight: '600',
                 family: "'Quicksand', sans-serif"
               }
             }
           },
           tooltip: {
+            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+            titleFont: { family: "'Quicksand', sans-serif", size: 13 },
+            bodyFont: { family: "'Quicksand', sans-serif", size: 14, weight: '600' },
+            padding: 12,
+            cornerRadius: 8,
             callbacks: {
               label: function(context) {
                 return `${context.dataset.label}: $${Number(context.raw || 0).toLocaleString('es-MX')}`;
@@ -1174,9 +1367,9 @@
               display: false
             },
             ticks: {
-              color: '#888888',
+              color: '#94a3b8',
               font: {
-                weight: '700',
+                weight: '600',
                 family: "'Quicksand', sans-serif"
               }
             }
@@ -1184,10 +1377,10 @@
           y: {
             beginAtZero: true,
             grid: {
-              color: 'rgba(235, 235, 235, 1)'
+              color: 'rgba(226, 232, 240, 0.6)'
             },
             ticks: {
-              color: '#888888',
+              color: '#94a3b8',
               font: {
                   family: "'Quicksand', sans-serif",
                   weight: '600'
@@ -1195,7 +1388,8 @@
               callback: function(value) {
                 return '$' + Number(value).toLocaleString('es-MX');
               }
-            }
+            },
+            border: { display: false }
           }
         }
       }

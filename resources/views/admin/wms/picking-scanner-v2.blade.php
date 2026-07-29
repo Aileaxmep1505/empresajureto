@@ -908,11 +908,24 @@
     if(!code) return null;
 
     // Scanner estricto: no se hace match por nombre para evitar falsos positivos.
+    // También reconoce los códigos de presentación (caja / paquete) del producto,
+    // así el código de la caja y el del suelto resuelven al MISMO producto.
     return products.find(p =>
       normalize(p.barcode) === code ||
       normalize(p.sku) === code ||
-      normalize(p.code) === code
+      normalize(p.code) === code ||
+      (Array.isArray(p.presentations) && p.presentations.some(pr => normalize(pr.barcode) === code))
     ) || null;
+  }
+
+  // Cuántas piezas representa UN escaneo de este código:
+  // el factor de la presentación (caja = sus piezas), o 1 si es pieza / base.
+  function scanUnitsFor(barcode){
+    const code = normalize(barcode);
+    const p = findProductByScan(code);
+    if(!p || !Array.isArray(p.presentations)) return 1;
+    const pres = p.presentations.find(pr => normalize(pr.barcode) === code);
+    return (pres && asNumber(pres.units) > 1) ? asNumber(pres.units) : 1;
   }
 
   function getTaskItemIndexesByScan(barcode){
@@ -1875,7 +1888,12 @@
       return;
     }
 
-    item.quantity_picked = pck + 1;
+    // Si el código escaneado es una caja/paquete, suma sus piezas (factor);
+    // si es pieza suelta / base, suma 1. Nunca pasa de lo requerido.
+    const scanUnits = scanUnitsFor(barcode);
+    const take = Math.min(req - pck, scanUnits);
+
+    item.quantity_picked = pck + take;
     item.picked = item.quantity_picked >= req;
     item.collected_at = new Date().toISOString();
     items[idx] = item;
@@ -1896,7 +1914,7 @@
 
     addHistory({
       type: 'success',
-      message: 'Recolección registrada +1',
+      message: `Recolección registrada +${take}`,
       sku: item.product_sku,
       location: item.location_code
     });

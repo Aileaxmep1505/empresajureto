@@ -8,6 +8,19 @@
   $has3 = !empty($item->photo_3 ?? null);
   $categories = $categories ?? config('catalog.product_categories', []);
   $hasSku = !empty($item->sku ?? null);
+
+  // Presentaciones extra (cajas/paquetes) ya registradas para este producto.
+  $existingPresentations = ($isEdit && $item)
+      ? $item->barcodes()->where('units', '>', 1)->orderBy('units')->get()->map(fn($p) => [
+          'id'              => $p->id,
+          'label'           => $p->label,
+          'units'           => (int) $p->units,
+          'barcode'         => $p->barcode,
+          'price'           => $p->price !== null ? (float) $p->price : null,
+          'sale_price'      => $p->sale_price !== null ? (float) $p->sale_price : null,
+          'is_sellable_web' => (bool) $p->is_sellable_web,
+        ])->values()->all()
+      : [];
 @endphp
 
 <form
@@ -234,8 +247,33 @@
     </div>
   </div>
 
+  {{-- =========================================================
+       🔹 PRESENTACIONES DE VENTA (CAJAS / PAQUETES)
+       ========================================================= --}}
+  <div class="form-section animate-enter mt-8" style="--stagger: 6;">
+    <div class="flex justify-between items-center mb-2">
+      <h3 class="section-heading m-0">Presentaciones de venta</h3>
+      <button type="button" id="btn-add-presentation" class="btn-action-sm" style="width:auto;padding:0 .85rem;gap:.35rem;">
+        <span class="material-symbols-outlined text-[18px]">add</span> Agregar caja
+      </button>
+    </div>
+    <p class="text-sm text-slate-500 m-0 mb-4" style="max-width:660px;">
+      La <b>pieza</b> se vende al <b>Precio Base</b> de arriba. Aquí puedes agregar
+      cajas o paquetes (ej. “Caja con 99”) con su propio precio y código de barras.
+      El stock siempre se cuenta en piezas: vender 1 caja descuenta sus piezas.
+    </p>
+
+    <input type="hidden" name="presentations_json" id="presentations_json" value="">
+
+    <div id="presentations-empty" class="text-sm text-slate-400" style="padding:.35rem 0;">
+      Sin presentaciones extra. Este producto solo se vende por pieza.
+    </div>
+
+    <div id="presentations-list" class="flex flex-col gap-3"></div>
+  </div>
+
   {{-- BARRA DE ACCIONES (FLOTANTE/STICKY) --}}
-  <div class="sticky-footer w-full flex flex-col-reverse sm:flex-row items-center sm:justify-end gap-4 animate-enter" style="--stagger: 6;">
+  <div class="sticky-footer w-full flex flex-col-reverse sm:flex-row items-center sm:justify-end gap-4 animate-enter" style="--stagger: 7;">
     <a href="{{ route('admin.catalog.index') }}" class="btn-cancel w-full sm:w-auto">Descartar</a>
     <button type="submit" class="btn-submit w-full sm:w-auto">
       {{ $isEdit ? 'Guardar Cambios' : 'Registrar Producto' }}
@@ -653,4 +691,95 @@
   });
 </script>
 @endif
+@endpush
+
+@push('scripts')
+{{-- 🔹 Presentaciones de venta (cajas / paquetes) --}}
+<script>
+(function(){
+  const LIST   = document.getElementById('presentations-list');
+  const EMPTY  = document.getElementById('presentations-empty');
+  const HIDDEN = document.getElementById('presentations_json');
+  const BTN    = document.getElementById('btn-add-presentation');
+  const FORM   = document.getElementById('catalogItemForm');
+  if (!LIST || !FORM) return;
+
+  const INITIAL = @json($existingPresentations);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+
+  function rowTemplate(p){
+    p = p || {};
+    return `
+      <div class="pres-row" style="border:1px solid #e2e8f0;border-radius:12px;padding:12px;background:#f8fafc;">
+        <input type="hidden" data-f="id" value="${esc(p.id ?? '')}">
+        <div style="display:grid;grid-template-columns:1.4fr .7fr 1.1fr .8fr .8fr auto;gap:10px;align-items:end;">
+          <label style="display:block;">
+            <span style="font-size:.72rem;color:#64748b;">Etiqueta</span>
+            <input data-f="label" class="form-input" placeholder="Caja con 99" value="${esc(p.label ?? '')}">
+          </label>
+          <label style="display:block;">
+            <span style="font-size:.72rem;color:#64748b;">Piezas</span>
+            <input data-f="units" type="number" min="2" step="1" class="form-input" placeholder="99" value="${esc(p.units ?? '')}">
+          </label>
+          <label style="display:block;">
+            <span style="font-size:.72rem;color:#64748b;">Código de barras</span>
+            <input data-f="barcode" class="form-input" placeholder="192838721" value="${esc(p.barcode ?? '')}">
+          </label>
+          <label style="display:block;">
+            <span style="font-size:.72rem;color:#64748b;">Precio</span>
+            <input data-f="price" type="number" min="0" step="0.01" class="form-input" placeholder="0.00" value="${p.price ?? ''}">
+          </label>
+          <label style="display:block;">
+            <span style="font-size:.72rem;color:#64748b;">Oferta</span>
+            <input data-f="sale_price" type="number" min="0" step="0.01" class="form-input" placeholder="—" value="${p.sale_price ?? ''}">
+          </label>
+          <button type="button" class="pres-remove btn-action-sm" title="Quitar" style="height:38px;">
+            <span class="material-symbols-outlined text-[18px]">delete</span>
+          </button>
+        </div>
+        <label style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:.8rem;color:#475569;cursor:pointer;">
+          <input data-f="is_sellable_web" type="checkbox" ${(p.is_sellable_web ?? true) ? 'checked' : ''}>
+          Vender esta presentación en la tienda web
+        </label>
+      </div>`;
+  }
+
+  function refreshEmpty(){ EMPTY.style.display = LIST.children.length ? 'none' : 'block'; }
+
+  function addRow(p){
+    const wrap = document.createElement('div');
+    wrap.innerHTML = rowTemplate(p).trim();
+    const node = wrap.firstElementChild;
+    node.querySelector('.pres-remove').addEventListener('click', () => { node.remove(); refreshEmpty(); });
+    LIST.appendChild(node);
+    refreshEmpty();
+  }
+
+  function serialize(){
+    const rows = [];
+    LIST.querySelectorAll('.pres-row').forEach(row => {
+      const get = f => row.querySelector(`[data-f="${f}"]`);
+      const units   = parseInt(get('units').value || '0', 10);
+      const barcode = get('barcode').value.trim();
+      if (units < 2 && !barcode) return; // fila vacía
+      rows.push({
+        id: get('id').value || null,
+        label: get('label').value.trim(),
+        units: units,
+        barcode: barcode,
+        price: get('price').value !== '' ? parseFloat(get('price').value) : null,
+        sale_price: get('sale_price').value !== '' ? parseFloat(get('sale_price').value) : null,
+        is_sellable_web: get('is_sellable_web').checked,
+      });
+    });
+    HIDDEN.value = JSON.stringify(rows);
+  }
+
+  BTN?.addEventListener('click', () => addRow({ is_sellable_web: true }));
+  FORM.addEventListener('submit', serialize);
+
+  (INITIAL || []).forEach(addRow);
+  refreshEmpty();
+})();
+</script>
 @endpush

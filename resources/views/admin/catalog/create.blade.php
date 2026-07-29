@@ -944,76 +944,11 @@
 
 
 
-            <div class="form-group mb-4">
-              <label class="form-label">Unidad de medida <span class="req">*</span></label>
-              <select name="unit_measure" class="form-select" required>
-                @foreach([
-                  'pieza' => 'Pieza',
-                  'caja' => 'Caja',
-                  'paquete' => 'Paquete',
-                  'rollo' => 'Rollo',
-                  'juego' => 'Juego',
-                  'kit' => 'Kit',
-                  'bolsa' => 'Bolsa',
-                  'par' => 'Par',
-                  'set' => 'Set',
-                  'display' => 'Display',
-                  'docena' => 'Docena',
-                  'metro' => 'Metro',
-                  'litro' => 'Litro',
-                ] as $value => $label)
-                  <option value="{{ $value }}" @selected($currentUnitMeasure === $value)>{{ $label }}</option>
-                @endforeach
-              </select>
-              <span class="hint" style="display:block; margin-top:8px;">
-                Define cómo se maneja el producto en inventario y venta: pieza, caja, paquete, rollo, etc.
-              </span>
-            </div>
-
-            <div class="grid grid-2 mb-4" id="contentFieldsWrap">
-              <div class="form-group m-0">
-                <label class="form-label">Contenido por unidad</label>
-                <input
-                  id="contentQuantityField"
-                  name="content_quantity"
-                  type="number"
-                  step="1"
-                  min="1"
-                  class="form-input"
-                  placeholder="Ej. 30"
-                  value="{{ $currentContentQuantity }}"
-                >
-                <span class="hint" style="display:block; margin-top:8px;">
-                  Ejemplo: caja con 30 piezas, paquete con 3 piezas o rollo con 50 metros.
-                </span>
-              </div>
-
-              <div class="form-group m-0">
-                <label class="form-label">Unidad contenida</label>
-                <select id="contentUnitMeasureField" name="content_unit_measure" class="form-select">
-                  @foreach([
-                    'pieza' => 'Pieza',
-                    'caja' => 'Caja',
-                    'paquete' => 'Paquete',
-                    'rollo' => 'Rollo',
-                    'juego' => 'Juego',
-                    'kit' => 'Kit',
-                    'bolsa' => 'Bolsa',
-                    'par' => 'Par',
-                    'set' => 'Set',
-                    'display' => 'Display',
-                    'docena' => 'Docena',
-                    'metro' => 'Metro',
-                    'litro' => 'Litro',
-                  ] as $value => $label)
-                    <option value="{{ $value }}" @selected($currentContentUnitMeasure === $value)>{{ $label }}</option>
-                  @endforeach
-                </select>
-                <span class="hint" style="display:block; margin-top:8px;">
-                  Qué contiene esa unidad de venta.
-                </span>
-              </div>
-            </div>
+            {{-- La "unidad de medida / contenido por unidad" se reemplazó por la sección
+                 "Presentaciones de venta" (abajo). Se fija en pieza para el backend. --}}
+            <input type="hidden" name="unit_measure" value="pieza">
+            <input type="hidden" name="content_quantity" value="1">
+            <input type="hidden" name="content_unit_measure" value="pieza">
 
             <div class="form-group mb-6">
               <label class="form-label">Precio Oferta (Opcional)</label>
@@ -1145,6 +1080,69 @@
           </div>
         </div>
       </div>
+
+      {{-- ===== Presentaciones de venta (cajas / paquetes) ===== --}}
+      @php
+        $existingPresentations = (isset($item) && $item)
+            ? $item->barcodes()->where('units','>',1)->orderBy('units')->get()->map(fn($p)=>[
+                'id'=>$p->id,'label'=>$p->label,'units'=>(int)$p->units,'barcode'=>$p->barcode,
+                'price'=>$p->price!==null?(float)$p->price:null,
+                'sale_price'=>$p->sale_price!==null?(float)$p->sale_price:null,
+                'is_sellable_web'=>(bool)$p->is_sellable_web,
+              ])->values()->all()
+            : [];
+      @endphp
+
+      <div class="card animate-enter" style="--stagger: 6;">
+        <div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <h3 class="section-heading" style="margin:0;">Presentaciones de venta (cajas / paquetes)</h3>
+          <button type="button" id="btnAddPresentation" class="btn-ghost">+ Agregar caja</button>
+        </div>
+        <p class="hint" style="margin:0 0 14px;">
+          La <b>pieza</b> se vende al Precio Base de arriba. Aquí agregas cajas o paquetes
+          (ej. “Caja con 99”) con su propio precio y código de barras. El stock se cuenta
+          siempre en piezas: vender 1 caja descuenta sus piezas.
+        </p>
+
+        <input type="hidden" name="presentations_json" id="presentations_json" value="">
+        <div id="presentationsEmpty" class="hint" style="padding:4px 0;">Sin presentaciones extra. Este producto solo se vende por pieza.</div>
+        <div id="presentationsList" style="display:flex;flex-direction:column;gap:12px;"></div>
+      </div>
+
+      <script>
+      (function(){
+        const LIST=document.getElementById('presentationsList');
+        const EMPTY=document.getElementById('presentationsEmpty');
+        const HIDDEN=document.getElementById('presentations_json');
+        const BTN=document.getElementById('btnAddPresentation');
+        const FORM=document.getElementById('catalogItemForm');
+        if(!LIST||!FORM) return;
+        const INITIAL=@json($existingPresentations);
+        const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+        function tpl(p){p=p||{};return `
+          <div class="pres-row" style="border:1px solid #e5e7eb;border-radius:12px;padding:12px;background:#f8fafc;">
+            <input type="hidden" data-f="id" value="${esc(p.id??'')}">
+            <div style="display:grid;grid-template-columns:1.4fr .7fr 1.1fr .8fr .8fr auto;gap:10px;align-items:end;">
+              <label style="display:block;"><span style="font-size:.72rem;color:#64748b;">Etiqueta</span><input data-f="label" class="form-input" placeholder="Caja con 99" value="${esc(p.label??'')}"></label>
+              <label style="display:block;"><span style="font-size:.72rem;color:#64748b;">Piezas</span><input data-f="units" type="number" min="2" step="1" class="form-input" placeholder="99" value="${esc(p.units??'')}"></label>
+              <label style="display:block;"><span style="font-size:.72rem;color:#64748b;">Código de barras</span><input data-f="barcode" class="form-input" placeholder="192838721" value="${esc(p.barcode??'')}"></label>
+              <label style="display:block;"><span style="font-size:.72rem;color:#64748b;">Precio</span><input data-f="price" type="number" min="0" step="0.01" class="form-input" placeholder="0.00" value="${p.price??''}"></label>
+              <label style="display:block;"><span style="font-size:.72rem;color:#64748b;">Oferta</span><input data-f="sale_price" type="number" min="0" step="0.01" class="form-input" placeholder="—" value="${p.sale_price??''}"></label>
+              <button type="button" class="pres-remove btn-ghost" title="Quitar" style="height:38px;">✕</button>
+            </div>
+            <label style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:.8rem;color:#475569;cursor:pointer;">
+              <input data-f="is_sellable_web" type="checkbox" ${(p.is_sellable_web??true)?'checked':''}> Vender esta presentación en la tienda web
+            </label>
+          </div>`;}
+        function refresh(){EMPTY.style.display=LIST.children.length?'none':'block';}
+        function addRow(p){const w=document.createElement('div');w.innerHTML=tpl(p).trim();const n=w.firstElementChild;n.querySelector('.pres-remove').addEventListener('click',()=>{n.remove();refresh();});LIST.appendChild(n);refresh();}
+        function serialize(){const rows=[];LIST.querySelectorAll('.pres-row').forEach(row=>{const g=f=>row.querySelector(`[data-f="${f}"]`);const units=parseInt(g('units').value||'0',10);const barcode=g('barcode').value.trim();if(units<2&&!barcode)return;rows.push({id:g('id').value||null,label:g('label').value.trim(),units:units,barcode:barcode,price:g('price').value!==''?parseFloat(g('price').value):null,sale_price:g('sale_price').value!==''?parseFloat(g('sale_price').value):null,is_sellable_web:g('is_sellable_web').checked});});HIDDEN.value=JSON.stringify(rows);}
+        BTN&&BTN.addEventListener('click',()=>addRow({is_sellable_web:true}));
+        FORM.addEventListener('submit',serialize);
+        (INITIAL||[]).forEach(addRow);refresh();
+        serialize(); // deja el campo oculto poblado desde el inicio (defensa extra contra borrado accidental)
+      })();
+      </script>
 
       <div class="sticky-footer animate-enter" style="--stagger: 6;">
         <div class="footer-actions">

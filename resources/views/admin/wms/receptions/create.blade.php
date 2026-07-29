@@ -1464,7 +1464,8 @@ window.WMS_LOCATIONS = @json(
       const json = await searchProducts(q);
       const exact = (json.items || []).find(i =>
         String(i.sku).toLowerCase() === q.toLowerCase() ||
-        String(i.meli_gtin).toLowerCase() === q.toLowerCase()
+        String(i.meli_gtin).toLowerCase() === q.toLowerCase() ||
+        Number(i.scan_units) > 1  // el código escaneado es una caja (presentación)
       );
 
       if (exact) openBigScreen(exact);
@@ -1493,12 +1494,15 @@ window.WMS_LOCATIONS = @json(
   function addProductToTable(product) {
     emptyState.style.display = 'none';
 
+    // Piezas que suma UN escaneo: si el código es una caja, su factor; si es suelto/base, 1.
+    const addUnits = Math.max(1, parseInt(product.scan_units, 10) || 1);
+
     let exists = false;
 
     document.querySelectorAll('#selectedProductsList .product-row').forEach(row => {
       if (row.dataset.sku === product.sku) {
         const qtyInput = row.querySelector('.qty-input');
-        qtyInput.value = parseInt(qtyInput.value || 0, 10) + 1;
+        qtyInput.value = parseInt(qtyInput.value || 0, 10) + addUnits;
 
         const locationInput = row.querySelector('.js-line-location-id');
         const locationSelect = row.querySelector('.js-line-location-select');
@@ -1633,12 +1637,19 @@ window.WMS_LOCATIONS = @json(
         });
       }
 
+      // Si se escaneó una caja, la línea nueva arranca con las piezas de la caja.
+      if (!isVirtualSoldReception() && addUnits > 1) {
+        const qi = div.querySelector('.qty-input');
+        if (qi) qi.value = addUnits;
+      }
+
       productsList.prepend(div);
       lineIndex++;
     }
 
     updateFooters();
-    showToast('Añadido a recepción', isVirtualSoldReception() ? `Se registró como vendido/no inventariar: ${product.name}` : `Se registró: ${product.name}`, 'success');
+    const pieceNote = addUnits > 1 ? ` (+${addUnits} piezas)` : '';
+    showToast('Añadido a recepción', isVirtualSoldReception() ? `Se registró como vendido/no inventariar: ${product.name}` : `Se registró: ${product.name}${pieceNote}`, 'success');
     globalInput.value = '';
     globalInput.focus();
   }

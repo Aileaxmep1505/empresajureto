@@ -407,6 +407,9 @@ body {
     </div>
   </div>
 
+  {{-- Contenido que se auto-refresca en tiempo real (sin recargar la página) --}}
+  <div data-live-refresh="receptions">
+
   <div class="stats-grid animate-entrance delay-2">
     <a href="{{ route('admin.wms.receptions.index', array_filter(request()->except('page', 'status'))) }}"
        class="stat-card {{ $activeStatus === '' ? 'is-active' : '' }}">
@@ -543,5 +546,8 @@ body {
       @endif
     </div>
   </div>
+  </div>{{-- /data-live-refresh="receptions" --}}
 </div>
+
+@include('partials.live-refresh')
 @endsection

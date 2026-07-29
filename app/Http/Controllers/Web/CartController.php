@@ -106,12 +106,13 @@ class CartController extends Controller
         return view('web.cart.index', compact('cart', 'totals'));
     }
 
-    /** Agregar item al carrito (AJAX-friendly). */
+    /** Agregar item al carrito (AJAX-friendly). Soporta presentaciones (pieza / caja). */
     public function add(Request $request)
     {
         $data = $request->validate([
             'catalog_item_id' => ['required','integer','exists:catalog_items,id'],
             'qty'             => ['nullable','integer','min:1','max:999'],
+            'presentation'    => ['nullable','string','max:40'],
         ]);
 
         $item = CatalogItem::published()->findOrFail($data['catalog_item_id']);
@@ -119,43 +120,49 @@ class CartController extends Controller
 
         $qtyToAdd = (int)($data['qty'] ?? 1);
 
-        // DEBUG (puedes quitarlo si ya no lo necesitas)
-        Log::info('CART ADD DEBUG', [
-            'item_id' => $item->id,
-            'slug'    => $item->slug,
-            'photo_1' => $item->photo_1,
-            'photo_2' => $item->photo_2,
-            'photo_3' => $item->photo_3,
-        ]);
+        // Resolver la presentación (pieza / caja) SIEMPRE desde la BD:
+        // nunca confiamos en el precio o factor que manda el navegador.
+        $token = (string) ($data['presentation'] ?? 'base');
+        $pres  = $item->resolveWebPresentation($token) ?? $item->resolveWebPresentation('base');
+        $units = max(1, (int) ($pres['units'] ?? 1));
+        $price = (float) ($pres['effective_price'] ?? ($item->sale_price ?? $item->price ?? 0));
 
-        if (isset($cart[$item->id])) {
-            $cart[$item->id]['qty'] += $qtyToAdd;
+        // Key compuesto: distingue "pieza" y "caja" del mismo producto en el carrito.
+        $key = $item->id . ':' . ($pres['token'] ?? 'base');
 
-            // refresca imagen si estaba vacía o venía como placeholder
-            if (empty($cart[$item->id]['image'])) {
-                $cart[$item->id]['image'] = $this->primaryImageUrl($item);
+        // NOTA: no se bloquea la venta por falta de stock aquí.
+        // El checkout web no descuenta inventario y el surtido automático (WMS)
+        // ya divide el faltante en línea "RECOLECTAR". Así se pueden vender cajas
+        // aunque no haya piezas suficientes en el momento (backorder / recolección).
+
+        if (isset($cart[$key])) {
+            $cart[$key]['qty'] += $qtyToAdd;
+
+            if (empty($cart[$key]['image'])) {
+                $cart[$key]['image'] = $this->primaryImageUrl($item);
             }
         } else {
-            $cart[$item->id] = [
-                'id'    => $item->id,
-                'slug'  => $item->slug,
-                'name'  => $item->name,
-                'price' => $this->unitPrice($item),
-                'qty'   => $qtyToAdd,
-                // ✅ FOTO PRINCIPAL (photo_1) -> URL pública
-                'image' => $this->primaryImageUrl($item),
-                'sku'   => $item->sku,
+            $cart[$key] = [
+                'key'                => $key,
+                'id'                 => $item->id,
+                'catalog_item_id'    => $item->id,
+                'slug'               => $item->slug,
+                'name'               => $item->name,
+                'price'              => $price,
+                'qty'                => $qtyToAdd,
+                'image'              => $this->primaryImageUrl($item),
+                'sku'                => $item->sku,
+
+                // Presentación de venta
+                'presentation'       => (string) ($pres['token'] ?? 'base'),
+                'presentation_label' => (string) ($pres['label'] ?? 'Pieza'),
+                'units'              => $units,
+                'barcode'            => (string) ($pres['barcode'] ?? ''),
             ];
         }
 
         $this->saveCart($cart);
         $totals = $this->totals($cart);
-
-        // DEBUG
-        Log::info('CART ROW IMAGE SAVED', [
-            'item_id' => $item->id,
-            'saved_image' => $cart[$item->id]['image'] ?? null,
-        ]);
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json(['ok' => true, 'cart' => $cart, 'totals' => $totals]);
@@ -164,20 +171,27 @@ class CartController extends Controller
         return back()->with('ok', 'Producto agregado al carrito.');
     }
 
-    /** Actualiza cantidad de un item (siempre JSON). */
+    /**
+     * Actualiza cantidad de un item (siempre JSON).
+     * Acepta `cart_key` (nuevo, key compuesto por presentación) o
+     * `catalog_item_id` (legacy, filas viejas keyed por id).
+     */
     public function update(Request $request)
     {
         $data = $request->validate([
-            'catalog_item_id' => ['required','integer'],
+            'cart_key'        => ['nullable','string','max:80'],
+            'catalog_item_id' => ['nullable','string','max:80'],
             'qty'             => ['required','integer','min:1','max:999'],
         ]);
 
+        $key  = (string) ($data['cart_key'] ?? $data['catalog_item_id'] ?? '');
         $cart = $this->getCart();
-        if (!isset($cart[$data['catalog_item_id']])) {
+
+        if ($key === '' || !isset($cart[$key])) {
             return response()->json(['ok'=>false,'msg'=>'Item no existe en carrito'], 404);
         }
 
-        $cart[$data['catalog_item_id']]['qty'] = (int)$data['qty'];
+        $cart[$key]['qty'] = (int)$data['qty'];
         $this->saveCart($cart);
         $totals = $this->totals($cart);
 
@@ -188,11 +202,13 @@ class CartController extends Controller
     public function remove(Request $request)
     {
         $data = $request->validate([
-            'catalog_item_id' => ['required','integer'],
+            'cart_key'        => ['nullable','string','max:80'],
+            'catalog_item_id' => ['nullable','string','max:80'],
         ]);
 
+        $key  = (string) ($data['cart_key'] ?? $data['catalog_item_id'] ?? '');
         $cart = $this->getCart();
-        unset($cart[$data['catalog_item_id']]);
+        unset($cart[$key]);
         $this->saveCart($cart);
         $totals = $this->totals($cart);
 

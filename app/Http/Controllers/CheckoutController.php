@@ -1127,20 +1127,33 @@ class CheckoutController extends Controller
                 $price = (float)($row['price'] ?? 0);
                 if ($price <= 0) continue;
 
+                $units     = max(1, (int)($row['units'] ?? 1));
+                $presLabel = $row['presentation_label'] ?? null;
+
+                $lineName = $row['name'] ?? 'Producto';
+                if ($units > 1 && $presLabel) {
+                    $lineName .= ' — ' . $presLabel;
+                }
+
+                $lineDesc = 'SKU: ' . ($row['sku'] ?? '—');
+                if ($units > 1) {
+                    $lineDesc .= ' · ' . $units . ' pzas c/u';
+                }
+
                 $lineItems[] = [
                     'quantity'   => $qty,
                     'price_data' => [
                         'currency'    => 'mxn',
                         'unit_amount' => (int)round($price * 100),
                         'product_data'=> [
-                            'name'        => $row['name'] ?? 'Producto',
-                            'description' => 'SKU: ' . ($row['sku'] ?? '—'),
+                            'name'        => $lineName,
+                            'description' => $lineDesc,
                             'images'      => array_filter([$row['image'] ?? null]),
                         ],
                     ],
                 ];
 
-                $metadataItems[] = ($row['id'] ?? 'X') . 'x' . $qty;
+                $metadataItems[] = ($row['id'] ?? 'X') . ':' . ($row['presentation'] ?? 'base') . 'x' . $qty;
             }
 
             $email = Auth::user()->email ?? null;
@@ -1304,10 +1317,19 @@ class CheckoutController extends Controller
                     $qty   = max(1, (int)($row['qty'] ?? 1));
                     $price = (float)($row['price'] ?? 0);
 
+                    $units       = max(1, (int)($row['units'] ?? 1));
+                    $presLabel   = $row['presentation_label'] ?? null;
+                    $piecesTotal = $qty * $units; // piezas base reales para WMS/surtido
+
+                    $itemName = $row['name'] ?? 'Producto';
+                    if ($units > 1 && $presLabel) {
+                        $itemName .= ' — ' . $presLabel;
+                    }
+
                     $this->createOrderItemSafe($order, [
-                        'catalog_item_id' => $row['id'] ?? ($row['catalog_item_id'] ?? null),
+                        'catalog_item_id' => $row['catalog_item_id'] ?? ($row['id'] ?? null),
                         'product_id'      => $row['product_id'] ?? null,
-                        'name'            => $row['name'] ?? 'Producto',
+                        'name'            => $itemName,
                         'sku'             => $row['sku'] ?? null,
                         'price'           => round($price, 2),
                         'qty'             => $qty,
@@ -1315,7 +1337,13 @@ class CheckoutController extends Controller
                         'currency'        => 'MXN',
                         'tax_rate'        => 0.16,
                         'discount'        => 0,
-                        'meta'            => ['image' => $row['image'] ?? null],
+                        'meta'            => [
+                            'image'              => $row['image'] ?? null,
+                            'presentation'       => $row['presentation'] ?? 'base',
+                            'presentation_label' => $presLabel,
+                            'units'              => $units,
+                            'pieces_total'       => $piecesTotal,
+                        ],
                     ]);
                 }
             }
@@ -1349,6 +1377,10 @@ class CheckoutController extends Controller
                 // Crear guía/envío en Envia después de pago confirmado.
                 $this->createEnviaShipmentForOrder($order, $shipping, $addressArr);
                 $order = $order->fresh();
+
+                // Surtido automático: generar la tarea de picking en el WMS con las
+                // PIEZAS reales (cantidad × factor de presentación: 1 caja = sus piezas).
+                $this->createPickingForPaidOrder($order, $cart);
             }
 
             // 5) Timbrado (si aplica)
@@ -1637,11 +1669,17 @@ class CheckoutController extends Controller
             if (isset($row['id']) || isset($row['price'])) {
                 $rows[] = [
                     'id'    => $row['id']    ?? null,
+                    'catalog_item_id' => $row['catalog_item_id'] ?? ($row['id'] ?? null),
                     'name'  => $row['name']  ?? 'Producto',
                     'sku'   => $row['sku']   ?? null,
                     'price' => (float)($row['price'] ?? 0),
                     'qty'   => max(1, (int)($row['qty'] ?? 1)),
                     'image' => $row['image'] ?? null,
+
+                    // Presentación de venta (pieza / caja) para Stripe y partidas.
+                    'presentation'       => $row['presentation'] ?? 'base',
+                    'presentation_label' => $row['presentation_label'] ?? null,
+                    'units'              => max(1, (int)($row['units'] ?? 1)),
                 ];
             }
         }
@@ -1961,6 +1999,76 @@ class CheckoutController extends Controller
      * Inserta una partida de pedido usando solo columnas que existen en order_items.
      * Evita errores como: Unknown column 'unit_price' o 'total'.
      */
+    /**
+     * Surtido automático: al confirmarse el pago, genera la tarea de picking (PickWave)
+     * en el WMS con las PIEZAS reales (cantidad × factor de presentación).
+     *
+     * - Idempotente: no duplica si ya existe surtido para esta orden (order_number = WEB-{id}).
+     * - Nunca rompe el flujo de la orden: si algo falla, se registra y se puede crear a mano.
+     */
+    private function createPickingForPaidOrder(Order $order, array $cart): void
+    {
+        try {
+            $ref = 'WEB-' . $order->id;
+
+            // Ya existe surtido para esta orden: no duplicar.
+            if (\App\Models\PickWave::query()->where('order_number', $ref)->exists()) {
+                return;
+            }
+
+            $items = [];
+            foreach ($cart as $row) {
+                $productId = $row['catalog_item_id'] ?? ($row['id'] ?? null);
+                if (!$productId) {
+                    continue;
+                }
+
+                $qty    = max(1, (int) ($row['qty'] ?? 1));
+                $units  = max(1, (int) ($row['units'] ?? 1));
+                $pieces = $qty * $units;
+
+                $product = CatalogItem::find($productId);
+
+                $items[] = [
+                    'product_id'        => (int) $productId,
+                    'product_name'      => (string) ($row['name'] ?? ($product->name ?? 'Producto')),
+                    'product_sku'       => (string) ($row['sku'] ?? ($product->sku ?? '')),
+                    'quantity_required' => $pieces,
+                    'delivery_phase'    => 1,
+                    'available_stock'   => (int) ($product->stock ?? 0),
+                ];
+            }
+
+            if (empty($items)) {
+                return;
+            }
+
+            $form = [
+                'order_number'     => $ref,
+                'priority'         => 'normal',
+                'notes'            => 'Generado automáticamente desde pedido web #' . $order->id,
+                'assigned_user_id' => null,
+                'total_phases'     => 1,
+                'deliveries'       => [],
+                'items'            => $items,
+            ];
+
+            app(\App\Http\Controllers\Admin\WmsPickingController::class)->createFromPayload($form);
+
+            Log::info('Checkout: surtido (picking) generado desde orden web', [
+                'order_id' => $order->id,
+                'ref'      => $ref,
+                'items'    => count($items),
+            ]);
+        } catch (\Throwable $e) {
+            // El pago YA se completó: nunca romper por el surtido. Se crea a mano si hace falta.
+            Log::warning('Checkout: no se pudo generar el surtido automático', [
+                'order_id' => $order->id,
+                'error'    => $e->getMessage(),
+            ]);
+        }
+    }
+
     private function createOrderItemSafe(Order $order, array $data): void
     {
         if (!Schema::hasTable('order_items')) {

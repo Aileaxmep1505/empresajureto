@@ -193,6 +193,94 @@ class CatalogItem extends Model
         return $this->hasMany(\App\Models\Inventory::class, 'catalog_item_id');
     }
 
+    /** Presentaciones de venta / empaques (pieza, caja con 99, ...). */
+    public function barcodes()
+    {
+        return $this->hasMany(\App\Models\CatalogItemBarcode::class, 'catalog_item_id');
+    }
+
+    /**
+     * Presentaciones vendibles en la tienda web.
+     *
+     * Siempre incluye la presentación base "Pieza" (token 'base') usando el
+     * price/sale_price que YA tiene el producto, más las cajas/paquetes
+     * configurados en catalog_item_barcodes marcados como is_sellable_web.
+     *
+     * Cada entrada:
+     *  - token: identificador estable para el carrito ('base' o "p{id}")
+     *  - label, units (piezas base), barcode
+     *  - price (precio de lista) y sale_price (oferta, o null)
+     *  - effective_price (lo que realmente se cobra)
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function webPresentations(): array
+    {
+        $out = [];
+
+        $basePrice = (float) ($this->price ?? 0);
+        $baseSale  = $this->sale_price !== null ? (float) $this->sale_price : null;
+
+        $out[] = [
+            'token'           => 'base',
+            // La presentación base siempre es la pieza. Ya no dependemos de la
+            // unidad de medida vieja (caja/paquete), que quedó deprecada.
+            'label'           => 'Pieza',
+            'units'           => 1,
+            'barcode'         => (string) ($this->meli_gtin ?? ''),
+            'price'           => $basePrice,
+            'sale_price'      => $baseSale,
+            'effective_price' => $baseSale ?? $basePrice,
+            'is_base'         => true,
+        ];
+
+        // Si la relación ya viene cargada la usamos; si no, consultamos.
+        $rows = $this->relationLoaded('barcodes')
+            ? $this->barcodes
+            : $this->barcodes()->get();
+
+        foreach ($rows as $p) {
+            if (!$p->is_sellable_web || (int) $p->units <= 1) {
+                continue;
+            }
+
+            $price = $p->price !== null ? (float) $p->price : $basePrice * (int) $p->units;
+            $sale  = $p->sale_price !== null ? (float) $p->sale_price : null;
+
+            $out[] = [
+                'token'           => 'p' . $p->id,
+                'label'           => $p->label ?: ('Caja con ' . (int) $p->units),
+                'units'           => (int) $p->units,
+                'barcode'         => (string) ($p->barcode ?? ''),
+                'price'           => $price,
+                'sale_price'      => $sale,
+                'effective_price' => $sale ?? $price,
+                'is_base'         => false,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Re-cotiza una presentación desde la BD a partir de su token.
+     * Úsalo en el carrito/checkout: NUNCA confíes en el precio del navegador.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function resolveWebPresentation(?string $token): ?array
+    {
+        $token = trim((string) ($token ?: 'base'));
+
+        foreach ($this->webPresentations() as $presentation) {
+            if ($presentation['token'] === $token) {
+                return $presentation;
+            }
+        }
+
+        return null;
+    }
+
     public function mainPicture(): ?string
     {
         return $this->photo_1 ?: ($this->photo_2 ?: $this->photo_3);

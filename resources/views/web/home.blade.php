@@ -808,8 +808,7 @@
                         @if($hasSale) <span class="ns-price-old">${{ number_format($p->price, 2) }}</span> @endif
                       </div>
                       <div class="ns-tags">
-                        <span class="ns-tag ns-tag--blue">Sin intereses</span>
-                        @if($hasSale && $discount >= 20) <span class="ns-tag ns-tag--green">Envío gratis</span> @endif
+                        <span class="ns-tag ns-tag--green">Envía a todo México</span>
                       </div>
                       <h3 class="ns-name">{{ $p->name }}</h3>
                       <div class="ns-presentation">{{ $presentation }}</div>

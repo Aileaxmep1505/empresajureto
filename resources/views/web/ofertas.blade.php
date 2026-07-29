@@ -300,10 +300,7 @@
                   </div>
 
                   <div class="nelo-offer-tags">
-                    <span class="nelo-offer-tag nelo-offer-tag--blue">Sin intereses</span>
-                    @if($off >= 20)
-                      <span class="nelo-offer-tag nelo-offer-tag--green">Oferta</span>
-                    @endif
+                    <span class="nelo-offer-tag nelo-offer-tag--green">Envía a todo México</span>
                   </div>
 
                   <h3 class="nelo-offer-name">{{ $p->name }}</h3>

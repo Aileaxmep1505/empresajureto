@@ -337,7 +337,14 @@ class TechSheetController extends Controller
             ])
             ->setPaper('letter', 'portrait');
 
-        $filename = 'Ficha-' . str_replace(' ', '-', $sheet->product_name) . '.pdf';
+        // Symfony rechaza nombres de archivo con "/" o "\" (esto rompía la apertura
+        // del PDF con un 500/404). Limpiamos cualquier caracter inválido para el nombre.
+        $safeName = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], '-', (string) $sheet->product_name);
+        $safeName = trim(preg_replace('/\s+/', '-', $safeName), '-');
+        if ($safeName === '') {
+            $safeName = 'ficha';
+        }
+        $filename = 'Ficha-' . $safeName . '.pdf';
 
         return $pdf->stream($filename);
     }

@@ -399,6 +399,9 @@
             <img class="thumb" src="{{ $row['image'] ?? asset('images/placeholder.png') }}" alt="">
             <div>
               <div style="font-weight:600; color: var(--ink);">{{ $row['name'] ?? 'Producto' }}</div>
+              @if(($row['units'] ?? 1) > 1 && !empty($row['presentation_label']))
+                <div style="font-size: 0.85rem; margin-top: 2px; color: #007aff; font-weight:600;">{{ $row['presentation_label'] }} · {{ $row['units'] }} pzas c/u</div>
+              @endif
               <div class="muted" style="font-size: 0.9rem; margin-top: 4px;">Cantidad: {{ $row['qty'] ?? 1 }}</div>
             </div>
             <div style="font-weight:700; color: var(--ink);">${{ number_format(($row['price'] ?? 0) * ($row['qty'] ?? 1), 2) }}</div>

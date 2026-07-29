@@ -408,6 +408,19 @@
 #sim .sim-name{ font-weight:500; font-size: 14px; line-height:1.4; margin:0; color: #475569; }
 #sim .sim-price{ font-weight:700; font-size: 16px; color: #1e293b; }
 #sim .sim-old{ color:#a1a1aa; text-decoration:line-through; margin-left:6px; font-size: 13px; font-weight:500; }
+
+/* ================= PRESENTACIONES (PIEZA / CAJA) ================= */
+#hero .pres-select{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+#hero .pres-pill{
+  display:flex; flex-direction:column; align-items:flex-start; gap:2px;
+  border:1.5px solid var(--line); background:#fff; border-radius:12px;
+  padding:8px 14px; cursor:pointer; min-width:100px;
+  transition:border-color .15s ease, background .15s ease;
+}
+#hero .pres-pill:hover{ border-color:#bcd4ff; }
+#hero .pres-pill.active{ border-color:var(--blue); background:#f0f7ff; }
+#hero .pres-pill .pp-label{ font-size:12px; font-weight:500; color:var(--muted); }
+#hero .pres-pill .pp-price{ font-size:14px; font-weight:500; color:var(--ink); }
 </style>
 
 @php
@@ -495,6 +508,11 @@
     }
     return asset('images/placeholder.png');
   };
+
+  // Presentaciones vendibles en web: pieza (base) + cajas configuradas.
+  $presentations = $item->webPresentations();
+  $hasMultiPres  = count($presentations) > 1;
+  $baseP         = $presentations[0];
 @endphp
 
 <div id="product">
@@ -569,14 +587,13 @@
             @if($sale && $savePct)
               <span class="tag oferta">Oferta</span>
             @endif
-            <span class="tag intereses">Sin intereses</span>
-            <span class="tag envio">Envío gratis</span>
+            <span class="tag envio">Envía a todo México</span>
           </div>
 
           <h1>{{ $item->name }}</h1>
           
           <div class="vendor">
-            Vendido por <b>Jureto</b>@if(!empty($presentationText)) · {{ $presentationText }}@endif
+            Vendido por <b>Jureto</b>
           </div>
 
           <div class="rating">
@@ -590,17 +607,29 @@
             <span class="reviews-count">(124)</span>
           </div>
 
+          @if($hasMultiPres)
+            <div class="pres-select" id="pcPresSelect">
+              @foreach($presentations as $pi => $pr)
+                <button type="button"
+                        class="pres-pill{{ $pi === 0 ? ' active' : '' }}"
+                        data-token="{{ $pr['token'] }}"
+                        data-price="{{ $pr['effective_price'] }}"
+                        data-list="{{ $pr['price'] }}"
+                        data-sale="{{ $pr['sale_price'] !== null ? $pr['sale_price'] : '' }}">
+                  <span class="pp-label">{{ $pr['label'] }}</span>
+                  <span class="pp-price">${{ number_format($pr['effective_price'], 2) }}</span>
+                </button>
+              @endforeach
+            </div>
+          @endif
+
           <div class="pricing">
-            @if($sale)
-              <div class="price-now">${{ number_format($sale,2) }}</div>
-              <div class="price-old">${{ number_format($price,2) }}</div>
-            @else
-              <div class="price-now">${{ number_format($price,2) }}</div>
-            @endif
+            <div class="price-now" id="pcPriceNow">${{ number_format($baseP['effective_price'], 2) }}</div>
+            <div class="price-old" id="pcPriceOld" style="{{ $baseP['sale_price'] !== null ? '' : 'display:none;' }}">${{ number_format($baseP['price'], 2) }}</div>
           </div>
 
           <div class="installments">
-            4 pagos sin intereses de ${{ number_format($monthly,2) }}
+            Precio con IVA incluido
           </div>
 
           <div class="actions">
@@ -608,6 +637,7 @@
               @csrf
               <input type="hidden" name="catalog_item_id" value="{{ $item->id }}">
               <input type="hidden" name="qty" value="1">
+              <input type="hidden" name="presentation" id="pcPresentationInput" value="base">
 
               <button type="submit" class="add-to-cart" data-submit-delay="850">
                 <span>Ir a checkout</span>
@@ -992,6 +1022,42 @@ function updateCartUI(newCount) {
     row.addEventListener('mouseup',()=>isDown=false);
     row.addEventListener('mousemove',e=>{ if(!isDown) return; e.preventDefault(); const x=e.pageX-row.offsetLeft; const walk=(x-startX); row.scrollLeft=scrollLeft-walk;});
   })();
+})();
+</script>
+
+<script>
+/* ================== Selector de presentación (Pieza / Caja) ================== */
+(function(){
+  const wrap     = document.getElementById('pcPresSelect');
+  const priceNow = document.getElementById('pcPriceNow');
+  const priceOld = document.getElementById('pcPriceOld');
+  const hidden   = document.getElementById('pcPresentationInput');
+  if (!wrap || !hidden) return;
+
+  const fmt = n => '$' + Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  wrap.querySelectorAll('.pres-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      wrap.querySelectorAll('.pres-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+
+      hidden.value = pill.dataset.token || 'base';
+
+      const eff  = parseFloat(pill.dataset.price);
+      const list = parseFloat(pill.dataset.list);
+      const sale = pill.dataset.sale;
+
+      if (priceNow) priceNow.textContent = fmt(eff);
+      if (priceOld) {
+        if (sale !== '' && list > eff) {
+          priceOld.textContent = fmt(list);
+          priceOld.style.display = '';
+        } else {
+          priceOld.style.display = 'none';
+        }
+      }
+    });
+  });
 })();
 </script>
 @endsection

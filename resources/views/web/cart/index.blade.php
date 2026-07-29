@@ -594,7 +594,10 @@
                 @php
                   $imgRaw = $row['image'] ?? null;
                   $img = $resolveImg($imgRaw);
-                  
+
+                  // Key del carrito (compuesto por presentación). Filas viejas caen al id.
+                  $rowKey = $row['key'] ?? $row['id'];
+
                   // BÚSQUEDA DEL PRODUCTO REAL EN LA BASE DE DATOS
                   $productId = $row['catalog_item_id'] ?? $row['id'] ?? null;
                   $realProduct = $productId ? \App\Models\CatalogItem::find($productId) : null;
@@ -609,7 +612,7 @@
                       ? route('web.catalog.show', ['catalogItem' => $cartProductParam])
                       : null;
                 @endphp
-                <tr data-id="{{ $row['id'] }}">
+                <tr data-id="{{ $rowKey }}">
                   <td data-label="Producto">
                     <div class="row">
                       <img class="thumb"
@@ -625,8 +628,10 @@
                         @endif
                         <div class="sku">SKU: {{ !empty($row['sku']) ? $row['sku'] : '—' }}</div>
                         
-                        {{-- AQUÍ SE IMPRIME LA PRESENTACIÓN REAL --}}
-                        <div class="cart-presentation">{{ $presentation }}</div>
+                        {{-- Presentación de venta elegida (pieza / caja) --}}
+                        <div class="cart-presentation">
+                          {{ $row['presentation_label'] ?? $presentation }}@if(($row['units'] ?? 1) > 1) · {{ $row['units'] }} pzas c/u @endif
+                        </div>
 
                         @if($DEBUG_CART_IMAGES)
                           <small class="img-debug">
@@ -644,10 +649,10 @@
 
                   <td class="cell-qty" data-label="Cantidad" style="text-align:center;">
                     <div class="qty">
-                      <button type="button" aria-label="Disminuir" onclick="cartMinus({{ $row['id'] }})">−</button>
+                      <button type="button" aria-label="Disminuir" onclick="cartMinus('{{ $rowKey }}')">−</button>
                       <input type="number" min="1" max="999" value="{{ $row['qty'] }}"
-                             onchange="cartSet({{ $row['id'] }}, this.value)">
-                      <button type="button" aria-label="Aumentar" onclick="cartPlus({{ $row['id'] }})">+</button>
+                             onchange="cartSet('{{ $rowKey }}', this.value)">
+                      <button type="button" aria-label="Aumentar" onclick="cartPlus('{{ $rowKey }}')">+</button>
                     </div>
                   </td>
 
@@ -662,7 +667,7 @@
                           data-confirm-message="Esto eliminará <strong>este producto</strong> de tu carrito."
                           data-confirm-action="Eliminar">
                       @csrf
-                      <input type="hidden" name="catalog_item_id" value="{{ $row['id'] }}">
+                      <input type="hidden" name="cart_key" value="{{ $rowKey }}">
                       <button class="btn btn-danger" type="submit" aria-label="Quitar">
                         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                           <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -864,7 +869,7 @@
 
   async function cartSet(id, qty){
     qty = Math.max(1, parseInt(qty||1,10));
-    const json = await postJson('{{ route('web.cart.update') }}', { catalog_item_id: id, qty });
+    const json = await postJson('{{ route('web.cart.update') }}', { cart_key: id, qty });
     if (!json.ok) return alert(json.msg || 'Error al actualizar');
 
     const row = document.querySelector(`tr[data-id="${id}"]`);

@@ -334,11 +334,10 @@
               @if($hasOffer)<span class="price-old">${{ number_format($price,2) }}</span>@endif
             </div>
 
-            @if($final > 0)<div class="installments">4 pagos de ${{ number_format($monthly,2) }}</div>@endif
+            <div class="installments">Precio con IVA incluido</div>
 
             <div class="tags">
-              <span class="tag blue">Sin intereses</span>
-              @if($hasOffer && $savePct >= 20)<span class="tag green">Envío gratis</span>@endif
+              <span class="tag green">Envía a todo México</span>
             </div>
 
             <h3 class="name">{{ $p->name }}</h3>

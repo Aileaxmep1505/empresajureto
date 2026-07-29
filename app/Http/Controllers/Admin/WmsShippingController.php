@@ -408,11 +408,24 @@ class WmsShippingController extends Controller implements HasMiddleware
             ]);
         }
 
+        // Resolver presentación (caja / paquete): el código escaneado puede ser el de una
+        // caja registrada en catalog_item_barcodes. De ahí sacamos el producto y su factor
+        // de piezas, para que el código de la caja también valide en el embarque.
+        $presUnits = 1;
+        $presProductId = !empty($data['product_id']) ? (int) $data['product_id'] : null;
+        $presentation = $this->resolvePresentationForCode($code);
+        if ($presentation) {
+            if (!$presProductId) {
+                $presProductId = (int) $presentation['catalog_item_id'];
+            }
+            $presUnits = max(1, (int) $presentation['units']);
+        }
+
         $productLine = $this->matchLineForProductCode(
             $shipment,
             $code,
             $data['pick_line_id'] ?? null,
-            !empty($data['product_id']) ? (int) $data['product_id'] : null
+            $presProductId
         );
 
         if (!$productLine) {
@@ -425,7 +438,8 @@ class WmsShippingController extends Controller implements HasMiddleware
             ], 422);
         }
 
-        $qty = !empty($data['qty']) ? (int) $data['qty'] : 1;
+        // Si el código escaneado es una caja, cada escaneo suma su factor de piezas.
+        $qty = (!empty($data['qty']) ? (int) $data['qty'] : 1) * $presUnits;
         $projectedQty = (int) $productLine->loaded_qty + $qty;
 
         if (!$allowExtra && $projectedQty > (int) $productLine->expected_qty) {
@@ -1078,6 +1092,33 @@ class WmsShippingController extends Controller implements HasMiddleware
         }
 
         return null;
+    }
+
+    /**
+     * Resuelve un código de barras de presentación (caja/paquete) al producto base
+     * y su factor de piezas. Devuelve null si el código no es una presentación registrada.
+     *
+     * @return array{catalog_item_id:int, units:int}|null
+     */
+    protected function resolvePresentationForCode(string $code): ?array
+    {
+        $code = strtoupper(trim($code));
+        if ($code === '') {
+            return null;
+        }
+
+        $row = \App\Models\CatalogItemBarcode::query()
+            ->whereRaw('UPPER(barcode) = ?', [$code])
+            ->first(['catalog_item_id', 'units']);
+
+        if (!$row) {
+            return null;
+        }
+
+        return [
+            'catalog_item_id' => (int) $row->catalog_item_id,
+            'units'           => max(1, (int) $row->units),
+        ];
     }
 
     protected function matchLineForProductCode(WmsShipment $shipment, string $code, ?string $pickLineId = null, ?int $productId = null): ?WmsShipmentLine

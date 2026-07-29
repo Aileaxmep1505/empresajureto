@@ -238,6 +238,15 @@
   });
 
   load();
+
+  // Auto-refresco en tiempo real (sin recargar la página): recarga los movimientos
+  // cada 10s. Se pausa si la pestaña está en segundo plano o si estás escribiendo un filtro.
+  setInterval(function () {
+    if (document.hidden) return;
+    var a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA')) return;
+    load();
+  }, 10000);
 })();
 </script>
 @endpush

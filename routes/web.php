@@ -202,6 +202,10 @@ Route::get('/garantias-y-devoluciones', function () {
 Route::get('/servicios', [ServicioController::class, 'index'])->name('web.servicios');
 Route::get('/ofertas', fn() => view('web.ofertas'))->name('web.ofertas');
 
+/* Tablero público de estatus de almacén (pantalla sala de espera, sin login) */
+Route::get('/tablero', [\App\Http\Controllers\Web\WarehouseBoardController::class, 'index'])->name('web.board');
+Route::get('/tablero/data', [\App\Http\Controllers\Web\WarehouseBoardController::class, 'data'])->name('web.board.data');
+
 /* Media público (storage/app/public) */
 Route::get('/media/{path}', [MediaController::class, 'show'])->where('path', '.*')->name('media.show');
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CatalogAiIntake;
 use App\Models\CatalogItem;
+use App\Models\CatalogItemBarcode;
 use App\Models\CategoryProduct;
 use App\Models\Location;
 use App\Services\MeliSyncService;
@@ -543,6 +544,8 @@ class CatalogItemController extends Controller implements HasMiddleware
                 ->withErrors(['general' => 'No se pudo guardar el producto en la base de datos. Revisa el log para más detalles.']);
         }
 
+        $this->syncItemPresentations($request, $item);
+
         $this->saveOrReplacePhoto($request, $item, 'photo_1', 'photo_1_file');
         $this->saveOrReplacePhoto($request, $item, 'photo_2', 'photo_2_file');
         $this->saveOrReplacePhoto($request, $item, 'photo_3', 'photo_3_file');
@@ -752,6 +755,8 @@ class CatalogItemController extends Controller implements HasMiddleware
                 ->withInput()
                 ->withErrors(['general' => 'No se pudo actualizar el producto en la base de datos. Revisa el log para más detalles.']);
         }
+
+        $this->syncItemPresentations($request, $catalogItem);
 
         $this->saveOrReplacePhoto($request, $catalogItem, 'photo_1', 'photo_1_file');
         $this->saveOrReplacePhoto($request, $catalogItem, 'photo_2', 'photo_2_file');
@@ -1179,6 +1184,105 @@ TXT;
                 'error' => 'Ocurrió un error al contactar la IA.',
             ], 500);
         }
+    }
+
+    /**
+     * Sincroniza las presentaciones de venta (cajas/paquetes) del producto
+     * a partir del campo oculto `presentations_json` del formulario.
+     *
+     * Cada fila: { id?, label, units, barcode, price, sale_price, is_sellable_web }
+     * Solo se gestionan presentaciones con units >= 2 (las cajas). La "pieza"
+     * base vive en el propio catalog_items (price / meli_gtin).
+     */
+    private function syncItemPresentations(Request $request, CatalogItem $item): void
+    {
+        // Si el formulario ni siquiera envió el campo, no tocamos nada.
+        if (!$request->has('presentations_json')) {
+            return;
+        }
+
+        $raw = trim((string) $request->input('presentations_json', ''));
+
+        // SALVAGUARDA: si el campo llega vacío ("") significa que el JS no alcanzó
+        // a serializar las filas al enviar (error de JS, timing, etc.). En ese caso
+        // NO tocamos las presentaciones, para no borrarlas por accidente.
+        // Un "[]" explícito SÍ es válido (el usuario quitó todas las cajas a propósito).
+        if ($raw === '') {
+            return;
+        }
+
+        $rows = json_decode($raw, true);
+        if (!is_array($rows)) {
+            // JSON inválido: por seguridad, no borramos nada.
+            return;
+        }
+
+        $keepIds = [];
+
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $units   = max(1, (int) ($row['units'] ?? 0));
+            $barcode = trim((string) ($row['barcode'] ?? ''));
+
+            // Solo cajas/paquetes: piezas base no se registran aquí.
+            if ($units < 2) {
+                continue;
+            }
+
+            $label = trim((string) ($row['label'] ?? '')) ?: ('Caja con ' . $units);
+
+            $price     = isset($row['price']) && is_numeric($row['price']) ? round((float) $row['price'], 2) : null;
+            $salePrice = isset($row['sale_price']) && is_numeric($row['sale_price']) ? round((float) $row['sale_price'], 2) : null;
+            $sellable  = filter_var($row['is_sellable_web'] ?? true, FILTER_VALIDATE_BOOLEAN);
+            $barcodeNorm = $barcode !== '' ? strtoupper($barcode) : null;
+
+            $attributes = [
+                'catalog_item_id' => $item->id,
+                'barcode'         => $barcodeNorm,
+                'pack_type'       => 'box',
+                'label'           => $label,
+                'units'           => $units,
+                'price'           => $price,
+                'sale_price'      => $salePrice,
+                'is_sellable_web' => $sellable,
+            ];
+
+            // Buscar la fila existente por id propio, o por código de barras.
+            $model = null;
+            $existingId = (int) ($row['id'] ?? 0);
+            if ($existingId > 0) {
+                $model = CatalogItemBarcode::where('catalog_item_id', $item->id)->find($existingId);
+            }
+            if (!$model && $barcodeNorm) {
+                $conflict = CatalogItemBarcode::where('barcode', $barcodeNorm)->first();
+                if ($conflict && (int) $conflict->catalog_item_id !== (int) $item->id) {
+                    // El código ya pertenece a otro producto: lo omitimos para no chocar.
+                    Log::warning('CatalogItem@syncItemPresentations: código de barras en conflicto', [
+                        'item_id' => $item->id,
+                        'barcode' => $barcodeNorm,
+                    ]);
+                    continue;
+                }
+                $model = $conflict;
+            }
+
+            if ($model) {
+                $model->fill($attributes)->save();
+            } else {
+                $model = CatalogItemBarcode::create($attributes);
+            }
+
+            $keepIds[] = $model->id;
+        }
+
+        // Eliminar las cajas que el usuario quitó del formulario.
+        CatalogItemBarcode::where('catalog_item_id', $item->id)
+            ->where('units', '>', 1)
+            ->whereNotIn('id', $keepIds ?: [0])
+            ->delete();
     }
 
     private function saveOrReplacePhoto(Request $request, CatalogItem $item, string $column, string $input): void

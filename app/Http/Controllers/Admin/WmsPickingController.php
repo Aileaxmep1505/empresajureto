@@ -2451,8 +2451,22 @@ class WmsPickingController extends Controller implements HasMiddleware
 
         $selectedTask = collect($tasks)->firstWhere('id', $taskId);
 
+        // Presentaciones (cajas/paquetes) con su código de barras y factor de piezas,
+        // agrupadas por producto. Permite que el escáner reconozca el código de la caja
+        // y el del suelto como el MISMO producto, sumando las piezas correctas.
+        $presentationsByProduct = \App\Models\CatalogItemBarcode::query()
+            ->whereNotNull('barcode')
+            ->get(['catalog_item_id', 'barcode', 'units', 'label'])
+            ->groupBy('catalog_item_id')
+            ->map(fn ($rows) => $rows->map(fn ($r) => [
+                'barcode' => strtoupper((string) $r->barcode),
+                'units'   => max(1, (int) $r->units),
+                'label'   => (string) ($r->label ?? ''),
+            ])->values()->all())
+            ->all();
+
         $products = collect($this->productsData())
-            ->map(function ($product) {
+            ->map(function ($product) use ($presentationsByProduct) {
                 return [
                     'id'                     => $product['id'] ?? null,
                     'name'                   => (string) ($product['name'] ?? 'Producto'),
@@ -2469,6 +2483,7 @@ class WmsPickingController extends Controller implements HasMiddleware
                     'boxes_count'            => (int) ($product['boxes_count'] ?? 0),
                     'total_boxes'            => (int) ($product['total_boxes'] ?? 0),
                     'available_boxes_count'  => (int) ($product['available_boxes_count'] ?? 0),
+                    'presentations'          => $presentationsByProduct[$product['id']] ?? [],
                 ];
             })
             ->values()
