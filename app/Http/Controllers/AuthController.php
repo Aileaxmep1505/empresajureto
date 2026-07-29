@@ -85,7 +85,7 @@ class AuthController extends Controller
                 ->withErrors(['email' => 'Tu cuenta estÃ¡ pendiente de aprobaciÃ³n por un administrador.']);
         }
 
-        return redirect()->intended(route('dashboard'));
+        return redirect()->route('dashboard');
     }
 
     /** ===== REGISTRO ÃšNICO ===== */

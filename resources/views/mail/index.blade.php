@@ -495,10 +495,14 @@
     {{-- NAV --}}
     <aside class="nav" id="mx-nav" aria-label="Carpetas">
       <div class="compose">
-        <a class="btn primary" href="{{ route('mail.compose') }}">
+        <button
+          type="button"
+          class="btn primary"
+          id="mx-open-compose"
+        >
           <span class="material-symbols-outlined">edit</span>
           <span class="txt">Redactar</span>
-        </a>
+        </button>
       </div>
 
       <div class="folders" id="mx-folders">
@@ -665,6 +669,95 @@
     const URL_MOVE_T = `{{ route('mail.move',   ['folder'=>'__F__','uid'=>'__U__']) }}`;
     const URL_DEL_T  = `{{ route('mail.delete', ['folder'=>'__F__','uid'=>'__U__']) }}`;
     const URL_COMPOSE = `{{ route('mail.compose') }}`;
+    const SERVER_INITIAL_ITEMS = @json($initialItems ?? []);
+    window.JURETO_MAIL_INITIAL_ITEMS = SERVER_INITIAL_ITEMS;
+    function mailSnapshotKey(){
+      return `jureto-mail-snapshot:${folder}:${currentQuery}:${filterKind}`;
+    }
+
+    function saveMailSnapshot(items){
+      try {
+        localStorage.setItem(
+          mailSnapshotKey(),
+          JSON.stringify({
+            items: Array.isArray(items) ? items : [],
+            savedAt: Date.now()
+          })
+        );
+      } catch (error) {
+        console.warn('No se pudo guardar la lista temporal:', error);
+      }
+    }
+
+
+    function restoreMailSnapshot(){
+      try {
+        const exactKey = mailSnapshotKey();
+        let raw = localStorage.getItem(exactKey);
+
+        // Si la clave exacta no aparece, toma la copia más reciente
+        // correspondiente a la carpeta actual.
+        if (!raw) {
+          const prefix = `jureto-mail-snapshot:${folder}:`;
+
+          const candidates = Object.keys(localStorage)
+            .filter(key => key.startsWith(prefix))
+            .map(key => {
+              try {
+                const snapshot = JSON.parse(localStorage.getItem(key));
+
+                return {
+                  key,
+                  snapshot,
+                  savedAt: Number(snapshot?.savedAt || 0)
+                };
+              } catch {
+                return null;
+              }
+            })
+            .filter(entry =>
+              entry &&
+              Array.isArray(entry.snapshot?.items) &&
+              entry.snapshot.items.length > 0
+            )
+            .sort((a, b) => b.savedAt - a.savedAt);
+
+          if (candidates.length > 0) {
+            raw = JSON.stringify(candidates[0].snapshot);
+          }
+        }
+
+        if (!raw) {
+          console.warn('No existe snapshot para:', exactKey);
+          return false;
+        }
+
+        const snapshot = JSON.parse(raw);
+        const items = Array.isArray(snapshot?.items)
+          ? snapshot.items
+          : [];
+
+        if (items.length === 0) {
+          console.warn('El snapshot está vacío:', exactKey);
+          return false;
+        }
+
+        renderFull(items);
+
+        const visibles = listWrap.querySelectorAll('.mx-item').length;
+
+        console.log('Snapshot restaurado:', {
+          clave: exactKey,
+          guardados: items.length,
+          visibles
+        });
+
+        return visibles > 0;
+      } catch (error) {
+        console.error('No se pudo restaurar el snapshot:', error);
+        return false;
+      }
+    }
 
     function tpl(url, f, u){ return url.replace('__F__', encodeURIComponent(f)).replace('__U__', encodeURIComponent(u)); }
     function esc(s){ return (s||'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])) }
@@ -968,12 +1061,37 @@
       applyFilter();
     }
 
+
+
     async function triggerServerReload(){
       const url = buildListURL(URL_LIST, true);
-      const res = await fetch(url, { headers:{'X-Requested-With':'XMLHttpRequest'} });
-      if (!res.ok) return;
+      url.searchParams.set('_fresh', String(Date.now()));
+
+      const res = await fetch(url, {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
       const data = await res.json();
-      renderFull(data.items||[]);
+      const items = Array.isArray(data.items) ? data.items : [];
+
+      const correosVisibles = listWrap.querySelectorAll('.mx-item').length;
+
+      // Solamente guarda y dibuja respuestas que contienen correos.
+      // Una respuesta vacía nunca debe borrar la lista anterior.
+      if (items.length > 0) {
+        saveMailSnapshot(items);
+        renderFull(items);
+      } else if (correosVisibles === 0) {
+        // Intenta recuperar la última copia persistente.
+        restoreMailSnapshot();
+      }
+
       updateCounts();
     }
 
@@ -1017,7 +1135,27 @@
 
     btnForce?.addEventListener('click', async (e)=>{
       e.preventDefault();
-      await triggerServerReload();
+
+      if (btnForce.dataset.loading === '1') return;
+
+      btnForce.dataset.loading = '1';
+      btnForce.disabled = true;
+      btnForce.setAttribute('aria-busy', 'true');
+
+      const originalHtml = btnForce.innerHTML;
+      btnForce.innerHTML = 'Actualizando...';
+
+      try {
+        await triggerServerReload();
+      } catch (error) {
+        console.error('Error al actualizar los correos:', error);
+        alert('No se pudieron actualizar los correos.');
+      } finally {
+        btnForce.innerHTML = originalHtml;
+        btnForce.disabled = false;
+        btnForce.removeAttribute('aria-busy');
+        btnForce.dataset.loading = '0';
+      }
     });
 
     async function updateCounts(){
@@ -1140,7 +1278,215 @@
       const a = root.querySelector(`a.folder[data-key="${f}"]`);
       if (a) a.click();
     });
+    // Primero muestra los correos que Laravel ya tenía guardados.
+    let restoredSnapshot = false;
+
+    if (
+      Array.isArray(window.JURETO_MAIL_INITIAL_ITEMS) &&
+      window.JURETO_MAIL_INITIAL_ITEMS.length > 0
+    ) {
+      renderFull(window.JURETO_MAIL_INITIAL_ITEMS);
+      saveMailSnapshot(window.JURETO_MAIL_INITIAL_ITEMS);
+      restoredSnapshot = true;
+    } else {
+      // Usa el navegador únicamente cuando Laravel no tiene una copia.
+      restoredSnapshot = restoreMailSnapshot();
+    }
+
+    // Actualiza Gmail en segundo plano sin borrar lo que ya se ve.
+    triggerServerReload().catch(error => {
+      console.error('No se pudieron cargar los correos:', error);
+
+      // Solo muestra el error cuando no había correos guardados.
+      if (!restoredSnapshot) {
+        listWrap.innerHTML =
+          '<div class="empty">No se pudieron cargar los correos.</div>';
+      }
+    });
   })();
   </script>
 </div>
+
+  <style>
+    #mx-compose-float {
+      position: fixed;
+      right: 24px;
+      bottom: 0;
+      z-index: 99999;
+      display: none;
+      width: min(540px, calc(100vw - 32px));
+      height: min(620px, calc(100vh - 70px));
+      overflow: hidden;
+      border: 1px solid rgba(15,23,42,.15);
+      border-radius: 12px 12px 0 0;
+      background: #fff;
+      box-shadow: 0 12px 40px rgba(15,23,42,.25);
+    }
+
+    #mx-compose-float.open {
+      display: block;
+    }
+
+    #mx-compose-float.minimized {
+      height: 42px;
+    }
+
+    #mx-compose-float.maximized {
+      inset: 16px;
+      width: auto;
+      height: auto;
+      border-radius: 12px;
+    }
+
+    #mx-compose-float iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+    }
+
+
+    #mx-compose-titlebar {
+      height: 42px;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px 0 15px;
+      color: #ffffff;
+      background: #404040;
+      font-size: 14px;
+      font-weight: 600;
+      user-select: none;
+    }
+
+    .mx-compose-window-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .mx-compose-window-actions button {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      color: #ffffff;
+      background: transparent;
+      cursor: pointer;
+      font-size: 19px;
+      line-height: 32px;
+      text-align: center;
+    }
+
+    .mx-compose-window-actions button:hover {
+      background: rgba(255,255,255,.18);
+    }
+
+    #mx-compose-float iframe {
+      height: calc(100% - 42px);
+    }
+
+    #mx-compose-float.minimized iframe {
+      display: none;
+    }
+    @media (max-width: 720px) {
+      #mx-compose-float {
+        right: 8px;
+        bottom: 0;
+        width: calc(100vw - 16px);
+        height: calc(100vh - 70px);
+      }
+    }
+  </style>
+
+  <div id="mx-compose-float" aria-hidden="true">
+    <div id="mx-compose-titlebar">
+      <span>Mensaje nuevo</span>
+
+      <div class="mx-compose-window-actions">
+        <button type="button" id="mx-compose-minimize" title="Minimizar">−</button>
+        <button type="button" id="mx-compose-maximize" title="Maximizar">□</button>
+        <button type="button" id="mx-compose-close" title="Cerrar">×</button>
+      </div>
+    </div>
+
+    <iframe
+      id="mx-compose-frame"
+      title="Redactar correo"
+      data-src="{{ route('mail.compose.popup') }}"
+    ></iframe>
+  </div>
+
+  <script>
+    (() => {
+      const openButton = document.getElementById('mx-open-compose');
+      const panel = document.getElementById('mx-compose-float');
+      const frame = document.getElementById('mx-compose-frame');
+
+      if (!openButton || !panel || !frame) return;
+
+      function openCompose() {
+        if (!frame.getAttribute('src')) {
+          frame.setAttribute('src', frame.dataset.src);
+        }
+
+        panel.classList.add('open');
+        panel.classList.remove('minimized');
+        panel.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeCompose() {
+        panel.classList.remove('open', 'minimized', 'maximized');
+        panel.setAttribute('aria-hidden', 'true');
+      }
+
+      openButton.addEventListener('click', openCompose);
+
+      document.getElementById('mx-compose-close')?.addEventListener('click', () => {
+        closeCompose();
+      });
+
+      document.getElementById('mx-compose-minimize')?.addEventListener('click', () => {
+        panel.classList.toggle('minimized');
+        panel.classList.remove('maximized');
+      });
+
+      document.getElementById('mx-compose-maximize')?.addEventListener('click', () => {
+        panel.classList.toggle('maximized');
+        panel.classList.remove('minimized');
+      });
+
+      window.addEventListener('message', event => {
+        if (event.origin !== window.location.origin) return;
+        if (event.data?.source !== 'jureto-mail-compose') return;
+
+        if (event.data.type === 'close') {
+          closeCompose();
+        }
+
+        if (event.data.type === 'sent') {
+          closeCompose();
+
+          if (typeof updateCounts === 'function') {
+            updateCounts();
+          }
+        }
+
+        if (event.data.type === 'minimize') {
+          panel.classList.toggle('minimized');
+          panel.classList.remove('maximized');
+        }
+
+        if (event.data.type === 'maximize') {
+          panel.classList.toggle('maximized');
+          panel.classList.remove('minimized');
+        }
+      });
+    
+
+})();
+  </script>
 @endsection

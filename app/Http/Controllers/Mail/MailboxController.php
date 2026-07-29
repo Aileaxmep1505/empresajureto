@@ -23,7 +23,10 @@ class MailboxController extends Controller
     {
         $folder = strtoupper((string)$r->get('folder', env('IMAP_DEFAULT_FOLDER','INBOX')));
 
+        $cached = $this->mailbox->cachedApiList($folder, 20);
+
         return view('mail.index', [
+            'initialItems' => $cached['items'] ?? [],
             'counts'  => [
                 'INBOX' => 0,
                 'PRIORITY' => 0,
@@ -86,6 +89,11 @@ class MailboxController extends Controller
         return view('mail.compose');
     }
 
+    public function composePopup()
+    {
+        return view('mail.compose-popup');
+    }
+
     public function send(Request $r)
     {
         $data = $r->validate([
@@ -116,6 +124,13 @@ class MailboxController extends Controller
 
         if ($rawSent) {
             $this->mailbox->appendToSentIfPossible($rawSent);
+        }
+
+        if ($r->expectsJson()) {
+            return response()->json([
+                'ok'      => true,
+                'message' => 'Correo enviado correctamente.',
+            ]);
         }
 
         return back()->with('ok', 'Correo enviado correctamente.');

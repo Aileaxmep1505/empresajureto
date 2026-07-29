@@ -68,12 +68,12 @@ class MailboxService
     {
         $aliases = [
             'INBOX'   => ['INBOX','Inbox','Bandeja de entrada'],
-            'DRAFTS'  => ['Drafts','Borradores','INBOX.Drafts','INBOX/Drafts','[Gmail]/Drafts'],
-            'SENT'    => ['Sent','Sent Mail','Enviados','INBOX.Sent','INBOX/Sent','Sent Items','INBOX/Sent Items','[Gmail]/Sent Mail'],
-            'ARCHIVE' => ['Archive','All Mail','Archivados','Archivo','INBOX.Archive','INBOX/Archive','[Gmail]/All Mail'],
+            'DRAFTS'  => ['Drafts','Borradores','INBOX.Drafts','INBOX/Drafts','[Gmail]/Drafts','[Gmail]/Borradores'],
+            'SENT'    => ['Sent','Sent Mail','Enviados','INBOX.Sent','INBOX/Sent','Sent Items','INBOX/Sent Items','[Gmail]/Sent Mail','[Gmail]/Enviados'],
+            'ARCHIVE' => ['Archive','All Mail','Todos','Archivados','Archivo','INBOX.Archive','INBOX/Archive','[Gmail]/All Mail','[Gmail]/Todos'],
             'OUTBOX'  => ['Outbox','Bandeja de salida','INBOX.Outbox','INBOX/Outbox'],
             'SPAM'    => ['Spam','Junk','Junk Email','Correo no deseado','INBOX.Junk','INBOX/Spam','[Gmail]/Spam'],
-            'TRASH'   => ['Trash','Deleted Items','Papelera','INBOX.Trash','INBOX/Trash','[Gmail]/Trash'],
+            'TRASH'   => ['Trash','Deleted Items','Papelera','INBOX.Trash','INBOX/Trash','[Gmail]/Trash','[Gmail]/Papelera'],
             'PRIORITY'=> [],
             'ALL'     => [],
         ];
@@ -98,13 +98,42 @@ class MailboxService
     public function allFolders()
     {
         $this->connect();
+
         $cacheKey = $this->cacheKey('imap.folders.all');
 
         return Cache::remember($cacheKey, $this->foldersTtl, function () {
-            return collect($this->client->getFolders(true));
+            $roots = collect($this->client->getFolders(true));
+            $flat = collect();
+
+            $walk = function ($folders) use (&$walk, $flat) {
+                foreach (collect($folders) as $folder) {
+                    $flat->push($folder);
+
+                    $children = collect();
+
+                    try {
+                        if (method_exists($folder, 'getChildren')) {
+                            $children = collect($folder->getChildren());
+                        } elseif (method_exists($folder, 'children')) {
+                            $children = collect($folder->children());
+                        } elseif (isset($folder->children)) {
+                            $children = collect($folder->children);
+                        }
+                    } catch (\Throwable $e) {
+                        $children = collect();
+                    }
+
+                    if ($children->isNotEmpty()) {
+                        $walk($children);
+                    }
+                }
+            };
+
+            $walk($roots);
+
+            return $flat->values();
         });
     }
-
     protected function folderCandidates($f): array
     {
         $vals = [];
@@ -237,31 +266,200 @@ class MailboxService
      |  Header decode + Date
      ========================= */
 
-    public function decodeHeader(?string $v): string
+    public function decodeHeader(?string $value): string
     {
-        if (!$v) return '';
-
-        if (function_exists('iconv_mime_decode')) {
-            $d = @iconv_mime_decode($v, 0, 'UTF-8');
-            if ($d !== false) return $d;
-        }
-        if (function_exists('mb_decode_mimeheader')) {
-            $d = @mb_decode_mimeheader($v);
-            if (is_string($d) && $d !== '') return $d;
+        if ($value === null || trim($value) === '') {
+            return '';
         }
 
-        if (preg_match_all('/=\?([^?]+)\?(Q|B)\?([^?]+)\?=/i', $v, $mm, PREG_SET_ORDER)) {
-            foreach ($mm as $p) {
-                [$full,$cs,$mode,$data] = $p;
-                $data = strtoupper($mode)==='B'
-                    ? base64_decode($data)
-                    : quoted_printable_decode(str_replace('_',' ',$data));
-                $v = str_replace($full, $data, $v);
+        $value = trim($value);
+        $decoded = '';
+
+        /*
+         * Decodificar encabezados MIME declarados como:
+         * =?UTF-8?B?...?=
+         * =?ISO-8859-1?Q?...?=
+         */
+        if (function_exists('imap_mime_header_decode')) {
+            try {
+                $parts = @imap_mime_header_decode($value);
+
+                if (is_array($parts)) {
+                    foreach ($parts as $part) {
+                        $text = (string) ($part->text ?? '');
+                        $charset = strtoupper(
+                            trim((string) ($part->charset ?? 'UTF-8'))
+                        );
+
+                        if (
+                            $charset === '' ||
+                            $charset === 'DEFAULT' ||
+                            $charset === 'UNKNOWN-8BIT'
+                        ) {
+                            $charset = 'WINDOWS-1252';
+                        }
+
+                        if (
+                            $charset !== 'UTF-8' &&
+                            function_exists('mb_convert_encoding')
+                        ) {
+                            $converted = @mb_convert_encoding(
+                                $text,
+                                'UTF-8',
+                                $charset
+                            );
+
+                            if (is_string($converted)) {
+                                $text = $converted;
+                            }
+                        }
+
+                        $decoded .= $text;
+                    }
+                }
+            } catch (\Throwable $e) {
+                $decoded = '';
             }
         }
-        return $v;
-    }
 
+        if (
+            trim($decoded) === '' &&
+            function_exists('iconv_mime_decode')
+        ) {
+            $result = @iconv_mime_decode(
+                $value,
+                ICONV_MIME_DECODE_CONTINUE_ON_ERROR,
+                'UTF-8'
+            );
+
+            if ($result !== false) {
+                $decoded = $result;
+            }
+        }
+
+        if (
+            trim($decoded) === '' &&
+            function_exists('mb_decode_mimeheader')
+        ) {
+            $result = @mb_decode_mimeheader($value);
+
+            if (is_string($result) && trim($result) !== '') {
+                $decoded = $result;
+            }
+        }
+
+        if (trim($decoded) === '') {
+            $decoded = $value;
+        }
+
+        /*
+         * Deshacer codificación repetida:
+         *
+         * México       correcto
+         * MÃ©xico      una codificación incorrecta
+         * MÃƒÂ©xico    dos codificaciones incorrectas
+         *
+         * Se repite hasta tres veces y solo conserva el resultado
+         * cuando reduce la cantidad de señales de mojibake.
+         */
+        $mojibakeScore = static function (string $text): int {
+            $markers = [
+                'Ã',
+                'Â',
+                'â€',
+                'â€™',
+                'â€œ',
+                'â€˜',
+                'â€“',
+                'â€”',
+                'ðŸ',
+                'Ã°',
+                'Å',
+                'Æ',
+                'Â¿',
+                'Â¡',
+            ];
+
+            $score = 0;
+
+            foreach ($markers as $marker) {
+                $score += substr_count($text, $marker);
+            }
+
+            return $score;
+        };
+
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            $currentScore = $mojibakeScore($decoded);
+
+            if ($currentScore === 0) {
+                break;
+            }
+
+            /*
+             * Operación correcta para deshacer mojibake:
+             * los caracteres visibles se vuelven a convertir
+             * a sus bytes Windows-1252 originales.
+             */
+            $candidate = @iconv(
+                'UTF-8',
+                'WINDOWS-1252//IGNORE',
+                $decoded
+            );
+
+            if (
+                !is_string($candidate) ||
+                $candidate === '' ||
+                !mb_check_encoding($candidate, 'UTF-8')
+            ) {
+                break;
+            }
+
+            $candidateScore = $mojibakeScore($candidate);
+
+            if ($candidateScore >= $currentScore) {
+                break;
+            }
+
+            $decoded = $candidate;
+        }
+
+        /*
+         * Limpiar caracteres de control, conservando saltos
+         * y caracteres Unicode válidos.
+         */
+        $decoded = preg_replace(
+            '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u',
+            '',
+            $decoded
+        ) ?? $decoded;
+
+        $decoded = str_replace(
+            [
+                'âœ¨',
+                'âœ…',
+                'â­',
+                'âš ',
+                'â™¥',
+            ],
+            [
+                '✨',
+                '✅',
+                '⭐',
+                '⚠',
+                '♥',
+            ],
+            $decoded
+        );
+
+        return trim(
+            html_entity_decode(
+                $decoded,
+                ENT_QUOTES | ENT_HTML5,
+                'UTF-8'
+            )
+        );
+    }
     protected function parseMessageDate($m): ?Carbon
     {
         try {
@@ -500,18 +698,58 @@ class MailboxService
                 'items'   => $items->values(),
             ];
         };
+        /*
+         * La lista debe reflejar inmediatamente los cambios hechos en Gmail.
+         * No guardar resultados vacíos, eliminados, archivados o movidos.
+         */
+        $cacheKey = $this->cacheKey(
+            'imap.messages.' . strtoupper($folderKey) . '.' . $limit
+        );
 
-        if (!$usarCache) {
-            return $cargar();
-        }
-
-        return \Illuminate\Support\Facades\Cache::remember(
+        return Cache::remember(
             $cacheKey,
-            now()->addSeconds(45),
+            now()->addMinutes(15),
             $cargar
         );
     }
 
+    /**
+     * Devuelve únicamente la última lista almacenada en caché.
+     * No establece conexión con Gmail.
+     */
+    public function cachedApiList(string $folderKey, int $limit = 20): array
+    {
+        $folderKey = strtoupper($folderKey ?: 'INBOX');
+        $limit = min(20, max(10, $limit));
+
+        $cacheKey = $this->cacheKey(
+            'imap.messages.' . $folderKey . '.' . $limit
+        );
+
+        $cached = Cache::get($cacheKey);
+
+        if (!is_array($cached)) {
+            return [
+                'ok' => true,
+                'folder' => $folderKey,
+                'count' => 0,
+                'max_uid' => 0,
+                'items' => [],
+            ];
+        }
+
+        $items = collect($cached['items'] ?? [])
+            ->values()
+            ->all();
+
+        return [
+            'ok' => true,
+            'folder' => $folderKey,
+            'count' => count($items),
+            'max_uid' => (int) ($cached['max_uid'] ?? 0),
+            'items' => $items,
+        ];
+    }
     public function getMessage(string $folderKey, string $uid)
     {
         $this->connect();
@@ -661,7 +899,7 @@ class MailboxService
         $cacheKey = $this->cacheKey('imap.counts');
         $keys = ['INBOX','PRIORITY','DRAFTS','SENT','ARCHIVE','OUTBOX','SPAM','TRASH'];
 
-        return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($keys) {
+        return Cache::remember($cacheKey, now()->addMinutes(15), function () use ($keys) {
             $this->connect();
 
             $out = [];
