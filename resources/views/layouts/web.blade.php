@@ -1,6 +1,9 @@
 <!doctype html>
 <html lang="es">
 <head>
+  <link rel="icon" type="image/png" href="{{ asset('images/logo-icon.png') }}">
+  <link rel="shortcut icon" type="image/png" href="{{ asset('images/logo-icon.png') }}">
+  <link rel="apple-touch-icon" href="{{ asset('images/logo-icon.png') }}">
   <!-- Google Tag Manager -->
   <script>
     (function(w,d,s,l,i){
