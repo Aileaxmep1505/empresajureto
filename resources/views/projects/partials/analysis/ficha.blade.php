@@ -1338,10 +1338,15 @@
         </span>
       </button>
 
+      @php
+        $cumpVal = (int) $cumplimientoFx;
+        $cumpTone = $cumpVal >= 70 ? 'green' : ($cumpVal >= 40 ? 'orange' : 'red');
+        $cumpColor = $cumpVal >= 70 ? '#22c55e' : ($cumpVal >= 40 ? '#f59e0b' : '#ef4444');
+      @endphp
       <button type="button" class="pjd-fx-score">
-        <span class="pjd-fx-score-value">{{ $cumplimientoFx }}%</span>
+        <span class="pjd-fx-score-value" style="color: {{ $cumpColor }};">{{ $cumplimientoFx }}%</span>
         <span class="pjd-fx-score-label">Cumplimiento</span>
-        <span class="pjd-fx-score-icon is-orange">
+        <span class="pjd-fx-score-icon is-{{ $cumpTone }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 10-13h-7l1-7z"/></svg>
         </span>
       </button>

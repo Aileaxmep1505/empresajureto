@@ -308,6 +308,7 @@ public function store(Request $request, PythonProjectProcessor $processor)
                 );
 
                 $structured = $controller->ensureProjectObservations($structured);
+                $structured = $controller->ensureProjectFinanciero($structured);
 
                 $newChecklist = $controller->processorChecklist(
                     $structured,
@@ -1442,6 +1443,7 @@ PROMPT;
             );
 
             $structured = $this->ensureProjectObservations($structured);
+            $structured = $this->ensureProjectFinanciero($structured);
 
             $newChecklist = $this->processorChecklist(
                 $structured,
@@ -4462,6 +4464,7 @@ PROMPT;
                 );
 
                 $structured = $controller->ensureProjectObservations($structured);
+                $structured = $controller->ensureProjectFinanciero($structured);
                 $project->structured_data = $structured;
 
                 $newChecklist = $controller->processorChecklist($structured, $project);
@@ -5317,6 +5320,72 @@ private function ensureProjectObservations(array $structured): array
     ];
 
     return $structured;
+}
+
+/**
+ * Garantiza que la pestaña Financiero nunca quede vacía.
+ * Si la extracción (Python) ya devolvió financiero.secciones, se respeta.
+ * Si no, se inyectan las 6 secciones canónicas con las preguntas de Monico
+ * (mismo patrón que ensureComplianceMatrix / ensureProjectObservations).
+ */
+private function ensureProjectFinanciero(array $structured): array
+{
+    $existing = data_get($structured, 'financiero.secciones');
+
+    if (is_array($existing) && !empty($existing)) {
+        return $structured;
+    }
+
+    // Aceptar también un arreglo plano en 'financiero' (lista de secciones sin la llave 'secciones').
+    $bare = data_get($structured, 'financiero');
+    if (is_array($bare) && !empty($bare) && array_is_list($bare)) {
+        $structured['financiero'] = ['secciones' => $bare];
+        return $structured;
+    }
+
+    $structured['financiero'] = [
+        'secciones' => $this->defaultProjectFinancieroSections(),
+    ];
+
+    return $structured;
+}
+
+/**
+ * Secciones y preguntas financieras canónicas (equivalentes a las de Monico).
+ */
+private function defaultProjectFinancieroSections(): array
+{
+    $q = fn (string $pregunta) => [
+        'pregunta'  => $pregunta,
+        'respuesta' => 'No se encontró información',
+        'riesgo'    => 'NULO',
+    ];
+
+    return [
+        ['titulo' => 'Capacidad Financiera', 'items' => [
+            $q('¿Se exige acreditar capacidad financiera (capital contable mínimo, estados financieros, declaraciones anuales)?'),
+            $q('¿Cuál es el capital contable, ingresos o monto mínimo exigido para participar?'),
+        ]],
+        ['titulo' => 'Condiciones de Pago', 'items' => [
+            $q('¿Cuáles son las condiciones y plazos de pago (días naturales tras entrega o factura)?'),
+            $q('¿Se otorga anticipo y de qué porcentaje?'),
+        ]],
+        ['titulo' => 'Garantías y Fianzas', 'items' => [
+            $q('¿Qué garantías o fianzas se solicitan (seriedad, cumplimiento, anticipo, vicios ocultos) y sus porcentajes?'),
+            $q('¿Ante qué afianzadora y a favor de quién deben expedirse las garantías?'),
+        ]],
+        ['titulo' => 'Penas y Deductivas', 'items' => [
+            $q('¿Qué penas convencionales y deductivas aplican por atraso o incumplimiento?'),
+            $q('¿Cuál es el tope máximo de penalización antes de la rescisión del contrato?'),
+        ]],
+        ['titulo' => 'Seguros', 'items' => [
+            $q('¿Se exige póliza de responsabilidad civil u otros seguros durante la vigencia del contrato?'),
+        ]],
+        ['titulo' => 'Precios y Moneda', 'items' => [
+            $q('¿En qué moneda se cotiza y paga (M.N., USD) y los precios son fijos o ajustables?'),
+            $q('¿Cómo se maneja el IVA y la estructura de precios unitarios?'),
+        ]],
+    ];
 }
 
 private function normalizeProjectObservationSections($sections): array

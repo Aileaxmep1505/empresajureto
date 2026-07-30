@@ -4,11 +4,11 @@
 
 @push('styles')
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
   :root {
-    --bg: #f9fafb; --card: #ffffff; --ink: #111; --ink2: #333; --muted: #888;
-    --line: #ebebeb; --blue: #007aff; --blue-soft: #e6f0ff;
+    --bg: #f9fafb; --card: #ffffff; --ink: #1a1a1a; --ink2: #333; --muted: #737373;
+    --line: #e6e6e6; --blue: #1068f4; --blue-soft: #e6f0ff;
     --success: #15803d; --success-soft: #e6ffe6;
     --danger: #ef4444; --danger-soft: #ffebeb;
     --warning: #b45309; --warning-soft: #fef9c3;
@@ -16,7 +16,9 @@
     --violet: #7c3aed; --violet-soft: #ede9fe;
   }
 
-  body { font-family: 'Quicksand', sans-serif; background: #ffffff; color: var(--ink2); }
+  /* Fuente Plus Jakarta Sans en todo el dashboard, igual que Monico */
+  body, .pdb-wrap, .pdb-wrap * { font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  body { background: #ffffff; color: var(--ink); }
 
   .pdb-wrap { max-width: 1700px; margin: 0 auto; padding: 16px 24px 60px; }
 
@@ -111,7 +113,7 @@
   @media (max-width: 1000px) { .pdb-grid { grid-template-columns: 1fr; } }
 
   .pdb-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
-  .pdb-card-title { font-size: .98rem; font-weight: 700; color: var(--ink); margin: 0 0 16px; display: inline-flex; align-items: center; gap: 8px; }
+  .pdb-card-title { font-size: .82rem; font-weight: 600; color: var(--ink); margin: 0 0 16px; display: inline-flex; align-items: center; gap: 8px; }
   .pdb-card-title .ico { width: 26px; height: 26px; border-radius: 7px; background: var(--blue-soft); color: var(--blue); display: grid; place-items: center; font-size: .9rem; }
   .pdb-card-title .ico.is-orange  { background: var(--orange-soft);  color: var(--orange);  }
   .pdb-card-title .ico.is-success { background: var(--success-soft); color: var(--success); }
@@ -123,7 +125,7 @@
   /* ═══════ MÓDULOS ═══════ */
   .pdb-module { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 12px; cursor: pointer; transition: background var(--pjd-dur-ui) var(--pjd-ease), border-color var(--pjd-dur-ui) var(--pjd-ease), transform var(--pjd-dur-ui) var(--pjd-ease), color var(--pjd-dur-ui) var(--pjd-ease); text-decoration: none; color: inherit; margin-bottom: 8px; border: 1.5px solid transparent; }
   .pdb-module:hover { background: var(--bg); }
-  .pdb-module.is-current { background: linear-gradient(180deg, #f0f9ff, #fff); border-color: #bae6fd; }
+  .pdb-module.is-current { background: rgba(16, 104, 244, .05); border-color: rgba(16, 104, 244, .2); }
   .pdb-module.is-disabled { opacity: .45; cursor: pointer; pointer-events: auto; }
   .pdb-module.is-disabled:hover { opacity: .78; background: #f9fafb; border-color: var(--line); }
   .pdb-module-icon { width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
@@ -137,6 +139,9 @@
   .pdb-module-name { font-size: .94rem; font-weight: 700; color: var(--ink); }
   .pdb-module.is-current .pdb-module-name { color: var(--blue); }
   .pdb-module-desc { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+  /* Como Monico: el subtítulo solo se ve en el módulo sugerido/activo; los demás quedan compactos (una línea) */
+  .pdb-module:not(.is-current) .pdb-module-desc { display: none; }
+  .pdb-module:not(.is-current) .pdb-module-name { font-weight: 600; color: var(--ink2); }
   .pdb-module-chev { color: var(--muted); font-size: 1.2rem; }
 
   /* ═══════ CHECKLIST STATS ═══════ */
@@ -806,9 +811,9 @@
 
   .pdb-work-title {
     margin: 0 0 4px;
-    color: #111;
-    font-size: 1.18rem;
-    font-weight: 700;
+    color: var(--ink);
+    font-size: .92rem;
+    font-weight: 600;
     line-height: 1.1;
   }
 
@@ -1409,26 +1414,26 @@
   }
 
   .pdb-wrap.pjd-shell .pdb-step {
-    min-width: 66px !important;
-    gap: 4px !important;
+    min-width: 80px !important;
+    gap: 6px !important;
   }
 
   .pdb-wrap.pjd-shell .pdb-step-circle {
-    width: 36px !important;
-    height: 36px !important;
+    width: 48px !important;
+    height: 48px !important;
     transition-property: background, border-color, color, box-shadow, opacity !important;
     transition-duration: var(--pjd-dur-ui) !important;
     transition-timing-function: var(--pjd-ease) !important;
   }
 
   .pdb-wrap.pjd-shell .pdb-step-circle svg {
-    width: 17px !important;
-    height: 17px !important;
+    width: 22px !important;
+    height: 22px !important;
   }
 
   .pdb-wrap.pjd-shell .pdb-step-line {
-    width: 62px !important;
-    margin-bottom: 18px !important;
+    width: 80px !important;
+    margin-bottom: 24px !important;
   }
 
   .pdb-wrap.pjd-shell .pdb-module {
@@ -3611,26 +3616,14 @@
             </div>
           </div>
         @else
+          {{-- Panel de insights, estilo Monico en fase Análisis ("¿Quieres sugerencias para esta etapa?" + ask sam) --}}
           <h3 class="pdb-card-title"><span class="ico is-violet"><svg class="pdb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z"/></svg></span> sam insights</h3>
           <div class="pdb-insights-empty">
-            <p>Acciones sugeridas:</p>
-            <div class="pdb-insight-actions">
-              <button type="button" class="pdb-insight-action js-monico-generate" data-monico-type="resumen">
-                <svg class="pdb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
-                <span>Revisar Resumen Ejecutivo</span>
-                <small>Ir →</small>
-              </button>
-              <button type="button" class="pdb-insight-action js-monico-generate" data-monico-type="reporte">
-                <svg class="pdb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
-                <span>Generar Reporte de Análisis</span>
-                <small>Ir →</small>
-              </button>
-              <button type="button" class="pdb-insight-action js-monico-generate" data-monico-type="participacion">
-                <svg class="pdb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
-                <span>Definir Participación</span>
-                <small>Ir →</small>
-              </button>
-            </div>
+            <p>¿Quieres sugerencias para esta etapa?</p>
+            <button type="button" class="pdb-ask-monico js-monico-generate" data-monico-type="resumen">
+              <span class="sparkle"><svg class="pdb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z"/></svg></span>
+              ask sam
+            </button>
           </div>
         @endif
       </div>
