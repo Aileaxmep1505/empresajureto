@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class ShippingAddress extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'user_id',
         'contact_name',

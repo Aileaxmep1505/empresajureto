@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PurchaseItem extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'purchase_document_id','item_name','item_raw','unit','qty','unit_price','line_total','ai_meta',
     ];

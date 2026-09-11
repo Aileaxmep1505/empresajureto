@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RoutePlan extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'driver_id','name','status','planned_at','meta',
     ];

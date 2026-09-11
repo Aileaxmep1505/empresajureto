@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WmsShipment extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     protected $table = 'wms_shipments';

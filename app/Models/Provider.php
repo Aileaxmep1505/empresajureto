@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\DB;
 
 class Provider extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     protected $fillable = [

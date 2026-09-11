@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Storage;
 
 class Expense extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'expenses';
 
     protected $fillable = [

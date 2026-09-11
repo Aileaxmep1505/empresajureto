@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LandingItem extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'landing_section_id','image_path','title','subtitle','cta_text','cta_url','sort_order'
     ];

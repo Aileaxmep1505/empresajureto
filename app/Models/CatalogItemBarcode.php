@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class CatalogItemBarcode extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'catalog_item_barcodes';
 
     protected $fillable = [

@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ProjectChecklistItem extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
     use SoftDeletes;
 

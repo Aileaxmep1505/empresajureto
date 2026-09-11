@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Storage;
 
 class Publication extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'title','description',
         'file_path','original_name','mime_type','size','extension',

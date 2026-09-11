@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PropuestaComercialExternalMatch extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'propuesta_comercial_item_id',
         'rank',

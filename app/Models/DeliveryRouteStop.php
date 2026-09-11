@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DeliveryRouteStop extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'delivery_route_stops';
     protected $fillable = [
         'delivery_route_id','provider_id','kind','seq','name','lat','lng',

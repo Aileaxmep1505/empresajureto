@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AccountReceivable extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory, SoftDeletes;
 
     protected $table = 'account_receivables';

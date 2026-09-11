@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CotizacionProducto extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'cotizacion_productos';
 
     protected $fillable = [

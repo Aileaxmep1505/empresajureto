@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class WmsQuickBox extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'warehouse_id',
         'location_id',

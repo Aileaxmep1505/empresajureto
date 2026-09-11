@@ -402,7 +402,6 @@ class CatalogItemController extends Controller implements HasMiddleware
             'sku'       => $skuOrGtin,
             'meli_gtin' => $skuOrGtin,
         ]);
-
         $data = $request->validate([
             'name'                => ['required', 'string', 'max:255'],
             'slug'                => ['nullable', 'string', 'max:255'],
@@ -419,20 +418,15 @@ class CatalogItemController extends Controller implements HasMiddleware
             'is_featured'         => ['nullable', 'boolean'],
             'category_product_id' => ['required', 'integer', 'exists:category_products,id'],
             'primary_location_id' => ['nullable', 'integer', 'exists:locations,id'],
-
             'use_internal'        => ['nullable', 'boolean'],
             'brand_id'            => ['nullable', 'integer'],
             'category_id'         => ['nullable', 'integer'],
-
             'brand_name'          => ['nullable', 'string', 'max:120'],
             'model_name'          => ['nullable', 'string', 'max:120'],
             'meli_gtin'           => ['required', 'string', 'max:120'],
-
             'excerpt'             => ['nullable', 'string'],
             'description'         => ['nullable', 'string'],
             'published_at'        => ['nullable', 'date'],
-
-            // Muestras
             'is_sample'           => ['nullable', 'boolean'],
             'sample_status'       => ['nullable', 'string', 'in:guardada,prestada,regalada,danada'],
             'sample_holder'       => ['nullable', 'string', 'max:255'],

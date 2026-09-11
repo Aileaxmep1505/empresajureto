@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Storage;
 
 class ProjectChecklistAttachment extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     protected $fillable = [

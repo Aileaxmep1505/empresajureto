@@ -9,6 +9,8 @@ use Illuminate\Support\Str;
 
 class Location extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'warehouse_id',
         'parent_id',

@@ -8,6 +8,8 @@ use Illuminate\Support\Str;
 
 class CategoryProduct extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'category_products';
 
     protected $fillable = [

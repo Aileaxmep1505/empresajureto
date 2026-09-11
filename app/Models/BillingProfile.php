@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class BillingProfile extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     // Si tu tabla no sigue la convención, descomenta y ajusta:
     // protected $table = 'billing_profiles';
 

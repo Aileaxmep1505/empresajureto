@@ -5,6 +5,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Post extends Model {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     protected $fillable = [

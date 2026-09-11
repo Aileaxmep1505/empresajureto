@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class HomeBanner extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'title',
         'description',

@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Storage;
 
 class ProjectDocument extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     protected $fillable = [

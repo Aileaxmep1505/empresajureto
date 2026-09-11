@@ -8,6 +8,8 @@ use App\Models\User;
 
 class Licitacion extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     /**

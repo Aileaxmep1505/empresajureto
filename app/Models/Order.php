@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Order extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'orders';
 
     protected $fillable = [

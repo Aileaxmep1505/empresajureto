@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DeliveryRoute extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'delivery_routes';
     protected $fillable = [
         'plan_date','driver_user_id','created_by','status',

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ConfidentialDocument extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'confidential_documents';
 
     protected $fillable = [

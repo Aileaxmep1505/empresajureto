@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Attachment extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
   protected $fillable = [
     'disk','path','original_name','mime_type','size_bytes','uploaded_by'
   ];

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class WmsReceptionLine extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     protected $table = 'wms_reception_lines';

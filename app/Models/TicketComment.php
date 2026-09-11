@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class TicketComment extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = ['ticket_id','user_id','body','mentions'];
     protected $casts = ['mentions'=>'array'];
 

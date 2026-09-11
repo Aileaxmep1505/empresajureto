@@ -8,6 +8,8 @@ use Illuminate\Support\Collection;
 
 class LicitacionPdf extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     protected $table = 'licitacion_pdfs';

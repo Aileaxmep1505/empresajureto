@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class HelpMessage extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'ticket_id','sender_type','sender_id','body','meta','is_solution'
     ];

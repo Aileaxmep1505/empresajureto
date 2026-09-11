@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class VehicleDocument extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
   protected $fillable = [
     'vehicle_id','type','original_name','mime_type','size','path'
   ];

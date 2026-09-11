@@ -7,6 +7,8 @@ use Illuminate\Support\Carbon;
 
 class MercadolibreAccount extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'meli_user_id',
         'access_token',

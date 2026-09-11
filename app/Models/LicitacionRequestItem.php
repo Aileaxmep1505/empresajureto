@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class LicitacionRequestItem extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     protected $table = 'licitacion_request_items';

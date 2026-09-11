@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PropuestaAclaracionPregunta extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'propuesta_aclaracion_preguntas';
 
     protected $fillable = [

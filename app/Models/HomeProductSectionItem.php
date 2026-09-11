@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class HomeProductSectionItem extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'home_product_section_id',
         'catalog_item_id',

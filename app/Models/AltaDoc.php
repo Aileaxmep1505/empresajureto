@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class AltaDoc extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory, SoftDeletes;
 
     protected $table = 'alta_docs';

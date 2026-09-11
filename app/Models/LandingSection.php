@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LandingSection extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = ['name','layout','is_active','sort_order'];
 
     protected $casts = [

@@ -23,6 +23,11 @@ return Application::configure(basePath: dirname(__DIR__))
         */
         $middleware->web(append: [
             \App\Http\Middleware\LogScreenViews::class,
+
+            // ✅ Registra CADA request de todo el sistema (quién, ruta, método,
+            // path, status, IP, sesión...) con hash encadenado anti-manipulación.
+            // Debe ir después de StartSession (por eso va en el grupo web).
+            \App\Http\Middleware\LogUserActivity::class,
         ]);
 
         /*

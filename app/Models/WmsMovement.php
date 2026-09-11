@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WmsMovement extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'warehouse_id',
         'user_id',

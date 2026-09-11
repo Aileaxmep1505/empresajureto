@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Adjudicacion extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'adjudicaciones';
 
     protected $fillable = [

@@ -8,6 +8,8 @@ use Illuminate\Support\Carbon;
 
 class Cotizacion extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'cotizaciones';
 
     protected $fillable = [

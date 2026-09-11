@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Schema;
 
 class Venta extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'ventas';
 
     protected $fillable = [

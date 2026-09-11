@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class HelpTicket extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'user_id','subject','category','priority','status','last_activity_at','resolved_by_id'
     ];

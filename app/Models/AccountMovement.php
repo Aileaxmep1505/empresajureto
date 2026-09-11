@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class AccountMovement extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     protected $table = 'account_movements';

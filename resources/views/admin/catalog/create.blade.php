@@ -1308,9 +1308,6 @@
     statusSel?.addEventListener('change', syncSample);
     syncSample();
   });
-
-
-
   function syncSkuAndGtinFields() {
     const sku = document.getElementById('skuField') || document.querySelector('[name="sku"]');
     const gtin = document.getElementById('gtinField') || document.querySelector('[name="meli_gtin"]');
@@ -1925,19 +1922,22 @@
     }
 
     async function fetchJson(url, options = {}) {
+      const { headers: extraHeaders = {}, ...rest } = options;
       const response = await fetch(url, {
+        ...rest,
+        credentials: 'same-origin',
         headers: {
           'Accept': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
-          ...(options.headers || {})
-        },
-        ...options
+          ...extraHeaders
+        }
       });
 
       const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
-        const text = await response.text();
-        throw new Error('El servidor devolvió HTML (no JSON). Posible sesión expirada.');
+        await response.text();
+        if (response.status === 419 || response.status === 401) throw new Error('Tu sesión expiró. Recarga la página e inicia sesión de nuevo.');
+        throw new Error(`El servidor devolvió HTML (no JSON), código ${response.status}.`);
       }
 
       const data = await response.json();

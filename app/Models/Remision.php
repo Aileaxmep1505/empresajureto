@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Remision extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'remisiones';
 
     protected $fillable = [

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class TicketDocument extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'ticket_id',
         'uploaded_by',

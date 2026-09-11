@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WmsMovementLine extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'movement_id',
         'line_uid',

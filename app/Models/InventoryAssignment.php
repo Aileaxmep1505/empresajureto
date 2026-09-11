@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class InventoryAssignment extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'inventory_item_id',
         'user_id',

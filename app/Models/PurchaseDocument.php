@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PurchaseDocument extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'publication_id',
         'created_by',

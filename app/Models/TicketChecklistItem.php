@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class TicketChecklistItem extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'checklist_id',
         'title','detail',

@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class HomeProductSection extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'title',
         'slug',

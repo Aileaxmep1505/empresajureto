@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OrderItem extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'order_items';
 
     // Incluimos TODOS los campos que usa el controlador y los que existen en tu tabla

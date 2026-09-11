@@ -18,6 +18,8 @@ use App\Models\Company;
  */
 class Document extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     protected $table = 'documents';

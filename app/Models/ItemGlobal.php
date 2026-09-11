@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class ItemGlobal extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     protected $table = 'items_globales';

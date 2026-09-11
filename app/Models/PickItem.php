@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PickItem extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'pick_wave_id','catalog_item_id',
         'requested_qty','picked_qty',

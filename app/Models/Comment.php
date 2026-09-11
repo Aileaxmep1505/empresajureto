@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Comment extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     // Campos asignables

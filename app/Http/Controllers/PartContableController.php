@@ -722,9 +722,17 @@ class PartContableController extends Controller
                       ->orWhereHas('document', fn($d) => $d->where('title', 'like', "%{$q}%"));
                 });
             })
-            ->orderByDesc('id')
-            ->paginate(25)
-            ->appends($request->query());
+            ->orderByDesc('id');
+
+        // Mostrar TODAS las actividades (todos los días) por defecto.
+        // Opcional: ?per_page=N para limitar la cantidad por página.
+        $perPage = (int) $request->get('per_page', 0);
+        if ($perPage <= 0) {
+            $totalActivities = (clone $rows)->count();
+            $perPage = max(1, min($totalActivities ?: 1, 50000));
+        }
+
+        $rows = $rows->paginate($perPage)->appends($request->query());
 
         $actions = \App\Models\UserActivity::select('action')->distinct()->orderBy('action')->pluck('action')->values();
 

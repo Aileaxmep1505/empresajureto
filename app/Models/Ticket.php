@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Ticket extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'folio',
         'title',

@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class VehicleEvent extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
   protected $fillable = [
     'vehicle_id','type','event_date','title','description','expense_id'
   ];

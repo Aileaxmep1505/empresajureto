@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class TechSheet extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'product_name',
         'brand',

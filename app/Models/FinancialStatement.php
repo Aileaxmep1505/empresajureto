@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Storage;
 
 class FinancialStatement extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'uploaded_by',
         'title',

@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class PayrollEntry extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
   protected $fillable = [
     'payroll_period_id','user_id',
     'gross_amount','deductions','net_amount',

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PropuestaResultado extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'propuesta_resultados';
 
     protected $fillable = [

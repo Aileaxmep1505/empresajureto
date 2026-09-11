@@ -8,6 +8,8 @@ use Illuminate\Support\Str;
 
 class ExpenseCategory extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
   protected $fillable = ['name','slug','type','active'];
 
   protected static function booted(): void {

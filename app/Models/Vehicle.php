@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Vehicle extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
   protected $fillable = [
     'plate','brand','model','year','vin','nickname',
     'last_verification_at','last_service_at',

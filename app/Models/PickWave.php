@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PickWave extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'warehouse_id',
         'code',

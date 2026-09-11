@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class KnowledgeDocument extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
   protected $fillable = [
     'source_type','source_id','title','url','content','embedding','meta','is_active','published_at'
   ];

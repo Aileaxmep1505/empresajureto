@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class ItemOriginal extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     use HasFactory;
 
     protected $table = 'items_originales';

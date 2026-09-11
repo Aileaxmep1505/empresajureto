@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RouteStop extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'route_plan_id','name','lat','lng','sequence_index','status','eta_seconds','meta'
     ];

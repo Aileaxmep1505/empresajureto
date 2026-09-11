@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InventoryMovement extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'type','catalog_item_id','from_location_id','to_location_id',
         'qty','user_id','notes','meta'

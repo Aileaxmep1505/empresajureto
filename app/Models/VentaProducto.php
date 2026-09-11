@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class VentaProducto extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'venta_productos';
 
     protected $fillable = [

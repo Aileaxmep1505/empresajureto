@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class TicketStage extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'ticket_stages';
 
     protected $fillable = [

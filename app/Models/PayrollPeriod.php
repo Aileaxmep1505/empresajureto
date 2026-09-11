@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PayrollPeriod extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
   protected $fillable = ['frequency','start_date','end_date','status','title'];
 
   protected $casts = [

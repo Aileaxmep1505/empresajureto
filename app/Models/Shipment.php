@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Shipment extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'user_id',
         'order_id',

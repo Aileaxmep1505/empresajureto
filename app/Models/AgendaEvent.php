@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class AgendaEvent extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $fillable = [
         'title',
         'description',

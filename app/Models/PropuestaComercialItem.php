@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class PropuestaComercialItem extends Model
 {
+    use \App\Traits\LogsModelActivity;
+
     protected $table = 'propuesta_comercial_items';
 
     protected $fillable = [
