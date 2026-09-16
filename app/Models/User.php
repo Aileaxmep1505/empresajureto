@@ -28,6 +28,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'approved_at',
         'avatar_path',
 
+        // Acomodo del tablero de inicio (tarjetas, orden y tamaño)
+        'dashboard_widgets',
+
         // ✅ PIN/NIP de aprobación (se guarda como hash)
         'approval_pin_hash',
     ];
@@ -53,6 +56,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'approved_at'                     => 'datetime',
         'email_verification_expires_at'   => 'datetime',
         'email_verification_code_sent_at' => 'datetime',
+        'dashboard_widgets'               => 'array',
     ];
 
     /**

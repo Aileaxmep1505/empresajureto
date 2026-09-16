@@ -121,8 +121,7 @@ Route::get('/catalogo/{item}', [InventoryController::class, 'publicCatalog'])
     ->name('assets.public-catalog');
 
 Route::get('/admin/catalog/analytics/pdf', [\App\Http\Controllers\Admin\CatalogItemController::class, 'analyticsPdf'])
-    ->name('admin.catalog.analytics.pdf');
-/*
+    ->name('admin.catalog.analytics.pdf');/*
 |--------------------------------------------------------------------------
 | AUTH
 |--------------------------------------------------------------------------
@@ -434,6 +433,10 @@ Route::prefix('panel/ayuda')->name('admin.help.')
 */
 Route::middleware(['auth', 'approved'])->prefix('panel')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::put('/dashboard/tarjetas',    [DashboardController::class, 'update'])->name('dashboard.widgets.update');
+    Route::delete('/dashboard/tarjetas', [DashboardController::class, 'reset'])->name('dashboard.widgets.reset');
+    // Menú completo de módulos (la pantalla de inicio anterior)
+    Route::get('/menu', [DashboardController::class, 'menu'])->name('dashboard.menu');
 
     /* Ventas internas (solo lectura + PDF/email) */
     Route::resource('ventas', VentaController::class)->only(['index','show'])->names('ventas');

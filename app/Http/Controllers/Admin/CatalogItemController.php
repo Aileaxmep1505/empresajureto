@@ -53,26 +53,98 @@ class CatalogItemController extends Controller implements HasMiddleware
      * Si $forceExcludeSamples es true, siempre se excluyen las muestras
      * sin importar el parámetro (se usa en reportes/analíticas).
      */
-    private function applyCatalogFilters($q, Request $request, bool $forceExcludeSamples = false): void
+    /** Ordenamientos permitidos en el listado: clave => [columna, dirección]. */
+    public const SORTS = [
+        'recent'     => ['id', 'desc'],
+        'oldest'     => ['id', 'asc'],
+        'name_asc'   => ['name', 'asc'],
+        'name_desc'  => ['name', 'desc'],
+        'price_asc'  => ['price', 'asc'],
+        'price_desc' => ['price', 'desc'],
+        'stock_asc'  => ['stock', 'asc'],
+        'stock_desc' => ['stock', 'desc'],
+        'updated'    => ['updated_at', 'desc'],
+    ];
+
+    /** Tamaños de página que se pueden elegir. */
+    public const PER_PAGE = [20, 50, 100];
+
+    /**
+     * @param array<int, string> $except  Filtros que NO se aplican (p. ej. ['status']
+     *                                    para contar cuántos hay de cada estado).
+     */
+    private function applyCatalogFilters($q, Request $request, bool $forceExcludeSamples = false, array $except = []): void
     {
+        $skip = fn (string $k) => in_array($k, $except, true);
+
         $s = trim((string) $request->get('s', ''));
-        if ($s !== '') {
-            $q->where(function ($qq) use ($s) {
-                $qq->where('name', 'like', "%{$s}%")
-                   ->orWhere('sku', 'like', "%{$s}%");
-            });
+        if ($s !== '' && ! $skip('s')) {
+            $this->applySearch($q, $s);
         }
 
-        if ($request->filled('status')) {
+        if ($request->filled('status') && ! $skip('status')) {
             $q->where('status', (int) $request->integer('status'));
         }
 
-        if ($request->boolean('featured_only')) {
+        if ($request->boolean('featured_only') && ! $skip('featured_only')) {
             $q->where('is_featured', true);
+        }
+
+        if ($request->filled('category') && ! $skip('category')) {
+            $q->where('category_product_id', (int) $request->integer('category'));
+        }
+
+        if ($request->filled('brand') && ! $skip('brand')) {
+            $q->where('brand_name', (string) $request->get('brand'));
+        }
+
+        // Existencias: sin stock, por debajo del mínimo, o sanas.
+        if (! $skip('stock')) {
+            switch ((string) $request->get('stock', '')) {
+                case 'empty':
+                    $q->where('stock', '<=', 0);
+                    break;
+                case 'critical':
+                    $q->whereNotNull('stock_min')->whereColumn('stock', '<=', 'stock_min');
+                    break;
+                case 'ok':
+                    $q->where('stock', '>', 0)->where(function ($qq) {
+                        $qq->whereNull('stock_min')->orWhereColumn('stock', '>', 'stock_min');
+                    });
+                    break;
+            }
+        }
+
+        if (! $skip('price')) {
+            if ($request->filled('price_min')) {
+                $q->where('price', '>=', (float) $request->get('price_min'));
+            }
+            if ($request->filled('price_max')) {
+                $q->where('price', '<=', (float) $request->get('price_max'));
+            }
+        }
+
+        // Mercado Libre: publicados, sin publicar o con error de sincronización.
+        if (! $skip('ml')) {
+            switch ((string) $request->get('ml', '')) {
+                case 'yes':
+                    $q->whereNotNull('meli_item_id');
+                    break;
+                case 'no':
+                    $q->whereNull('meli_item_id');
+                    break;
+                case 'error':
+                    $q->whereNotNull('meli_last_error')->where('meli_last_error', '!=', '');
+                    break;
+            }
         }
 
         if ($forceExcludeSamples) {
             $q->where('is_sample', false);
+            return;
+        }
+
+        if ($skip('samples')) {
             return;
         }
 
@@ -85,23 +157,195 @@ class CatalogItemController extends Controller implements HasMiddleware
         // 'all' => no se aplica ningún filtro de is_sample (salen todos).
     }
 
+    /**
+     * Búsqueda libre. Cada palabra tiene que aparecer en alguno de los campos,
+     * así "cuaderno prueba" encuentra "PRUEBA Cuaderno Profesional" y un SKU,
+     * código de barras, marca, modelo o ID de Mercado Libre también funcionan.
+     */
+    private function applySearch($q, string $s): void
+    {
+        $palabras = preg_split('/\s+/', trim($s)) ?: [];
+
+        foreach ($palabras as $palabra) {
+            if ($palabra === '') {
+                continue;
+            }
+
+            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $palabra) . '%';
+
+            $q->where(function ($qq) use ($like) {
+                $qq->where('name', 'like', $like)
+                   ->orWhere('sku', 'like', $like)
+                   ->orWhere('slug', 'like', $like)
+                   ->orWhere('brand_name', 'like', $like)
+                   ->orWhere('model_name', 'like', $like)
+                   ->orWhere('meli_item_id', 'like', $like)
+                   ->orWhere('amazon_sku', 'like', $like)
+                   ->orWhereHas('barcodes', fn ($b) => $b->where('barcode', 'like', $like));
+            });
+        }
+    }
+
+    private function sortKey(Request $request): string
+    {
+        $sort = (string) $request->get('sort', 'recent');
+
+        return isset(self::SORTS[$sort]) ? $sort : 'recent';
+    }
+
+    private function perPage(Request $request): int
+    {
+        $n = (int) $request->get('per_page', 20);
+
+        return in_array($n, self::PER_PAGE, true) ? $n : 20;
+    }
+
+    /**
+     * Listado del inventario.
+     *
+     * La misma ruta sirve la página completa y, cuando la pide el JS del
+     * buscador (X-Requested-With), solo los pedazos que cambian: tabla,
+     * resumen, chips y conteos. Así se filtra en vivo sin recargar.
+     */
     public function index(Request $request)
     {
-        $q = CatalogItem::query()->with(['categoryProduct', 'primaryLocation']);
+        $datos = $this->datosListado($request);
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'lista'        => view('admin.catalog._lista', $datos)->render(),
+                'kpis'         => view('admin.catalog._kpis', $datos)->render(),
+                'chips'        => view('admin.catalog._chips', $datos)->render(),
+                'estados'      => $datos['porEstado'],
+                'totalEstados' => $datos['totalEstados'],
+                'total'        => $datos['items']->total(),
+                'activos'      => count($datos['activos']),
+                'titulo'       => $datos['tituloLista'],
+            ]);
+        }
+
+        return view('admin.catalog.index', $datos + [
+            'categorias' => CategoryProduct::orderBy('name')->get(['id', 'name', 'full_path']),
+            'marcas'     => CatalogItem::whereNotNull('brand_name')->where('brand_name', '!=', '')
+                ->distinct()->orderBy('brand_name')->pluck('brand_name'),
+        ]);
+    }
+
+    /**
+     * Todo lo que necesitan la página y sus parciales: items, resumen,
+     * conteos, filtros activos y los helpers de URL / resaltado.
+     */
+    private function datosListado(Request $request): array
+    {
+        $q = CatalogItem::query()->with(['categoryProduct', 'primaryLocation']);
         $this->applyCatalogFilters($q, $request);
 
-        $items = $q->orderByDesc('id')->paginate(20)->withQueryString();
+        $sortKey = $this->sortKey($request);
+        $perPage = $this->perPage($request);
+        [$col, $dir] = self::SORTS[$sortKey];
 
-        return view('admin.catalog.index', [
-            'items'   => $items,
-            'filters' => [
-                's'             => trim((string) $request->get('s', '')),
-                'status'        => $request->get('status'),
-                'featured_only' => $request->boolean('featured_only'),
-                'samples'       => (string) $request->get('samples', ''),
-            ],
-        ]);
+        $items = (clone $q)->orderBy($col, $dir)->orderByDesc('id')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        // Resumen de lo que está en pantalla, ya con los filtros aplicados.
+        $resumen = (clone $q)->selectRaw(
+            'COUNT(*) as total,
+             SUM(CASE WHEN stock <= 0 THEN 1 ELSE 0 END) as sin_stock,
+             SUM(CASE WHEN stock_min IS NOT NULL AND stock <= stock_min THEN 1 ELSE 0 END) as criticos,
+             COALESCE(SUM(COALESCE(sale_price, price) * GREATEST(stock, 0)), 0) as valor'
+        )->first();
+
+        // Cuántos hay de cada estado con los demás filtros puestos, para
+        // que las pestañas digan "Publicado (10)".
+        $base = CatalogItem::query();
+        $this->applyCatalogFilters($base, $request, false, ['status']);
+        $porEstado = $base->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status');
+
+        $filters = [
+            's'             => trim((string) $request->get('s', '')),
+            'status'        => $request->get('status'),
+            'featured_only' => $request->boolean('featured_only'),
+            'samples'       => (string) $request->get('samples', ''),
+            'category'      => $request->get('category'),
+            'brand'         => (string) $request->get('brand', ''),
+            'stock'         => (string) $request->get('stock', ''),
+            'price_min'     => $request->get('price_min'),
+            'price_max'     => $request->get('price_max'),
+            'ml'            => (string) $request->get('ml', ''),
+        ];
+
+        $etqEstado = ['1' => 'Publicado', '0' => 'Borrador', '2' => 'Oculto'];
+        $etqStock  = ['empty' => 'Sin existencia', 'critical' => 'Stock crítico', 'ok' => 'Con existencia'];
+        $etqMl     = ['yes' => 'En Mercado Libre', 'no' => 'Sin publicar en ML', 'error' => 'Con error de ML'];
+        $etqOrden  = [
+            'recent' => 'Más recientes', 'oldest' => 'Más antiguos', 'name_asc' => 'Nombre A–Z', 'name_desc' => 'Nombre Z–A',
+            'price_asc' => 'Precio: menor a mayor', 'price_desc' => 'Precio: mayor a menor',
+            'stock_asc' => 'Stock: menor a mayor', 'stock_desc' => 'Stock: mayor a menor', 'updated' => 'Última modificación',
+        ];
+
+        $lleno = fn ($v) => $v !== null && $v !== '';
+
+        // Chips de filtros activos: [etiqueta, valor, parámetros que quita]
+        $activos = [];
+        if ($filters['s'] !== '')             $activos[] = ['Buscar', $filters['s'], ['s']];
+        if ($lleno($filters['status']))       $activos[] = ['Estado', $etqEstado[(string) $filters['status']] ?? $filters['status'], ['status']];
+        if ($filters['samples'] === 'only')   $activos[] = ['Muestras', 'Solo muestras', ['samples']];
+        if ($filters['samples'] === 'all')    $activos[] = ['Muestras', 'Catálogo + muestras', ['samples']];
+        if ($filters['featured_only'])        $activos[] = ['Destacados', 'Sí', ['featured_only']];
+        if ($lleno($filters['category']))     $activos[] = ['Categoría', CategoryProduct::find($filters['category'])?->name ?? '#' . $filters['category'], ['category']];
+        if ($filters['brand'] !== '')         $activos[] = ['Marca', $filters['brand'], ['brand']];
+        if ($filters['stock'] !== '')         $activos[] = ['Existencias', $etqStock[$filters['stock']] ?? $filters['stock'], ['stock']];
+        if ($filters['ml'] !== '')            $activos[] = ['Mercado Libre', $etqMl[$filters['ml']] ?? $filters['ml'], ['ml']];
+        if ($lleno($filters['price_min']) || $lleno($filters['price_max'])) {
+            $rango = ($lleno($filters['price_min']) ? '$' . number_format((float) $filters['price_min'], 0) : '$0')
+                . ' – ' . ($lleno($filters['price_max']) ? '$' . number_format((float) $filters['price_max'], 0) : '∞');
+            $activos[] = ['Precio', $rango, ['price_min', 'price_max']];
+        }
+        if ($sortKey !== 'recent')            $activos[] = ['Orden', $etqOrden[$sortKey], ['sort']];
+
+        $advActivos = collect([$filters['category'], $filters['brand'], $filters['stock'], $filters['ml'], $filters['price_min'], $filters['price_max']])
+            ->filter($lleno)->count() + ($sortKey !== 'recent' ? 1 : 0);
+
+        // Solo los parámetros con valor, sin la página: base para armar URLs.
+        $query = array_filter($request->except('page'), fn ($v) => $v !== null && $v !== '');
+
+        // Palabras buscadas, para resaltarlas en la lista.
+        $palabras = array_values(array_filter(preg_split('/\s+/', $filters['s']) ?: []));
+
+        return [
+            'items'        => $items,
+            'resumen'      => $resumen,
+            'porEstado'    => $porEstado,
+            'totalEstados' => (int) $porEstado->sum(),
+            'filters'      => $filters,
+            'sortKey'      => $sortKey,
+            'perPage'      => $perPage,
+            'samplesMode'  => $filters['samples'],
+            'activos'      => $activos,
+            'hasFilters'   => count($activos) > 0,
+            'advActivos'   => $advActivos,
+            'etqOrden'     => $etqOrden,
+            'tituloLista'  => match ($filters['samples']) {
+                'only'  => 'Muestras Jureto',
+                'all'   => 'Inventario Jureto (todos)',
+                default => 'Inventario Jureto',
+            },
+            // URL del listado con los filtros actuales más/menos algo.
+            'urlCon'   => fn (array $extra = []) => route('admin.catalog.index', array_merge($query, $extra)),
+            'sinParams'=> fn (array $quitar) => route('admin.catalog.index', array_diff_key($query, array_flip($quitar))),
+            // Ordenar por una columna desde el encabezado (alterna asc/desc).
+            'urlOrden' => fn (string $asc, string $desc) => route('admin.catalog.index', array_merge($query, ['sort' => $sortKey === $asc ? $desc : $asc])),
+            'unitLabel'=> fn ($item) => method_exists($item, 'unitMeasureLabel') ? $item->unitMeasureLabel() : ucfirst((string) ($item->unit_measure ?: 'pieza')),
+            // Resalta lo buscado dentro de un texto ya escapado.
+            'resaltar' => function (?string $texto) use ($palabras): string {
+                $t = e((string) $texto);
+                foreach ($palabras as $p) {
+                    $t = preg_replace('/(' . preg_quote(e($p), '/') . ')/iu', '<mark>$1</mark>', $t) ?? $t;
+                }
+                return $t;
+            },
+        ];
     }
 
     public function exportExcel(Request $request)
