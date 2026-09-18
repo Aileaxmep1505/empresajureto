@@ -75,9 +75,56 @@
     <a href="{{ $analyticsUrl }}" class="bento-card col-span-2 card-analytics-light">
       <div class="analytics-bg-grid-light"></div>
 
-      <div class="chart-waves-container">
-        <div class="wave-layer wave-cyan"></div>
-        <div class="wave-layer wave-orange"></div>
+      {{-- Olas decorativas. Cada una es UNA curva continua de dos periodos (no un
+           mosaico que se repite), así que no hay uniones donde la línea se corte.
+           Los puntos son crestas y valles con tangente horizontal: el final de un
+           periodo empata exacto con el inicio del siguiente y el bucle no brinca. --}}
+      @php
+        $ola = function (array $puntos, int $periodo = 500, int $repeticiones = 2): string {
+            // $puntos = [[x, y], ...] dentro de un periodo; el primero va en x=0.
+            $todos = [];
+            for ($r = 0; $r < $repeticiones; $r++) {
+                foreach ($puntos as [$x, $y]) { $todos[] = [$x + $r * $periodo, $y]; }
+            }
+            $todos[] = [$repeticiones * $periodo, $puntos[0][1]]; // cierra en la misma altura
+
+            $d = 'M' . $todos[0][0] . ',' . $todos[0][1];
+            for ($i = 1; $i < count($todos); $i++) {
+                [$x0, $y0] = $todos[$i - 1];
+                [$x1, $y1] = $todos[$i];
+                $m = ($x0 + $x1) / 2;
+                $d .= " C{$m},{$y0} {$m},{$y1} {$x1},{$y1}";
+            }
+            return $d;
+        };
+
+        $olaCyan    = $ola([[0, 62], [125, 102], [250, 52], [375, 106]]);
+        $olaNaranja = $ola([[0, 108], [150, 40], [300, 94], [400, 56]]);
+      @endphp
+
+      <div class="chart-waves-container" aria-hidden="true">
+        {{-- El relleno bajo cada ola es un degradado que se apaga hacia abajo,
+             para que no termine en un borde recto contra el fondo de la tarjeta. --}}
+        <svg class="wave-layer wave-cyan" viewBox="0 0 1000 150" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="wmsOlaCyan" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#06b6d4" stop-opacity=".18"/>
+              <stop offset=".75" stop-color="#06b6d4" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path class="wave-area" fill="url(#wmsOlaCyan)" d="{{ $olaCyan }} L1000,150 L0,150 Z"/>
+          <path class="wave-line" d="{{ $olaCyan }}"/>
+        </svg>
+        <svg class="wave-layer wave-orange" viewBox="0 0 1000 150" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="wmsOlaNaranja" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#f97316" stop-opacity=".14"/>
+              <stop offset=".75" stop-color="#f97316" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <path class="wave-area" fill="url(#wmsOlaNaranja)" d="{{ $olaNaranja }} L1000,150 L0,150 Z"/>
+          <path class="wave-line" d="{{ $olaNaranja }}"/>
+        </svg>
       </div>
 
       <div class="analytics-layout">
@@ -425,6 +472,50 @@
       </div>
     </a>
 
+    {{-- ===== Operaciones nuevas: reabasto, conteos, cross-docking, productividad, andenes ===== --}}
+    @php
+      // Contadores ligeros para las tarjetas; si una tabla aún no existe, la tarjeta sale sin número.
+      $opsNum = function (callable $fn) { try { return (int) $fn(); } catch (\Throwable $e) { return null; } };
+      $opsReabasto = $opsNum(fn () => \App\Models\WmsReplenishmentTask::where('status', 'pendiente')->count());
+      $opsConteos  = $opsNum(fn () => \App\Models\WmsCount::where('status', 'abierto')->count());
+      $opsCross    = $opsNum(fn () => \App\Models\WmsCrossdockAssignment::whereIn('status', ['asignado', 'en_anden'])->count());
+      $opsCitas    = $opsNum(fn () => \App\Models\WmsDockAppointment::whereDate('scheduled_at', now()->toDateString())->count());
+
+      $opsCards = [
+        ['admin.wms.replenishment.index', 'col-span-1', 'Reabastecimiento', 'Repone las ubicaciones de picking desde la reserva antes de que se queden sin producto.', $opsReabasto, 'tareas pendientes', 'Reponer',
+         '<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>'],
+        ['admin.wms.counts.index', 'col-span-1', 'Conteos de inventario', 'Recuentos por ubicación, críticos o muestra aleatoria, con ajuste automático de diferencias.', $opsConteos, 'conteos abiertos', 'Contar',
+         '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/>'],
+        ['admin.wms.crossdock.index', 'col-span-1', 'Cross-docking', 'Lo recién recibido que una ola está esperando se va directo al andén, sin pasar por rack.', $opsCross, 'en tránsito', 'Ver cruces',
+         '<path d="M4 7h11l-3-3"/><path d="M20 17H9l3 3"/><path d="M4 7v4"/><path d="M20 17v-4"/>'],
+        ['admin.wms.labor.index', 'col-span-1', 'Productividad', 'Qué hizo cada persona y a qué ritmo, contra las metas por hora de picking y embarque.', null, '', 'Ver equipo',
+         '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M17 11l2 2 3.5-4"/>'],
+        ['admin.wms.docks.index', 'col-span-2', 'Citas de andén', 'Agenda de vehículos por andén, con llegada, entrada y salida para medir puntualidad y evitar que se junten.', $opsCitas, 'citas hoy', 'Abrir agenda',
+         '<rect x="1" y="7" width="13" height="10" rx="1.5"/><path d="M14 10h4l3 3v4h-7"/><circle cx="6" cy="18.5" r="1.8"/><circle cx="17.5" cy="18.5" r="1.8"/>'],
+      ];
+    @endphp
+
+    @foreach($opsCards as [$opsRuta, $opsSpan, $opsTitulo, $opsDesc, $opsN, $opsEtq, $opsCta, $opsIcono])
+      @continue(! Route::has($opsRuta))
+      <a href="{{ route($opsRuta) }}" class="bento-card {{ $opsSpan }}">
+        <div class="bento-inner">
+          <div class="bento-content">
+            <div class="bento-icon-wrapper">
+              <div class="bento-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{!! $opsIcono !!}</svg>
+              </div>
+            </div>
+            <h3 class="bento-title">{{ $opsTitulo }}</h3>
+            <p class="bento-desc">
+              @if($opsN !== null)<strong>{{ $fmt($opsN) }}</strong> {{ $opsEtq }}. @endif
+              {{ $opsDesc }}
+            </p>
+          </div>
+          <div class="bento-cta">{{ $opsCta }} <svg class="bento-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+        </div>
+      </a>
+    @endforeach
+
     {{-- 12. Layout --}}
     <a href="{{ $layoutUrl }}" class="bento-card col-span-3 card-layout">
       <div class="bento-bg bg-blueprint"></div>
@@ -601,20 +692,22 @@
     mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
     -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
   }
+  /* Cada ola es un SVG al doble de ancho con dos periodos idénticos; al
+     deslizarse -50% queda exactamente igual que al inicio, así el bucle no se nota. */
   .wave-layer {
-    position: absolute; top: 0; left: 0; width: 200%; height: 100%;
-    background-repeat: repeat-x; background-size: 50% 100%;
-    animation: wave-slide 8s linear infinite;
+    position: absolute; top: 0; left: 0; width: 200%; height: 100%; display: block;
+    overflow: visible; will-change: transform;
+    animation: wave-slide 16s linear infinite;
   }
-  .wave-cyan {
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 500 150' preserveAspectRatio='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,75 C100,20 150,130 250,75 C350,20 400,130 500,75' fill='none' stroke='%2306b6d4' stroke-width='4'/%3E%3C/svg%3E");
-    opacity: 0.9;
-  }
-  .wave-orange {
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 500 150' preserveAspectRatio='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0,90 C120,140 180,10 250,60 C320,110 380,10 500,60' fill='none' stroke='%23f97316' stroke-width='3'/%3E%3C/svg%3E");
-    opacity: 0.9; animation-duration: 12s; animation-direction: reverse;
-  }
+  /* non-scaling-stroke: el SVG se estira a lo ancho, pero el grosor de la línea
+     se queda parejo en vez de verse más grueso en las subidas que en lo plano. */
+  .wave-line { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .wave-area { stroke: none; }
+  .wave-cyan .wave-line { stroke: #06b6d4; }
+  .wave-orange { animation-duration: 24s; animation-direction: reverse; }
+  .wave-orange .wave-line { stroke: #f97316; stroke-width: 2.5; }
   @keyframes wave-slide { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .wave-layer { animation: none; } }
 
   .analytics-bottom-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; z-index: 10; }
   .analytics-kpi-main { flex: 1; }

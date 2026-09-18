@@ -509,7 +509,7 @@
 
   const ROUTES = {
     data:   @json(route('admin.wms.layout.data')),
-    upsert: @json(route('admin.wms.layout.cell')),
+    upsert: @json(route('admin.wms.layout.cell.upsert')),
     gen:    @json(route('admin.wms.layout.generate-rack')),
     del:    @json($hasDelete ? route('admin.wms.layout.delete') : null),
     qrBase: @json(url('/admin/wms/locations')),

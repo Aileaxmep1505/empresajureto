@@ -1303,6 +1303,47 @@ Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(func
     Route::get('/analytics', [WmsAnalyticsController::class, 'index'])->name('analytics');
 });
 
+/*
+|--------------------------------------------------------------------------
+| WMS · Operaciones: reabastecimiento, conteos, cross-docking,
+| productividad y citas de andén
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(function () {
+    // Reabastecimiento
+    Route::get('/reabastecimiento', [\App\Http\Controllers\Admin\WmsReplenishmentController::class, 'index'])->name('replenishment.index');
+    Route::post('/reabastecimiento/generar', [\App\Http\Controllers\Admin\WmsReplenishmentController::class, 'generate'])->name('replenishment.generate');
+    Route::post('/reabastecimiento/{task}/completar', [\App\Http\Controllers\Admin\WmsReplenishmentController::class, 'complete'])->name('replenishment.complete');
+    Route::patch('/reabastecimiento/{task}/cancelar', [\App\Http\Controllers\Admin\WmsReplenishmentController::class, 'cancel'])->name('replenishment.cancel');
+
+    // Conteos de inventario
+    Route::get('/conteos', [\App\Http\Controllers\Admin\WmsCountController::class, 'index'])->name('counts.index');
+    Route::post('/conteos', [\App\Http\Controllers\Admin\WmsCountController::class, 'store'])->name('counts.store');
+    Route::get('/conteos/productos', [\App\Http\Controllers\Admin\WmsCountController::class, 'items'])->name('counts.items');
+    Route::get('/conteos/{count}', [\App\Http\Controllers\Admin\WmsCountController::class, 'show'])->name('counts.show');
+    Route::post('/conteos/{count}/lineas', [\App\Http\Controllers\Admin\WmsCountController::class, 'addLine'])->name('counts.lines.add');
+    Route::patch('/conteos/{count}/lineas/{line}', [\App\Http\Controllers\Admin\WmsCountController::class, 'saveLine'])->name('counts.lines.save');
+    Route::post('/conteos/{count}/cerrar', [\App\Http\Controllers\Admin\WmsCountController::class, 'close'])->name('counts.close');
+    Route::patch('/conteos/{count}/cancelar', [\App\Http\Controllers\Admin\WmsCountController::class, 'cancel'])->name('counts.cancel');
+
+    // Cross-docking
+    Route::get('/cross-docking', [\App\Http\Controllers\Admin\WmsCrossdockController::class, 'index'])->name('crossdock.index');
+    Route::post('/cross-docking', [\App\Http\Controllers\Admin\WmsCrossdockController::class, 'assign'])->name('crossdock.assign');
+    Route::patch('/cross-docking/{assignment}/avanzar', [\App\Http\Controllers\Admin\WmsCrossdockController::class, 'advance'])->name('crossdock.advance');
+    Route::patch('/cross-docking/{assignment}/cancelar', [\App\Http\Controllers\Admin\WmsCrossdockController::class, 'cancel'])->name('crossdock.cancel');
+
+    // Productividad del personal
+    Route::get('/productividad', [\App\Http\Controllers\Admin\WmsLaborController::class, 'index'])->name('labor.index');
+    Route::post('/productividad/metas', [\App\Http\Controllers\Admin\WmsLaborController::class, 'saveTargets'])->name('labor.targets');
+
+    // Citas de andén
+    Route::get('/andenes', [\App\Http\Controllers\Admin\WmsDockController::class, 'index'])->name('docks.index');
+    Route::post('/andenes', [\App\Http\Controllers\Admin\WmsDockController::class, 'store'])->name('docks.store');
+    Route::post('/andenes/lista', [\App\Http\Controllers\Admin\WmsDockController::class, 'saveDocks'])->name('docks.list');
+    Route::patch('/andenes/{appointment}/estado', [\App\Http\Controllers\Admin\WmsDockController::class, 'status'])->name('docks.status');
+    Route::delete('/andenes/{appointment}', [\App\Http\Controllers\Admin\WmsDockController::class, 'destroy'])->name('docks.destroy');
+});
+
 Route::middleware(['auth'])->prefix('admin/wms')->name('admin.wms.')->group(function () {
 
     /* =========================

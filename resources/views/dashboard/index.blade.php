@@ -30,6 +30,12 @@
         </div>
 
         <div class="dash-actions">
+            <button type="button" class="tour-abrir" data-tour-start="tablero">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.3 2.9c-.6.2-.9.8-.9 1.4v.3"/><path d="M12 17h.01"/>
+                </svg>
+                ¿Cómo funciona?
+            </button>
             @if (\Illuminate\Support\Facades\Route::has('dashboard.menu'))
                 <a href="{{ route('dashboard.menu') }}" class="dash-btn dash-btn--ghost" title="Ver todos los módulos">
                     <span class="msi" aria-hidden="true">apps</span>
@@ -65,7 +71,7 @@
             Arrastra una tarjeta para moverla, jala su esquina para cambiar ancho y alto, o quítala con la ✕.
         </p>
 
-        <div class="dash-grid" data-grid>
+        <div class="dash-grid" data-grid data-tour="rejilla">
             @foreach ($activas as $widget)
                 @php
                     $def = $catalogo[$widget['id']];
@@ -431,5 +437,22 @@
 
         pintarModo();
     })();
+    </script>
+    @include('partials.ui-tour')
+    <script>
+        UITour.registrar('tablero', {
+            version: 1,
+            auto: true,
+            pasos: [
+                { titulo: 'Este tablero es tuyo',
+                  texto: 'Cada quien acomoda el suyo: qué tarjetas ve, en qué orden y de qué tamaño. Lo que cambies aquí no le cambia el tablero a nadie más.' },
+                { el: '[data-tour="rejilla"]', titulo: 'Las tarjetas',
+                  texto: 'Cada tarjeta muestra un dato del negocio o un grupo de accesos. Entre más grande la hagas, más detalle te muestra.' },
+                { el: '[data-abrir-agregar]', titulo: 'Agregar lo que te falte',
+                  texto: 'Aquí está el catálogo completo: indicadores, listas, la gráfica de ventas y los accesos directos a cada módulo.' },
+                { el: '[data-editar-toggle]', titulo: 'Acomodarlo a tu gusto',
+                  texto: 'Pulsa Editar tablero y podrás arrastrar las tarjetas, jalar su esquina para cambiar el tamaño, o quitarlas con la ✕. Al final pulsa Guardar tablero.' },
+            ],
+        });
     </script>
 @endpush
