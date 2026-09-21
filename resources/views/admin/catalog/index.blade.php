@@ -143,6 +143,9 @@
                            background:var(--ui-surface); padding:0 9px; font:inherit; font-size:13.5px; color:var(--ui-ink); outline:0;
                            transition:border-color var(--ui-fast) var(--ui-ease), box-shadow var(--ui-fast) var(--ui-ease); }
   .fld select:hover, .fld input:hover{ border-color:var(--ui-faint); }
+  .fld select.fld-multi{ height:auto; padding:5px; }
+  .fld select.fld-multi option{ padding:5px 8px; border-radius:6px; }
+  .fld select.fld-multi option:checked{ background:var(--ui-accent-soft); color:var(--ui-accent-ink); font-weight:600; }
   .fld select:focus, .fld input:focus{ border-color:var(--ui-accent); box-shadow:0 0 0 3px var(--ui-accent-ring); }
   .fld .range{ display:flex; align-items:center; gap:6px; }
   .fld .range span{ color:var(--ui-muted); }
@@ -686,6 +689,18 @@
                   @endforeach
                 </select>
               </div>
+
+              <div class="fld" style="grid-column:1 / -1;">
+                <label for="fExclude">Excluir categorías (y sus subcategorías)</label>
+                <select id="fExclude" name="exclude_cats[]" form="filtersForm" data-filtro multiple size="5" class="fld-multi">
+                  @foreach($categorias as $c)
+                    <option value="{{ $c->id }}" @selected(in_array((int) $c->id, (array) ($filters['exclude_cats'] ?? []), true))>{{ $c->full_path ?: $c->name }}</option>
+                  @endforeach
+                </select>
+                <span class="hint" style="display:block;margin-top:6px;">
+                  Quita esas categorías del listado, del <b>Valor del inventario</b> y del PDF. Mantén Ctrl (Cmd en Mac) para elegir varias; para ver solo papelería, excluye Juguetes y las demás.
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -839,7 +854,7 @@
   // los parámetros con valor, y nunca la página (un filtro nuevo empieza en la 1).
   function urlDesdeForm(extra){
     const p = new URLSearchParams();
-    new FormData(form).forEach((v, k)=>{ v = String(v).trim(); if (v !== '') p.set(k, v); });
+    new FormData(form).forEach((v, k)=>{ v = String(v).trim(); if (v === '') return; if (k.endsWith('[]')) p.append(k, v); else p.set(k, v); });
     if (p.get('per_page') === '20') p.delete('per_page');
     if (p.get('sort') === 'recent') p.delete('sort');
     if (p.get('view') === 'list') p.delete('view');
@@ -906,7 +921,8 @@
     featured.closest('.chip').classList.toggle('is-on', featured.checked);
 
     const avanzados = ['category','brand','stock','ml','price_min','price_max'].filter(n => (form.elements[n]?.value || '') !== '').length
-                    + ((form.elements['sort']?.value || 'recent') !== 'recent' ? 1 : 0);
+                    + ((form.elements['sort']?.value || 'recent') !== 'recent' ? 1 : 0)
+                    + (document.querySelectorAll('#fExclude option:checked').length > 0 ? 1 : 0);
     advCount.textContent = avanzados;
     advCount.hidden = avanzados === 0;
     advToggle.classList.toggle('is-on', avanzados > 0);
@@ -924,6 +940,8 @@
     featured.checked = p.get('featured_only') === '1';
     ['category','brand','stock','ml','price_min','price_max'].forEach(n => set(n, p.get(n) || ''));
     set('sort', p.get('sort') || 'recent');
+    const excluidas = p.getAll('exclude_cats[]');
+    document.querySelectorAll('#fExclude option').forEach(o => { o.selected = excluidas.includes(o.value); });
     viewInput.value = p.get('view') === 'cards' ? 'cards' : 'list';
     perPageInput.value = p.get('per_page') || '20';
     document.querySelectorAll('[data-perpage]').forEach(s => s.value = perPageInput.value);

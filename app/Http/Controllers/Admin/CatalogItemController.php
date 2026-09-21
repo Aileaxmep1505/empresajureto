@@ -94,6 +94,22 @@ class CatalogItemController extends Controller implements HasMiddleware
             $q->where('category_product_id', (int) $request->integer('category'));
         }
 
+        // Excluir categorías (y sus subcategorías) del listado, del total y del PDF.
+        if (! $skip('exclude_cats')) {
+            $excluir = array_values(array_filter(array_map('intval', (array) $request->get('exclude_cats', []))));
+            if (! empty($excluir)) {
+                $rutas = CategoryProduct::whereIn('id', $excluir)->pluck('full_path')->filter()->values()->all();
+                $q->whereDoesntHave('categoryProduct', function ($c) use ($excluir, $rutas) {
+                    $c->where(function ($cc) use ($excluir, $rutas) {
+                        $cc->whereIn('id', $excluir);
+                        foreach ($rutas as $ruta) {
+                            $cc->orWhere('full_path', 'like', $ruta . '%');
+                        }
+                    });
+                });
+            }
+        }
+
         if ($request->filled('brand') && ! $skip('brand')) {
             $q->where('brand_name', (string) $request->get('brand'));
         }
@@ -276,6 +292,7 @@ class CatalogItemController extends Controller implements HasMiddleware
             'price_min'     => $request->get('price_min'),
             'price_max'     => $request->get('price_max'),
             'ml'            => (string) $request->get('ml', ''),
+            'exclude_cats'  => array_values(array_filter(array_map('intval', (array) $request->get('exclude_cats', [])))),
         ];
 
         $etqEstado = ['1' => 'Publicado', '0' => 'Borrador', '2' => 'Oculto'];
@@ -305,10 +322,14 @@ class CatalogItemController extends Controller implements HasMiddleware
                 . ' – ' . ($lleno($filters['price_max']) ? '$' . number_format((float) $filters['price_max'], 0) : '∞');
             $activos[] = ['Precio', $rango, ['price_min', 'price_max']];
         }
+        if (! empty($filters['exclude_cats'])) {
+            $nEx = count($filters['exclude_cats']);
+            $activos[] = ['Excluye', $nEx === 1 ? '1 categoría' : ($nEx . ' categorías'), ['exclude_cats']];
+        }
         if ($sortKey !== 'recent')            $activos[] = ['Orden', $etqOrden[$sortKey], ['sort']];
 
         $advActivos = collect([$filters['category'], $filters['brand'], $filters['stock'], $filters['ml'], $filters['price_min'], $filters['price_max']])
-            ->filter($lleno)->count() + ($sortKey !== 'recent' ? 1 : 0);
+            ->filter($lleno)->count() + ($sortKey !== 'recent' ? 1 : 0) + (! empty($filters['exclude_cats']) ? 1 : 0);
 
         // Solo los parámetros con valor, sin la página: base para armar URLs.
         $query = array_filter($request->except('page'), fn ($v) => $v !== null && $v !== '');
