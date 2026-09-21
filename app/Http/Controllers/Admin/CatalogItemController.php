@@ -502,7 +502,8 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $this->applyCatalogFilters($q, $request);
 
-        $items = $q->orderBy('id')->get();
+        // Las muestras van hasta el final del listado.
+        $items = $q->orderBy('is_sample')->orderBy('id')->get();
 
         $logoBase64 = null;
         $logoPath   = public_path('images/logo-mail.png');
@@ -628,14 +629,15 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $html .= '<table>';
         $html .= '<colgroup>'
-            . '<col style="width:7%">'    // Imagen
-            . '<col style="width:19%">'   // Nombre
-            . '<col style="width:9%">'    // Marca
-            . '<col style="width:9%">'    // Modelo
-            . '<col style="width:13%">'   // Categoría
-            . '<col style="width:11%">'   // GTIN
-            . '<col style="width:19%">'   // Descripción técnica
+            . '<col style="width:6%">'    // Imagen
+            . '<col style="width:18%">'   // Nombre
+            . '<col style="width:8%">'    // Marca
+            . '<col style="width:8%">'    // Modelo
+            . '<col style="width:12%">'   // Categoría
+            . '<col style="width:10%">'   // GTIN
+            . '<col style="width:18%">'   // Descripción técnica
             . '<col style="width:6%">'    // Stock
+            . '<col style="width:7%">'    // Precio unitario
             . '<col style="width:7%">'    // Valor total
             . '</colgroup>';
         $html .= '<thead><tr>';
@@ -647,13 +649,24 @@ class CatalogItemController extends Controller implements HasMiddleware
         $html .= '<th>GTIN</th>';
         $html .= '<th>Descripción técnica</th>';
         $html .= '<th>Stock</th>';
+        $html .= '<th>Precio unitario</th>';
         $html .= '<th>Valor total</th>';
         $html .= '</tr></thead><tbody>';
 
+        $granTotal = 0.0;
+        $seccionMuestras = false;
+
         foreach ($items as $it) {
+            // Encabezado de sección cuando empiezan las muestras.
+            if (! $seccionMuestras && $it->is_sample) {
+                $seccionMuestras = true;
+                $html .= '<tr><td colspan="10" style="background:#fff7ed;color:#b45309;font-weight:700;">Muestras</td></tr>';
+            }
+
             $unidad = ucfirst((string) ($it->unit_measure ?: 'pieza'));
             $precioEfectivo = $it->sale_price !== null ? (float) $it->sale_price : (float) $it->price;
             $valorTotal = $precioEfectivo * max((float) ($it->stock ?? 0), 0);
+            $granTotal += $valorTotal;
             $gtin = $it->meli_gtin ?: ($it->sku ?: '');
             $descripcion = \Illuminate\Support\Str::limit(trim(strip_tags((string) $it->description)), 260);
             $img = $imgData($it);
@@ -669,17 +682,27 @@ class CatalogItemController extends Controller implements HasMiddleware
             $html .= '<td>' . htmlspecialchars((string) $gtin) . '</td>';
             $html .= '<td>' . htmlspecialchars($descripcion) . '</td>';
             $html .= '<td>' . htmlspecialchars(number_format((float) ($it->stock ?? 0), 0) . ' ' . $unidad) . '</td>';
+            $html .= '<td>$' . number_format($precioEfectivo, 2) . '</td>';
             $html .= '<td>$' . number_format($valorTotal, 2) . '</td>';
             $html .= '</tr>';
         }
 
         if ($items->isEmpty()) {
-            $html .= '<tr><td colspan="9" class="muted" style="text-align:center;padding:14px 6px;">';
+            $html .= '<tr><td colspan="10" class="muted" style="text-align:center;padding:14px 6px;">';
             $html .= 'No hay productos que coincidan con el filtro.';
             $html .= '</td></tr>';
         }
 
-        $html .= '</tbody></table></body></html>';
+        $html .= '</tbody>';
+
+        if ($items->isNotEmpty()) {
+            $html .= '<tfoot><tr>'
+                . '<td colspan="9" style="text-align:right;font-weight:700;background:#f3f4f6;">Valor total del inventario</td>'
+                . '<td style="font-weight:700;background:#f3f4f6;">$' . number_format($granTotal, 2) . '</td>'
+                . '</tr></tfoot>';
+        }
+
+        $html .= '</table></body></html>';
 
         $pdf = Pdf::loadHTML($html)->setPaper('a4', 'landscape');
 
