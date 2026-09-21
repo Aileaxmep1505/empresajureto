@@ -517,7 +517,7 @@ class CatalogItemController extends Controller implements HasMiddleware
           *{ box-sizing:border-box; }
           body{
             font-family: DejaVu Sans, sans-serif;
-            font-size:8px;
+            font-size:10px;
             color:#111827;
             margin:0;
           }
@@ -545,7 +545,7 @@ class CatalogItemController extends Controller implements HasMiddleware
             margin-top:4px;
           }
           th,td{
-            padding:3px 3px;
+            padding:6px 7px;
             border:1px solid #d1d5db;
             word-wrap:break-word;
             overflow-wrap:break-word;
@@ -555,10 +555,10 @@ class CatalogItemController extends Controller implements HasMiddleware
           th{
             background:#f3f4f6;
             font-weight:700;
-            font-size:8px;
+            font-size:10px;
           }
           td{
-            font-size:7.5px;
+            font-size:9.5px;
           }
           .muted{
             color:#6b7280;
@@ -572,86 +572,75 @@ class CatalogItemController extends Controller implements HasMiddleware
         $html .= '<h1 class="title-main">Inventario interno de Jureto</h1>';
         $html .= '<p class="top-sub">Listado de productos con filtros actuales</p>';
 
+        // Primera imagen del producto como base64 (para que dompdf la incruste).
+        $imgData = function ($it): ?string {
+            $path = $it->photo_1 ?: ($it->photo_2 ?: ($it->photo_3 ?: null));
+            if (! $path) {
+                return null;
+            }
+            foreach (['public', config('filesystems.default')] as $disk) {
+                try {
+                    $d = \Illuminate\Support\Facades\Storage::disk($disk);
+                    if ($d->exists($path)) {
+                        $mime = $d->mimeType($path) ?: 'image/jpeg';
+                        return 'data:' . $mime . ';base64,' . base64_encode($d->get($path));
+                    }
+                } catch (\Throwable $e) {
+                    // Si un disco falla, se prueba el siguiente.
+                }
+            }
+            return null;
+        };
+
         $html .= '<table>';
         $html .= '<colgroup>'
-            . '<col style="width:2%">'   // ID
-            . '<col style="width:6%">'   // SKU
-            . '<col style="width:6%">'   // GTIN/EAN
-            . '<col style="width:13%">'  // Nombre
-            . '<col style="width:10%">'  // Categoría
-            . '<col style="width:3%">'   // U.M.
-            . '<col style="width:5%">'   // Contenido
-            . '<col style="width:5%">'   // Ubicación
-            . '<col style="width:5%">'   // Precio
-            . '<col style="width:5%">'   // Oferta
-            . '<col style="width:3%">'   // Stock
-            . '<col style="width:3%">'   // Stock mín.
-            . '<col style="width:3%">'   // Stock máx.
-            . '<col style="width:5%">'   // Estado
-            . '<col style="width:3%">'   // Destacado
-            . '<col style="width:3%">'   // Muestra
-            . '<col style="width:4%">'   // Estado muestra
-            . '<col style="width:6%">'   // Slug
-            . '<col style="width:6%">'   // Publicado
-            . '<col style="width:4%">'   // ML ID
+            . '<col style="width:7%">'    // Imagen
+            . '<col style="width:19%">'   // Nombre
+            . '<col style="width:9%">'    // Marca
+            . '<col style="width:9%">'    // Modelo
+            . '<col style="width:13%">'   // Categoría
+            . '<col style="width:11%">'   // GTIN
+            . '<col style="width:19%">'   // Descripción técnica
+            . '<col style="width:6%">'    // Stock
+            . '<col style="width:7%">'    // Valor total
             . '</colgroup>';
         $html .= '<thead><tr>';
-        $html .= '<th>ID</th>';
-        $html .= '<th>SKU</th>';
-        $html .= '<th>GTIN/EAN</th>';
+        $html .= '<th>Imagen</th>';
         $html .= '<th>Nombre</th>';
+        $html .= '<th>Marca</th>';
+        $html .= '<th>Modelo</th>';
         $html .= '<th>Categoría</th>';
-        $html .= '<th>U.M.</th>';
-        $html .= '<th>Contenido</th>';
-        $html .= '<th>Ubicación</th>';
-        $html .= '<th>Precio</th>';
-        $html .= '<th>Oferta</th>';
+        $html .= '<th>GTIN</th>';
+        $html .= '<th>Descripción técnica</th>';
         $html .= '<th>Stock</th>';
-        $html .= '<th>Stock mín.</th>';
-        $html .= '<th>Stock máx.</th>';
-        $html .= '<th>Estado</th>';
-        $html .= '<th>Destacado</th>';
-        $html .= '<th>Muestra</th>';
-        $html .= '<th>Estado muestra</th>';
-        $html .= '<th>Slug</th>';
-        $html .= '<th>Publicado</th>';
-        $html .= '<th>ML ID</th>';
+        $html .= '<th>Valor total</th>';
         $html .= '</tr></thead><tbody>';
 
         foreach ($items as $it) {
-            $statusText = match ((int) $it->status) {
-                1       => 'Publicado',
-                2       => 'Oculto',
-                default => 'Borrador',
-            };
-            $featuredText = $it->is_featured ? 'Sí' : 'No';
+            $unidad = ucfirst((string) ($it->unit_measure ?: 'pieza'));
+            $precioEfectivo = $it->sale_price !== null ? (float) $it->sale_price : (float) $it->price;
+            $valorTotal = $precioEfectivo * max((float) ($it->stock ?? 0), 0);
+            $gtin = $it->meli_gtin ?: ($it->sku ?: '');
+            $descripcion = \Illuminate\Support\Str::limit(trim(strip_tags((string) $it->description)), 260);
+            $img = $imgData($it);
 
             $html .= '<tr>';
-            $html .= '<td>' . htmlspecialchars((string) $it->id) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($it->sku ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($it->meli_gtin ?? '')) . '</td>';
+            $html .= '<td style="text-align:center;">'
+                . ($img ? '<img src="' . $img . '" style="width:46px;height:46px;object-fit:cover;border-radius:5px;border:1px solid #d1d5db;">' : '<span class="muted">—</span>')
+                . '</td>';
             $html .= '<td>' . htmlspecialchars((string) $it->name) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($it->categoryProduct?->full_path ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($it->unit_measure ?? 'pieza')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ((($it->unit_measure ?? 'pieza') !== 'pieza') ? (($it->content_quantity ?? 1) . ' ' . ($it->content_unit_measure ?? 'pieza')) : '1 pieza')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($it->primaryLocation?->code ?? $it->primaryLocation?->name ?? '')) . '</td>';
-            $html .= '<td>$' . number_format((float) $it->price, 2) . '</td>';
-            $html .= '<td>' . ($it->sale_price !== null ? '$' . number_format((float) $it->sale_price, 2) : '—') . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($it->stock ?? 0)) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($it->stock_min ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($it->stock_max ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars($statusText) . '</td>';
-            $html .= '<td>' . htmlspecialchars($featuredText) . '</td>';
-            $html .= '<td>' . htmlspecialchars($it->is_sample ? 'Sí' : 'No') . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($it->sampleStatusLabel() ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) $it->slug) . '</td>';
-            $html .= '<td>' . ($it->published_at ? htmlspecialchars($it->published_at->format('Y-m-d H:i')) : '—') . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($it->meli_item_id ?? '')) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ($it->brand_name ?? '')) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ($it->model_name ?? '')) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) ($it->categoryProduct?->full_path ?? $it->categoryProduct?->name ?? '')) . '</td>';
+            $html .= '<td>' . htmlspecialchars((string) $gtin) . '</td>';
+            $html .= '<td>' . htmlspecialchars($descripcion) . '</td>';
+            $html .= '<td>' . htmlspecialchars(number_format((float) ($it->stock ?? 0), 0) . ' ' . $unidad) . '</td>';
+            $html .= '<td>$' . number_format($valorTotal, 2) . '</td>';
             $html .= '</tr>';
         }
 
         if ($items->isEmpty()) {
-            $html .= '<tr><td colspan="20" class="muted" style="text-align:center;padding:14px 6px;">';
+            $html .= '<tr><td colspan="9" class="muted" style="text-align:center;padding:14px 6px;">';
             $html .= 'No hay productos que coincidan con el filtro.';
             $html .= '</td></tr>';
         }
