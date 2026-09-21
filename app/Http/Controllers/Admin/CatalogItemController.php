@@ -572,7 +572,9 @@ class CatalogItemController extends Controller implements HasMiddleware
         $html .= '<h1 class="title-main">Inventario interno de Jureto</h1>';
         $html .= '<p class="top-sub">Listado de productos con filtros actuales</p>';
 
-        // Primera imagen del producto como base64 (para que dompdf la incruste).
+        // Primera imagen del producto como MINIATURA base64. Se redimensiona y
+        // comprime antes de incrustarla; incrustar el original reventaba la
+        // memoria (HTML gigante) con muchos productos.
         $imgData = function ($it): ?string {
             $path = $it->photo_1 ?: ($it->photo_2 ?: ($it->photo_3 ?: null));
             if (! $path) {
@@ -581,10 +583,42 @@ class CatalogItemController extends Controller implements HasMiddleware
             foreach (['public', config('filesystems.default')] as $disk) {
                 try {
                     $d = \Illuminate\Support\Facades\Storage::disk($disk);
-                    if ($d->exists($path)) {
-                        $mime = $d->mimeType($path) ?: 'image/jpeg';
-                        return 'data:' . $mime . ';base64,' . base64_encode($d->get($path));
+                    if (! $d->exists($path)) {
+                        continue;
                     }
+                    $bytes = $d->get($path);
+
+                    // Con GD: miniatura de máx. 90px, JPEG calidad 70 (unos pocos KB).
+                    if (function_exists('imagecreatefromstring')) {
+                        $src = @imagecreatefromstring($bytes);
+                        if ($src !== false) {
+                            $w = imagesx($src);
+                            $h = imagesy($src);
+                            $max = 90;
+                            $escala = min(1, $max / max($w, $h));
+                            $nw = max(1, (int) round($w * $escala));
+                            $nh = max(1, (int) round($h * $escala));
+                            $dst = imagecreatetruecolor($nw, $nh);
+                            $blanco = imagecolorallocate($dst, 255, 255, 255);
+                            imagefilledrectangle($dst, 0, 0, $nw, $nh, $blanco);
+                            imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+                            ob_start();
+                            imagejpeg($dst, null, 70);
+                            $jpg = ob_get_clean();
+                            imagedestroy($src);
+                            imagedestroy($dst);
+                            if ($jpg !== false && $jpg !== '') {
+                                return 'data:image/jpeg;base64,' . base64_encode($jpg);
+                            }
+                        }
+                    }
+
+                    // Sin GD: solo se incrusta si el archivo ya es pequeño (evita reventar memoria).
+                    if (strlen($bytes) <= 120 * 1024) {
+                        $mime = $d->mimeType($path) ?: 'image/jpeg';
+                        return 'data:' . $mime . ';base64,' . base64_encode($bytes);
+                    }
+                    return null;
                 } catch (\Throwable $e) {
                     // Si un disco falla, se prueba el siguiente.
                 }
