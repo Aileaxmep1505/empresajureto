@@ -461,7 +461,7 @@ class CategoryProductController extends Controller implements HasMiddleware
 
     private function errorResponse(Request $request, string $message)
     {
-        if ($request->expectsJson() || $request->ajax()) {
+        if ($request->expectsJson() || $request->ajax()) { 
             return response()->json([
                 'ok' => false,
                 'message' => $message,

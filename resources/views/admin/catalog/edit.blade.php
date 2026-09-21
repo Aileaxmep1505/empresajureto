@@ -2,6 +2,8 @@
 
 @section('title', ($isEdit ?? false) ? 'Editar producto web' : 'Nuevo producto web')
 @section('titulo', ($isEdit ?? false) ? 'Editar producto' : 'Nuevo producto')
+{{-- Habilita el modo oscuro (el toggle de tema aplica aquí, como en el catálogo) --}}
+@section('tema_oscuro', '1')
 
 @section('content')
 @php
@@ -39,31 +41,38 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
 
 @push('styles')
+@include('partials.ui-tokens')
 <style>
+  /* Rebase al sistema de diseño del index (ui-tokens): mismos colores, bordes,
+     radios y tipografía, con modo oscuro automático (heredado del toggle). */
   :root {
-    --bg: #f4f7f9;
-    --soft: #f8fafc;
-    --card: #ffffff;
-    --ink: #1e293b;
-    --text: #334155;
-    --muted: #64748b;
-    --line: #e2e8f0;
-    --blue: #007aff;
-    --blue-soft: #e5f1ff;
-    --success: #059669;
-    --success-soft: #ecfdf5;
-    --danger: #e11d48;
-    --danger-soft: #fff1f2;
-    --gold: #f59e0b;
-    --gold-soft: #fff7ed;
+    --bg: var(--ui-surface-2);
+    --soft: var(--ui-surface-2);
+    --card: var(--ui-surface);
+    --ink: var(--ui-ink);
+    --text: var(--ui-ink-2);
+    --muted: var(--ui-muted);
+    --line: var(--ui-border);
+    --blue: var(--ui-accent);
+    --blue-soft: var(--ui-accent-soft);
+    --success: var(--ui-ok-ink);
+    --success-soft: var(--ui-ok-soft);
+    --danger: var(--ui-danger);
+    --danger-soft: var(--ui-danger-soft);
+    --gold: var(--ui-warn-ink);
+    --gold-soft: var(--ui-warn-soft);
 
-    --shadow-soft: 0 4px 20px rgba(0, 122, 255, 0.04);
-    --shadow-hover: 0 10px 30px rgba(0, 122, 255, 0.08);
-    --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    --shadow-soft: var(--ui-shadow-xs);
+    --shadow-hover: var(--ui-shadow-pop);
+    --shadow-modal: var(--ui-shadow-pop);
 
-    --radius-card: 20px;
-    --radius-input: 12px;
-    --radius-btn: 12px;
+    --radius-card: var(--ui-r-lg);
+    --radius-input: var(--ui-r);
+    --radius-btn: var(--ui-r);
+  }
+  /* Tipografía del index: Inter en todo (sin Quicksand). */
+  h1, h2, h3, h4, .head-ui__text h1, .section-heading, .modal-title {
+    font-family: "Inter", system-ui, sans-serif; letter-spacing: -0.02em;
   }
 
   html, body { height: 100%; }
@@ -626,10 +635,110 @@
       justify-content:space-between;
     }
   }
+
+  /* ====================== AJUSTES DE MODO OSCURO ======================
+     El oscuro lo dan los ui-tokens (como el index). Aquí solo se corrigen los
+     pocos colores fijos que no usaban variables. El markup y el JS no cambian. */
+  :root[data-theme="dark"] .form-input::placeholder{ color:var(--muted); }
+  :root[data-theme="dark"] .search-wrapper input:focus{ background:var(--card); }
+  :root[data-theme="dark"] .category-levels,
+  :root[data-theme="dark"] .mlcat-option{ background:var(--card); }
+  :root[data-theme="dark"] .media-preview{ border-color:var(--line); }
+  :root[data-theme="dark"] .media-preview img,
+  :root[data-theme="dark"] .media-clear,
+  :root[data-theme="dark"] .media-box.has-media .media-preview{ background:var(--card); }
+  :root[data-theme="dark"] .modal,
+  :root[data-theme="dark"] .modal-header,
+  :root[data-theme="dark"] .modal-body{ background:var(--card); }
+  :root[data-theme="dark"] .modal{ border-color:var(--line); }
+  :root[data-theme="dark"] .qr-card,
+  :root[data-theme="dark"] .qr-header,
+  :root[data-theme="dark"] .qr-box,
+  :root[data-theme="dark"] .qr-frame{ background:var(--card); }
+  :root[data-theme="dark"] .ai-suggested-input{ background:var(--blue-soft) !important; }
+  :root[data-theme="dark"] .tips-card{ border-color:var(--blue); }
+  :root[data-theme="dark"] .sample-card{ background:var(--soft); border-color:var(--line); }
+  :root[data-theme="dark"] .overlay-lock{ background:rgba(9,14,25,.82); color:var(--ink); }
+  :root[data-theme="dark"] .sticky-footer{ background:rgba(11,18,32,.85); border-top-color:var(--line); }
+  :root[data-theme="dark"] .btn-ghost:hover,
+  :root[data-theme="dark"] .integration-panel:hover,
+  :root[data-theme="dark"] .mlcat-option:hover{ border-color:var(--blue); }
+  :root[data-theme="dark"] .form-select{
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238a99b1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  }
+  /* Tarjeta de "destacado" (solo en edit) */
+  :root[data-theme="dark"] .featured-box{ background:var(--card); }
+  :root[data-theme="dark"] .featured-box:hover{ border-color:var(--line); }
+  :root[data-theme="dark"] .featured-box.is-active{ background:var(--soft); border-color:#b4842a; }
+  :root[data-theme="dark"] .featured-icon{ background:var(--soft); border-color:var(--line); }
+
+  /* ====================== REFINAMIENTO MINIMALISTA ======================
+     Capa de estilo: más limpio, botones planos, mejor distribución.
+     No cambia el markup ni el JS; aplica en claro y oscuro. */
+  .wrap-ui{ max-width:1120px; padding-top:28px; }
+  .head-ui{ margin-bottom:22px; }
+  .head-ui__text h1{ font-size:1.55rem; font-weight:700; letter-spacing:-.02em; }
+  .head-ui__text h1 span{ font-size:.9rem; }
+  .head-ui__text p{ font-size:.9rem; color:var(--muted); max-width:640px; }
+
+  .grid{ gap:20px; }
+  .col-left, .col-right{ gap:20px; }
+  .grid-main{ gap:24px; }
+
+  .card{ border-radius:16px; border:1px solid var(--line); box-shadow:none; padding:22px; }
+  .card:hover{ box-shadow:none; }
+  .ai-copilot-wrapper{ border-radius:16px; box-shadow:none; padding:22px; }
+
+  .section-heading{ font-size:1.05rem; font-weight:700; letter-spacing:-.01em; margin-bottom:18px; }
+  .form-group{ margin-bottom:16px; }
+  .form-label{ text-transform:none; letter-spacing:0; font-weight:500; font-size:.82rem; color:var(--muted); margin-bottom:7px; }
+
+  .form-input, .form-select{ border-radius:12px; padding:12px 14px; background:var(--card); border-color:var(--line); }
+  .form-input:focus, .form-select:focus{ box-shadow:0 0 0 3px var(--blue-soft); }
+  .form-input::placeholder{ font-weight:400; }
+  /* Respetar el espacio del ícono $ y de la flecha del select (el padding de arriba los pisaba) */
+  .form-select{ padding-right:38px; }
+  .form-input.with-icon{ padding-left:32px; }
+  .input-icon-wrapper .icon-left{ left:13px; font-weight:600; color:var(--muted); }
+  .form-select option{ background:var(--card); color:var(--ink); }
+
+  /* Botones idénticos al index: altura fija, fuente chica, limpios, sin glow */
+  .btn-primary, .btn-ghost, .btn-outline{
+    height:38px; padding:0 16px; font-size:.875rem; font-weight:600;
+    border-radius:var(--radius-btn); box-shadow:none;
+  }
+  .btn-primary{ background:var(--blue); color:#fff; border:0; }
+  .btn-primary:hover:not(:disabled){ transform:none; box-shadow:none; background:var(--ui-accent-hover); }
+  .btn-primary:active{ transform:scale(.99); }
+  .btn-ghost{ background:var(--card); color:var(--text); border:1px solid var(--line); }
+  .btn-ghost:hover{ transform:none; background:var(--soft); color:var(--ink); border-color:var(--line); }
+  .btn-outline{ background:transparent; color:var(--blue); border:1px solid var(--blue); }
+  .btn-outline:hover:not(:disabled){ transform:none; background:var(--blue-soft); }
+  .btn-sm{ height:32px; padding:0 12px; font-size:.8rem; }
+  .btn-icon-square{ border-radius:var(--radius-btn); }
+  .tabs, .tabs-mode, .tab.active, .table-wrap, .sticky-footer{ box-shadow:none; }
+
+  /* Nada de mayúsculas forzadas (como el index) */
+  .form-label, .table th, .summary-grid label, .mlcat-badge{ text-transform:none; letter-spacing:0; }
+
+  /* Botón "Volver" minimalista (sin marco) */
+  .btn-volver{ display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 10px; border:0;
+               border-radius:var(--radius-btn); background:none; color:var(--muted); font:inherit;
+               font-size:.875rem; font-weight:600; text-decoration:none; cursor:pointer; transition:all .16s ease; }
+  .btn-volver:hover{ background:var(--soft); color:var(--ink); }
+  .btn-volver svg{ width:16px; height:16px; opacity:.85; }
+
+  /* Micro-transiciones suaves */
+  .btn-primary, .btn-ghost, .btn-outline, .btn-icon-square, .card, .form-input, .form-select, .media-preview{ transition:all .18s ease; }
+
+  @media (prefers-reduced-motion: reduce){
+    .animate-enter, .fade-in, .fade-in-up{ animation:none !important; opacity:1 !important; transform:none !important; }
+  }
 </style>
 @endpush
 
 <div class="wrap-ui fade-in-up">
+  @include('admin.catalog._toast')
   <div class="head-ui">
     <div class="head-ui__text">
       <h1>{{ $isEdit ? 'Editar producto' : 'Nuevo producto' }} <span>Catálogo web</span></h1>
@@ -637,10 +746,16 @@
         Completa la información de tu producto manualmente, o acelera el proceso extrayendo datos con Inteligencia Artificial desde tu factura o remisión.
       </p>
     </div>
-    <a class="btn-ghost" href="{{ route('admin.catalog.index') }}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M15 18l-6-6 6-6"/><path d="M9 12h12"/></svg>
-      Volver al catálogo
-    </a>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <button type="button" class="tour-abrir" data-tour-start="producto-form">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.3 2.9c-.6.2-.9.8-.9 1.4v.3"/><path d="M12 17h.01"/></svg>
+        ¿Cómo funciona?
+      </button>
+      <a class="btn-volver" href="{{ route('admin.catalog.index') }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        Volver al catálogo
+      </a>
+    </div>
   </div>
 
   @unless($isEdit)
@@ -2418,5 +2533,25 @@
   });
 </script>
 @endif
+@endpush
+
+@push('scripts')
+  @include('partials.ui-tour')
+  <script>
+    UITour.registrar('producto-form', {
+      version: 2,
+      auto: false,
+      pasos: [
+        { el: '.col-left .card', titulo: 'Edita lo que necesites',
+          texto: 'Aquí tienes todo a la vista para editar rápido: nombre, descripción, precio, stock e identificadores.' },
+        { el: '[data-photo-card]', titulo: 'Fotos del producto',
+          texto: 'Cambia una foto tocándola, o quítala con la ✕ que aparece en la esquina.' },
+        { el: '.category-display', titulo: 'Categoría',
+          texto: 'Cámbiala cuando quieras; se abre un buscador por niveles.' },
+        { titulo: 'Guardar',
+          texto: 'Cuando termines, pulsa Guardar cambios al pie de la página.' },
+      ],
+    });
+  </script>
 @endpush
 @endsection

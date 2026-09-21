@@ -2,6 +2,8 @@
 
 @section('title', ($isEdit ?? false) ? 'Editar producto web' : 'Nuevo producto web')
 @section('titulo', ($isEdit ?? false) ? 'Editar producto' : 'Nuevo producto')
+{{-- Habilita el modo oscuro (el toggle de tema aplica aquí, como en el catálogo) --}}
+@section('tema_oscuro', '1')
 
 @section('content')
 @php
@@ -38,30 +40,37 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet"/>
 
 @push('styles')
+@include('partials.ui-tokens')
 <style>
   /* ====================== VARIABLES GLOBALES PREMIUM ====================== */
+  /* Rebase al sistema de diseño del index (ui-tokens): mismos colores, bordes,
+     radios y tipografía, con modo oscuro automático (heredado del toggle). */
   :root {
-    --bg: #f4f7f9;
-    --soft: #f8fafc;
-    --card: #ffffff;
-    --ink: #1e293b;
-    --text: #334155;
-    --muted: #64748b;
-    --line: #e2e8f0;
-    --blue: #007aff;
-    --blue-soft: #e5f1ff;
-    --success: #059669;
-    --success-soft: #ecfdf5;
-    --danger: #e11d48;
-    --danger-soft: #fff1f2;
+    --bg: var(--ui-surface-2);
+    --soft: var(--ui-surface-2);
+    --card: var(--ui-surface);
+    --ink: var(--ui-ink);
+    --text: var(--ui-ink-2);
+    --muted: var(--ui-muted);
+    --line: var(--ui-border);
+    --blue: var(--ui-accent);
+    --blue-soft: var(--ui-accent-soft);
+    --success: var(--ui-ok-ink);
+    --success-soft: var(--ui-ok-soft);
+    --danger: var(--ui-danger);
+    --danger-soft: var(--ui-danger-soft);
 
-    --shadow-soft: 0 4px 20px rgba(0, 122, 255, 0.04);
-    --shadow-hover: 0 10px 30px rgba(0, 122, 255, 0.08);
-    --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    --shadow-soft: var(--ui-shadow-xs);
+    --shadow-hover: var(--ui-shadow-pop);
+    --shadow-modal: var(--ui-shadow-pop);
 
-    --radius-card: 20px;
-    --radius-input: 12px;
-    --radius-btn: 12px;
+    --radius-card: var(--ui-r-lg);
+    --radius-input: var(--ui-r);
+    --radius-btn: var(--ui-r);
+  }
+  /* Tipografía del index: Inter en todo (sin Quicksand). */
+  h1, h2, h3, h4, .head-ui__text h1, .section-heading, .modal-title {
+    font-family: "Inter", system-ui, sans-serif; letter-spacing: -0.02em;
   }
 
   html, body { height: 100%; }
@@ -499,10 +508,148 @@
     .grid-3 { grid-template-columns: 1fr; }
     .grid-2 { grid-template-columns: 1fr; }
   }
+
+  /* ====================== AJUSTES DE MODO OSCURO ======================
+     El oscuro lo dan los ui-tokens (como el index). Aquí solo se corrigen los
+     pocos colores fijos que no usaban variables. El markup y el JS no cambian. */
+  :root[data-theme="dark"] .form-input::placeholder{ color:var(--muted); }
+  :root[data-theme="dark"] .search-wrapper input:focus{ background:var(--card); }
+  :root[data-theme="dark"] .category-levels,
+  :root[data-theme="dark"] .mlcat-option{ background:var(--card); }
+  :root[data-theme="dark"] .media-preview{ border-color:var(--line); }
+  :root[data-theme="dark"] .media-preview img,
+  :root[data-theme="dark"] .media-clear,
+  :root[data-theme="dark"] .media-box.has-media .media-preview{ background:var(--card); }
+  :root[data-theme="dark"] .modal,
+  :root[data-theme="dark"] .modal-header,
+  :root[data-theme="dark"] .modal-body{ background:var(--card); }
+  :root[data-theme="dark"] .modal{ border-color:var(--line); }
+  :root[data-theme="dark"] .qr-card,
+  :root[data-theme="dark"] .qr-header,
+  :root[data-theme="dark"] .qr-box,
+  :root[data-theme="dark"] .qr-frame{ background:var(--card); }
+  :root[data-theme="dark"] .ai-suggested-input{ background:var(--blue-soft) !important; }
+  :root[data-theme="dark"] .tips-card{ border-color:var(--blue); }
+  :root[data-theme="dark"] .sample-card{ background:var(--soft); border-color:var(--line); }
+  :root[data-theme="dark"] .overlay-lock{ background:rgba(9,14,25,.82); color:var(--ink); }
+  :root[data-theme="dark"] .sticky-footer{ background:rgba(11,18,32,.85); border-top-color:var(--line); }
+  :root[data-theme="dark"] .btn-ghost:hover,
+  :root[data-theme="dark"] .integration-panel:hover,
+  :root[data-theme="dark"] .mlcat-option:hover{ border-color:var(--blue); }
+  :root[data-theme="dark"] .form-select{
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238a99b1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  }
+
+  /* ====================== REFINAMIENTO MINIMALISTA ======================
+     Capa de estilo: más limpio, botones planos, mejor distribución.
+     No cambia el markup ni el JS; aplica en claro y oscuro. */
+  .wrap-ui{ max-width:1120px; padding-top:28px; }
+  .head-ui{ margin-bottom:22px; }
+  .head-ui__text h1{ font-size:1.55rem; font-weight:700; letter-spacing:-.02em; }
+  .head-ui__text h1 span{ font-size:.9rem; }
+  .head-ui__text p{ font-size:.9rem; color:var(--muted); max-width:640px; }
+
+  .grid{ gap:20px; }
+  .col-left, .col-right{ gap:20px; }
+  .grid-main{ gap:24px; }
+
+  .card{ border-radius:16px; border:1px solid var(--line); box-shadow:none; padding:22px; }
+  .card:hover{ box-shadow:none; }
+  .ai-copilot-wrapper{ border-radius:16px; box-shadow:none; padding:22px; }
+
+  .section-heading{ font-size:1.05rem; font-weight:700; letter-spacing:-.01em; margin-bottom:18px; }
+  .form-group{ margin-bottom:16px; }
+  .form-label{ text-transform:none; letter-spacing:0; font-weight:500; font-size:.82rem; color:var(--muted); margin-bottom:7px; }
+
+  .form-input, .form-select{ border-radius:12px; padding:12px 14px; background:var(--card); border-color:var(--line); }
+  .form-input:focus, .form-select:focus{ box-shadow:0 0 0 3px var(--blue-soft); }
+  .form-input::placeholder{ font-weight:400; }
+  /* Respetar el espacio del ícono $ y de la flecha del select (el padding de arriba los pisaba) */
+  .form-select{ padding-right:38px; }
+  .form-input.with-icon{ padding-left:32px; }
+  .input-icon-wrapper .icon-left{ left:13px; font-weight:600; color:var(--muted); }
+  .form-select option{ background:var(--card); color:var(--ink); }
+
+  /* Botones idénticos al index: altura fija, fuente chica, limpios, sin glow */
+  .btn-primary, .btn-ghost, .btn-outline{
+    height:38px; padding:0 16px; font-size:.875rem; font-weight:600;
+    border-radius:var(--radius-btn); box-shadow:none;
+  }
+  .btn-primary{ background:var(--blue); color:#fff; border:0; }
+  .btn-primary:hover:not(:disabled){ transform:none; box-shadow:none; background:var(--ui-accent-hover); }
+  .btn-primary:active{ transform:scale(.99); }
+  .btn-ghost{ background:var(--card); color:var(--text); border:1px solid var(--line); }
+  .btn-ghost:hover{ transform:none; background:var(--soft); color:var(--ink); border-color:var(--line); }
+  .btn-outline{ background:transparent; color:var(--blue); border:1px solid var(--blue); }
+  .btn-outline:hover:not(:disabled){ transform:none; background:var(--blue-soft); }
+  .btn-sm{ height:32px; padding:0 12px; font-size:.8rem; }
+  .btn-icon-square{ border-radius:var(--radius-btn); }
+  .tabs, .tabs-mode, .tab.active, .table-wrap, .sticky-footer{ box-shadow:none; }
+
+  /* Nada de mayúsculas forzadas (como el index) */
+  .form-label, .table th, .summary-grid label, .mlcat-badge{ text-transform:none; letter-spacing:0; }
+
+  /* Micro-transiciones suaves */
+  .btn-primary, .btn-ghost, .btn-outline, .btn-icon-square, .card, .form-input, .form-select, .media-preview{ transition:all .18s ease; }
+
+  /* ====================== ASISTENTE POR PASOS (estilo Obsidiana) ======================
+     El formulario largo se parte en pasos: una tarjeta a la vez, con barra de
+     pasos que permite saltar y un pie Atrás/Continuar. Las tarjetas ocultas
+     siguen enviando sus datos (el form usa novalidate y valida el servidor). */
+  #catalogItemForm .grid-main{ display:block; }
+  #catalogItemForm .col-left, #catalogItemForm .col-right{ display:contents; }
+
+  .pasos{ display:flex; gap:6px; margin:0 0 18px; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; padding-bottom:2px; }
+  .pasos::-webkit-scrollbar{ height:0; }
+  .paso-chip{ display:flex; align-items:center; gap:8px; padding:8px 13px; border:1px solid var(--line);
+              border-radius:10px; background:var(--card); color:var(--muted); font-size:13px; font-weight:500;
+              white-space:nowrap; cursor:pointer; flex:0 0 auto; transition:all .16s ease; font-family:inherit; }
+  .paso-chip .n{ display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px;
+                 border-radius:50%; background:var(--soft); color:var(--muted); font-size:11.5px; font-weight:700; flex:0 0 20px; }
+  .paso-chip:hover{ border-color:var(--muted); color:var(--ink); }
+  .paso-chip[data-estado="actual"]{ border-color:var(--blue); color:var(--ink); }
+  .paso-chip[data-estado="actual"] .n{ background:var(--blue); color:#fff; }
+  .paso-chip[data-estado="listo"]{ border-color:var(--blue); color:var(--ink); background:var(--blue-soft); }
+  .paso-chip[data-estado="listo"] .n{ background:var(--blue); color:#fff; }
+  .paso-chip[data-estado="falta"]{ border-color:var(--danger); color:var(--ink); }
+  .paso-chip[data-estado="falta"] .n{ background:var(--danger); color:#fff; }
+  @media (max-width:640px){ .paso-chip .txt{ display:none; } .paso-chip{ padding:8px 10px; } }
+
+  /* Aviso de lo que falta, dentro del paso mismo */
+  .paso-faltan{ margin:0 0 16px; padding:12px 14px; border:1px solid var(--danger);
+                border-radius:10px; background:var(--danger-soft); color:var(--danger); font-size:13.5px; }
+  .paso-faltan b{ display:block; margin-bottom:4px; }
+  .paso-faltan ul{ margin:0; padding-left:18px; }
+  .paso-faltan li{ margin-top:2px; }
+  .campo-error{ border-color:var(--danger) !important; }
+
+  .card.paso{ display:none; animation:none; opacity:1; }
+  .card.paso[data-activo]{ display:flex; }
+
+  .paso-nav{ display:flex; align-items:center; gap:10px; margin:18px 0; }
+  .paso-nav .cuenta{ margin-right:auto; color:var(--muted); font-size:13px; }
+  @media (max-width:640px){
+    .paso-nav{ flex-wrap:wrap; }
+    .paso-nav .cuenta{ width:100%; margin:0 0 4px; }
+    .paso-nav .btn-ghost, .paso-nav .btn-outline{ flex:1; }
+  }
+
+  /* Botón "Volver" y toggle de IA: minimalistas (sin marco) */
+  .btn-volver{ display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 10px; border:0;
+               border-radius:var(--radius-btn); background:none; color:var(--muted); font:inherit;
+               font-size:.875rem; font-weight:600; text-decoration:none; cursor:pointer; transition:all .16s ease; }
+  .btn-volver:hover{ background:var(--soft); color:var(--ink); }
+  .btn-volver svg{ width:16px; height:16px; opacity:.85; }
+  #toggleAiCopilot.is-on{ background:var(--blue-soft); color:var(--blue); }
+
+  @media (prefers-reduced-motion: reduce){
+    .animate-enter, .fade-in, .fade-in-up{ animation:none !important; opacity:1 !important; transform:none !important; }
+  }
 </style>
 @endpush
 
 <div class="wrap-ui fade-in-up">
+  @include('admin.catalog._toast')
   <div class="head-ui">
     <div class="head-ui__text">
       <h1>{{ $isEdit ? 'Editar producto' : 'Nuevo producto' }} <span>Catálogo web</span></h1>
@@ -510,27 +657,18 @@
         Completa la información de tu producto manualmente, o acelera el proceso extrayendo datos con Inteligencia Artificial desde tu factura o remisión.
       </p>
     </div>
-    <a class="btn-ghost" href="{{ route('admin.catalog.index') }}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;"><path d="M15 18l-6-6 6-6"/><path d="M9 12h12"/></svg>
-      Volver al catálogo
-    </a>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <button type="button" class="tour-abrir" data-tour-start="producto-form">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.3 2.9c-.6.2-.9.8-.9 1.4v.3"/><path d="M12 17h.01"/></svg>
+        ¿Cómo funciona?
+      </button>
+      <a class="btn-volver" href="{{ route('admin.catalog.index') }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        Volver al catálogo
+      </a>
+    </div>
   </div>
 
-  <div class="tabs-wrapper">
-    <div class="tabs">
-      <button type="button" id="tabManual" class="tab active">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21l-4 1 1-4 12.5-14.5z"/></svg>
-        Carga Manual
-      </button>
-      <button type="button" id="tabAi" class="tab">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5z" transform="translate(7 2)"/><path d="M4 17l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z"/></svg>
-        Captura Inteligente (IA)
-      </button>
-    </div>
-    <div class="tabs-mode" id="modeLabel">
-      <span class="dot active"></span> Modo actual: Manual
-    </div>
-  </div>
 
   <section id="panelAi" class="panel-ai fade-in-up" style="display:none">
     <div class="grid-2-ai">
@@ -690,11 +828,19 @@
       method="POST"
       action="{{ $isEdit ? route('admin.catalog.update', $item) : route('admin.catalog.store') }}"
       enctype="multipart/form-data"
+      novalidate
     >
       @csrf
       @if($isEdit) @method('PUT') @endif
 
-      <div class="ai-copilot-wrapper animate-enter" style="--stagger: 1;">
+      <div style="display:flex; justify-content:flex-end; margin-bottom:16px;">
+        <button type="button" id="toggleAiCopilot" class="btn-volver">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
+          Rellenar con IA
+        </button>
+      </div>
+
+      <div class="ai-copilot-wrapper animate-enter" id="aiCopilot" style="--stagger: 1; display:none;">
         <div class="ai-copilot-content">
           <div class="ai-left">
             <div class="ai-header">
@@ -745,9 +891,11 @@
         </div>
       </div>
 
+      <nav class="pasos" id="pasos" aria-label="Pasos del registro"></nav>
+
       <div class="grid grid-main">
         <div class="col-left">
-          <div class="card animate-enter" style="--stagger: 2;">
+          <div class="card paso animate-enter" data-paso="info" data-titulo="Producto" data-activo style="--stagger: 2;">
             <h3 class="section-heading">Información Principal</h3>
 
             <div class="form-group">
@@ -785,7 +933,7 @@
             </div>
           </div>
 
-          <div class="card animate-enter" style="--stagger: 3;">
+          <div class="card paso animate-enter" data-paso="fotos" data-titulo="Fotos" style="--stagger: 3;">
             <div class="section-header-flex">
               <h3 class="section-heading">Multimedia <span class="req">*</span></h3>
               <span class="hint">JPG, PNG, WEBP (Máx. 5MB)</span>
@@ -821,7 +969,7 @@
           </div>
 
           @if($isEdit)
-            <div class="card animate-enter" style="--stagger: 7;">
+            <div class="card paso animate-enter" data-paso="canales" data-titulo="Canales" style="--stagger: 7;">
               <h3 class="section-heading mb-6">Sincronización Multicanal</h3>
               <div class="grid grid-2 w-full">
                 <div class="integration-panel">
@@ -912,7 +1060,7 @@
         </div>
 
         <div class="col-right">
-          <div class="card animate-enter" style="--stagger: 4;">
+          <div class="card paso animate-enter" data-paso="precio" data-titulo="Precio y stock" style="--stagger: 4;">
             <h3 class="section-heading">Comercial</h3>
 
             <div class="grid grid-2 mb-4">
@@ -1012,7 +1160,7 @@
           </div>
 
           {{-- ====== MUESTRA ====== --}}
-          <div class="card sample-card animate-enter" style="--stagger: 5;">
+          <div class="card sample-card paso animate-enter" data-paso="muestra" data-titulo="Muestra" style="--stagger: 5;">
             <h3 class="section-heading">Muestra</h3>
 
             <div class="form-group {{ $isSample ? '' : 'm-0' }}">
@@ -1052,7 +1200,7 @@
             </div>
           </div>
 
-          <div class="card animate-enter" style="--stagger: 6;">
+          <div class="card paso animate-enter" data-paso="ids" data-titulo="Identificadores" style="--stagger: 6;">
             <h3 class="section-heading">Identificadores</h3>
 
             <div class="form-group mb-5">
@@ -1093,7 +1241,7 @@
             : [];
       @endphp
 
-      <div class="card animate-enter" style="--stagger: 6;">
+      <div class="card paso animate-enter" data-paso="cajas" data-titulo="Presentaciones" style="--stagger: 6;">
         <div class="flex" style="justify-content:space-between;align-items:center;margin-bottom:6px;">
           <h3 class="section-heading" style="margin:0;">Presentaciones de venta (cajas / paquetes)</h3>
           <button type="button" id="btnAddPresentation" class="btn-ghost">+ Agregar caja</button>
@@ -1143,6 +1291,12 @@
         serialize(); // deja el campo oculto poblado desde el inicio (defensa extra contra borrado accidental)
       })();
       </script>
+
+      <div class="paso-nav" id="pasoNav">
+        <span class="cuenta" id="pasoCuenta"></span>
+        <button type="button" class="btn-ghost" id="pasoAtras">← Atrás</button>
+        <button type="button" class="btn-outline" id="pasoContinuar">Continuar →</button>
+      </div>
 
       <div class="sticky-footer animate-enter" style="--stagger: 6;">
         <div class="footer-actions">
@@ -1353,21 +1507,21 @@
 
   function setMode(mode){
     const isAi = mode === 'ai';
-    panelAi.style.display = isAi ? 'block' : 'none';
-    panelManual.style.display = isAi ? 'none' : 'block';
+    if(panelAi) panelAi.style.display = isAi ? 'block' : 'none';
+    if(panelManual) panelManual.style.display = isAi ? 'none' : 'block';
 
-    if(isAi) { panelAi.classList.remove('fade-in-up'); void panelAi.offsetWidth; panelAi.classList.add('fade-in-up'); }
-    else { panelManual.classList.remove('fade-in-up'); void panelManual.offsetWidth; panelManual.classList.add('fade-in-up'); }
+    if(isAi && panelAi) { panelAi.classList.remove('fade-in-up'); void panelAi.offsetWidth; panelAi.classList.add('fade-in-up'); }
+    else if(panelManual) { panelManual.classList.remove('fade-in-up'); void panelManual.offsetWidth; panelManual.classList.add('fade-in-up'); }
 
-    tabAi.classList.toggle('active', isAi);
-    tabManual.classList.toggle('active', !isAi);
+    if(tabAi) tabAi.classList.toggle('active', isAi);
+    if(tabManual) tabManual.classList.toggle('active', !isAi);
 
-    modeLabel.innerHTML = isAi
+    if(modeLabel) modeLabel.innerHTML = isAi
       ? `<span class="dot active"></span> Modo actual: Captura IA`
       : `<span class="dot active"></span> Modo actual: Manual`;
   }
-  tabManual.onclick = ()=>setMode('manual');
-  tabAi.onclick = ()=>setMode('ai');
+  if(tabManual) tabManual.onclick = ()=>setMode('manual');
+  if(tabAi) tabAi.onclick = ()=>setMode('ai');
 
   let intakeId = null;
   let pollTimer = null;
@@ -2106,4 +2260,148 @@
 </script>
 @endif
 @endpush
-@endsection 
+
+@push('scripts')
+  @include('partials.ui-tour')
+  <script>
+    UITour.registrar('producto-form', {
+      version: 2,
+      auto: false,
+      pasos: [
+        { el: '#pasos', titulo: 'Se llena por pasos',
+          texto: 'El registro está dividido en pasos para que sea rápido. Puedes hacer clic en cualquier paso para saltar; el actual se marca en azul y los que ya están listos quedan iluminados.' },
+        { el: '#toggleAiCopilot', titulo: 'Rellenar con IA (opcional)',
+          texto: 'Si tienes la factura o remisión, actívalo, arrastra el archivo y la IA llena los datos por ti. Si no, llena a mano.' },
+        { el: '#pasoContinuar', titulo: 'Avanza seguro',
+          texto: 'Con Continuar pasas al siguiente paso. Si falta un dato obligatorio, te lo avisa aquí mismo antes de seguir.' },
+        { el: '.sticky-footer', titulo: 'Guardar',
+          texto: 'Cuando todo esté completo, pulsa Registrar producto. Si algo quedó incompleto, te lleva directo al paso que falta.' },
+      ],
+    });
+  </script>
+
+  <script>
+  (function(){
+    const form = document.getElementById('catalogItemForm');
+    const nav  = document.getElementById('pasos');
+    if(!form || !nav) return;
+    const pasos = Array.from(form.querySelectorAll('.card.paso'));
+    if(!pasos.length) return;
+
+    const btnAtras = document.getElementById('pasoAtras');
+    const btnCont  = document.getElementById('pasoContinuar');
+    const cuenta   = document.getElementById('pasoCuenta');
+
+    let idx = pasos.findIndex(p => p.hasAttribute('data-activo'));
+    if(idx < 0) idx = 0;
+
+    // ---- Validación: qué campos obligatorios faltan en un paso ----
+    function labelDe(el){
+      if(el.name === 'category_product_id') return 'Categoría';
+      if(el.closest('[data-photo-card]')) return 'Foto principal';
+      const g = el.closest('.form-group');
+      let t = g && g.querySelector('.form-label');
+      t = t ? t.textContent : '';
+      return (t || el.getAttribute('placeholder') || el.name || 'Campo').replace(/[*]/g, '').trim();
+    }
+    function faltantesDe(paso){
+      const out = [];
+      paso.querySelectorAll('[required]').forEach(el => {
+        if(el.disabled) return;
+        if(el.type === 'file'){
+          const card = el.closest('[data-photo-card]');
+          const tiene = (el.files && el.files.length) || (card && card.classList.contains('has-media'));
+          if(!tiene) out.push({ el, label: labelDe(el) });
+        } else if(!String(el.value || '').trim()){
+          out.push({ el, label: labelDe(el) });
+        }
+      });
+      return out;
+    }
+    function limpiarFaltan(paso){
+      const b = paso.querySelector('.paso-faltan'); if(b) b.remove();
+      paso.querySelectorAll('.campo-error').forEach(e => e.classList.remove('campo-error'));
+    }
+    function pintarFaltan(paso, lista){
+      limpiarFaltan(paso);
+      const box = document.createElement('div');
+      box.className = 'paso-faltan';
+      box.innerHTML = '<b>Falta completar en este paso:</b><ul>' + lista.map(f => '<li>' + f.label + '</li>').join('') + '</ul>';
+      paso.insertBefore(box, paso.firstChild);
+      lista.forEach(f => f.el && f.el.classList && f.el.classList.add('campo-error'));
+    }
+
+    // ---- Barra de pasos ----
+    nav.innerHTML = '';
+    pasos.forEach((p, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'paso-chip';
+      b.innerHTML = '<span class="n">' + (i + 1) + '</span><span class="txt">' + (p.dataset.titulo || ('Paso ' + (i + 1))) + '</span>';
+      b.addEventListener('click', () => ir(i));
+      nav.appendChild(b);
+    });
+    const chips = Array.from(nav.children);
+
+    function estadoChips(){
+      chips.forEach((c, i) => {
+        if(i === idx){ c.dataset.estado = 'actual'; return; }
+        c.dataset.estado = faltantesDe(pasos[i]).length ? '' : 'listo';
+      });
+    }
+    function ir(n){
+      idx = Math.max(0, Math.min(pasos.length - 1, n));
+      pasos.forEach((p, i) => i === idx ? p.setAttribute('data-activo','') : p.removeAttribute('data-activo'));
+      estadoChips();
+      if(btnAtras) btnAtras.style.visibility = idx === 0 ? 'hidden' : 'visible';
+      if(btnCont)  btnCont.textContent = idx === pasos.length - 1 ? 'Terminar ✓' : 'Continuar →';
+      if(cuenta)   cuenta.textContent = 'Paso ' + (idx + 1) + ' de ' + pasos.length;
+      const top = form.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({ top: top < 0 ? 0 : top, behavior: 'smooth' });
+    }
+
+    // Al pulsar un campo con error, se limpia su marca.
+    form.addEventListener('input', e => { if(e.target.classList) e.target.classList.remove('campo-error'); });
+
+    btnAtras && btnAtras.addEventListener('click', () => ir(idx - 1));
+    btnCont  && btnCont.addEventListener('click', () => {
+      const f = faltantesDe(pasos[idx]);
+      if(f.length){ pintarFaltan(pasos[idx], f); chips[idx].dataset.estado = 'falta'; f[0].el.focus && f[0].el.focus(); return; }
+      limpiarFaltan(pasos[idx]);
+      if(idx < pasos.length - 1) ir(idx + 1);
+    });
+
+    // Al registrar: revisa TODOS los pasos; si falta algo, no envía y salta ahí.
+    form.addEventListener('submit', function(e){
+      for(let i = 0; i < pasos.length; i++){
+        const f = faltantesDe(pasos[i]);
+        if(f.length){
+          e.preventDefault();
+          ir(i);
+          pintarFaltan(pasos[i], f);
+          chips[i].dataset.estado = 'falta';
+          f[0].el.focus && f[0].el.focus();
+          return;
+        }
+      }
+    });
+
+    ir(idx);
+  })();
+  </script>
+
+  <script>
+  (function(){
+    const tg = document.getElementById('toggleAiCopilot');
+    const cop = document.getElementById('aiCopilot');
+    if(!tg || !cop) return;
+    tg.addEventListener('click', () => {
+      const oculto = getComputedStyle(cop).display === 'none';
+      cop.style.display = oculto ? 'block' : 'none';
+      tg.classList.toggle('is-on', oculto);
+      if(oculto) cop.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    });
+  })();
+  </script>
+@endpush
+@endsection
