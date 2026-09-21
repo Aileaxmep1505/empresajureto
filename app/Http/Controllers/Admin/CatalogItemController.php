@@ -253,6 +253,9 @@ class CatalogItemController extends Controller implements HasMiddleware
             'COUNT(*) as total,
              SUM(CASE WHEN stock <= 0 THEN 1 ELSE 0 END) as sin_stock,
              SUM(CASE WHEN stock_min IS NOT NULL AND stock <= stock_min THEN 1 ELSE 0 END) as criticos,
+             SUM(CASE WHEN (stock_min IS NULL OR stock > stock_min) AND stock > 0 THEN 1 ELSE 0 END) as sanos,
+             SUM(CASE WHEN is_featured = 1 THEN 1 ELSE 0 END) as destacados,
+             SUM(CASE WHEN meli_item_id IS NOT NULL AND meli_item_id <> \'\' THEN 1 ELSE 0 END) as en_ml,
              COALESCE(SUM(COALESCE(sale_price, price) * GREATEST(stock, 0)), 0) as valor'
         )->first();
 
@@ -313,12 +316,17 @@ class CatalogItemController extends Controller implements HasMiddleware
         // Palabras buscadas, para resaltarlas en la lista.
         $palabras = array_values(array_filter(preg_split('/\s+/', $filters['s']) ?: []));
 
+        // Modo de visualización del listado: tabla (lista) o tarjetas.
+        $view = (string) $request->get('view', 'list');
+        $view = in_array($view, ['list', 'cards'], true) ? $view : 'list';
+
         return [
             'items'        => $items,
             'resumen'      => $resumen,
             'porEstado'    => $porEstado,
             'totalEstados' => (int) $porEstado->sum(),
             'filters'      => $filters,
+            'view'         => $view,
             'sortKey'      => $sortKey,
             'perPage'      => $perPage,
             'samplesMode'  => $filters['samples'],
@@ -505,46 +513,52 @@ class CatalogItemController extends Controller implements HasMiddleware
 
         $html  = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">';
         $html .= '<style>
+          @page { margin: 14px; }
           *{ box-sizing:border-box; }
           body{
             font-family: DejaVu Sans, sans-serif;
-            font-size:11px;
+            font-size:8px;
             color:#111827;
-            margin:20px;
+            margin:0;
           }
           .logo-wrap{
             text-align:left;
-            margin-bottom:8px;
+            margin-bottom:6px;
           }
           .logo{
-            height:40px;
+            height:32px;
           }
           .title-main{
-            font-size:16px;
+            font-size:14px;
             font-weight:800;
             margin:0 0 2px;
           }
           .top-sub{
-            font-size:11px;
+            font-size:9px;
             color:#6b7280;
-            margin:0 0 12px;
+            margin:0 0 8px;
           }
           table{
             width:100%;
             border-collapse:collapse;
+            table-layout:fixed;
             margin-top:4px;
           }
           th,td{
-            padding:6px 5px;
+            padding:3px 3px;
             border:1px solid #d1d5db;
+            word-wrap:break-word;
+            overflow-wrap:break-word;
+            vertical-align:top;
+            text-align:left;
           }
           th{
             background:#f3f4f6;
             font-weight:700;
-            font-size:11px;
+            font-size:8px;
           }
           td{
-            font-size:10px;
+            font-size:7.5px;
           }
           .muted{
             color:#6b7280;
@@ -558,7 +572,30 @@ class CatalogItemController extends Controller implements HasMiddleware
         $html .= '<h1 class="title-main">Inventario interno de Jureto</h1>';
         $html .= '<p class="top-sub">Listado de productos con filtros actuales</p>';
 
-        $html .= '<table><thead><tr>';
+        $html .= '<table>';
+        $html .= '<colgroup>'
+            . '<col style="width:2%">'   // ID
+            . '<col style="width:6%">'   // SKU
+            . '<col style="width:6%">'   // GTIN/EAN
+            . '<col style="width:13%">'  // Nombre
+            . '<col style="width:10%">'  // Categoría
+            . '<col style="width:3%">'   // U.M.
+            . '<col style="width:5%">'   // Contenido
+            . '<col style="width:5%">'   // Ubicación
+            . '<col style="width:5%">'   // Precio
+            . '<col style="width:5%">'   // Oferta
+            . '<col style="width:3%">'   // Stock
+            . '<col style="width:3%">'   // Stock mín.
+            . '<col style="width:3%">'   // Stock máx.
+            . '<col style="width:5%">'   // Estado
+            . '<col style="width:3%">'   // Destacado
+            . '<col style="width:3%">'   // Muestra
+            . '<col style="width:4%">'   // Estado muestra
+            . '<col style="width:6%">'   // Slug
+            . '<col style="width:6%">'   // Publicado
+            . '<col style="width:4%">'   // ML ID
+            . '</colgroup>';
+        $html .= '<thead><tr>';
         $html .= '<th>ID</th>';
         $html .= '<th>SKU</th>';
         $html .= '<th>GTIN/EAN</th>';

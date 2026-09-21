@@ -1,4 +1,6 @@
 @extends('layouts.app')
+{{-- Pantalla preparada para modo oscuro: el layout no la fuerza a claro --}}
+@section('tema_oscuro', '1')
 @section('title', 'WMS · Conteo ' . $conteo->folio)
 
 @push('styles')
@@ -6,19 +8,19 @@
   <style>
     .cnt-scan{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .cnt-scan .ops-input{ flex:1; min-width:220px; }
-    .cnt-grupo td{ background:#f8fafc !important; font-weight:800; font-size:.8rem; color:var(--ui-ink-2); padding:8px 14px; }
-    tr.is-ok td{ background:#f6fdf9; }
-    tr.is-dif td{ background:#fff7ed; }
+    .cnt-grupo td{ background:var(--ui-surface-2) !important; font-weight:600; font-size:12.5px; color:var(--ui-ink-2); padding:8px 16px; }
+    tr.is-ok td{ background:var(--ui-ok-soft); }
+    tr.is-dif td{ background:var(--ui-warn-soft); }
     tr.is-oculto{ display:none; }
-    .cnt-var{ font-weight:800; font-variant-numeric:tabular-nums; }
+    .cnt-var{ font-weight:600; font-variant-numeric:tabular-nums; }
     .cnt-var.mas{ color:var(--ui-ok-ink); } .cnt-var.menos{ color:var(--ui-danger-ink); }
-    .cnt-guardado{ font-size:.74rem; font-weight:700; color:var(--ui-ok-ink); opacity:0; transition:opacity .2s ease; }
+    .cnt-guardado{ font-size:12px; font-weight:500; color:var(--ui-ok-ink); opacity:0; transition:opacity .2s ease; }
     .cnt-guardado.is-on{ opacity:1; }
     .cnt-sugg{ position:relative; }
-    .cnt-sugg-list{ position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:20; background:#fff; border:1px solid var(--ui-border); border-radius:12px;
-                    box-shadow:0 18px 40px rgba(15,23,42,.14); overflow:hidden; display:none; }
+    .cnt-sugg-list{ position:absolute; left:0; right:0; top:calc(100% + 4px); z-index:20; background:var(--ui-surface); border:1px solid var(--ui-border); border-radius:var(--ui-r);
+                    box-shadow:var(--ui-shadow-pop); overflow:hidden; display:none; }
     .cnt-sugg-list.is-open{ display:block; }
-    .cnt-sugg-list button{ display:block; width:100%; text-align:left; padding:9px 12px; border:0; background:none; font:inherit; font-size:.88rem; cursor:pointer; }
+    .cnt-sugg-list button{ display:block; width:100%; text-align:left; padding:9px 12px; border:0; background:none; color:var(--ui-ink); font:inherit; font-size:13.5px; cursor:pointer; }
     .cnt-sugg-list button:hover{ background:var(--ui-surface-2); }
     .cnt-sugg-list small{ color:var(--ui-muted); }
   </style>

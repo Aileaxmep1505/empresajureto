@@ -10,6 +10,8 @@
      formulario, sin duplicar controles).
 --}}
 @extends('layouts.app')
+{{-- Pantalla preparada para modo oscuro: el layout no la fuerza a claro --}}
+@section('tema_oscuro', '1')
 @section('title','Productos Web')
 
 @push('styles')
@@ -40,7 +42,7 @@
   /* ===================== Tooltips ===================== */
   .tt{ position:relative; display:inline-flex; }
   .tt .tt-bubble{ position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%) translateY(2px);
-                  padding:6px 9px; border-radius:var(--ui-r-sm); background:var(--ui-ink); color:#fff;
+                  padding:6px 9px; border-radius:var(--ui-r-sm); background:var(--ui-tip-bg); color:var(--ui-tip-ink);
                   font-size:12px; font-weight:500; white-space:nowrap; opacity:0; pointer-events:none;
                   z-index:var(--ui-z-tip); transition:opacity var(--ui-fast) var(--ui-ease), transform var(--ui-fast) var(--ui-ease); }
   .tt:hover .tt-bubble, .tt:focus-within .tt-bubble{ opacity:1; transform:translateX(-50%) translateY(0); }
@@ -77,7 +79,7 @@
   .filters-row{ display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
 
   /* Buscador */
-  .search-wrap{ position:relative; flex:1 1 320px; min-width:240px; max-width:560px; }
+  .search-wrap{ position:relative; flex:1 1 460px; min-width:240px; max-width:680px; }
   .search{ display:flex; align-items:center; gap:8px; height:36px; padding:0 8px 0 11px;
            background:var(--ui-surface); border:1px solid var(--ui-border-strong); border-radius:var(--ui-r);
            transition:border-color var(--ui-fast) var(--ui-ease), box-shadow var(--ui-fast) var(--ui-ease); }
@@ -158,10 +160,14 @@
             font-size:12.5px; font-weight:500; color:var(--ui-muted); text-decoration:none; }
   .afclear:hover{ background:var(--ui-surface-3); color:var(--ui-danger-ink); }
 
+  /* El escáner envuelve el input en .scan-campo; que crezca para llenar la barra
+     y así el placeholder no se corte. */
+  .search .scan-campo{ flex:1; min-width:0; display:flex; align-items:center; }
+
   /* ===================== Tabla ===================== */
   #listado{ position:relative; transition:opacity var(--ui-fast) var(--ui-ease); }
   #listado.is-cargando{ opacity:.5; pointer-events:none; }
-  .table-wrap{ margin-top:14px; overflow:auto; background:var(--ui-surface);
+  .table-wrap{ margin-top:14px; overflow:visible; background:var(--ui-surface);
                border:1px solid var(--ui-border); border-radius:var(--ui-r-lg); box-shadow:var(--ui-shadow-xs); }
   table{ width:100%; border-collapse:collapse; font-size:13.5px; }
   th{ position:sticky; top:0; z-index:var(--ui-z-sticky); padding:9px 14px; text-align:left; white-space:nowrap;
@@ -231,9 +237,9 @@
 
   /* Filas con aviso: tinte parejo y un punto de color en la primera celda. */
   tr.is-critical-row td{ background:var(--ui-danger-soft) !important; }
-  tr.is-critical-row:hover td{ background:oklch(0.95 0.035 27) !important; }
+  tr.is-critical-row:hover td{ background:color-mix(in srgb, var(--ui-danger) 14%, var(--ui-surface)) !important; }
   tr.is-sample-row td{ background:var(--ui-warn-soft) !important; }
-  tr.is-sample-row:hover td{ background:oklch(0.955 0.055 85) !important; }
+  tr.is-sample-row:hover td{ background:color-mix(in srgb, var(--ui-warn) 16%, var(--ui-surface)) !important; }
   tr.is-sample-row.is-critical-row td{ background:var(--ui-warn-soft) !important; }
   tr.is-sample-row .thumbbox{ border-color:var(--ui-warn); }
   tr.is-critical-row .thumbbox{ border-color:var(--ui-danger); }
@@ -355,7 +361,7 @@
   }
 
   /* ===================== SweetAlert ===================== */
-  .swal2-popup.sa-popup{ border-radius:var(--ui-r-lg); padding:22px; border:1px solid var(--ui-border);
+  .swal2-popup.sa-popup{ border-radius:var(--ui-r-lg); padding:22px; border:1px solid var(--ui-border); background:var(--ui-surface); color:var(--ui-ink);
                          box-shadow:var(--ui-shadow-pop); font-family:inherit; }
   .swal2-icon{ box-shadow:none !important; }
   .swal2-popup.sa-popup .swal2-icon{ margin-top:0; margin-bottom:6px; }
@@ -369,7 +375,7 @@
   .swal2-cancel.sa-cancel{ background:var(--ui-surface); color:var(--ui-ink-2); border:1px solid var(--ui-border-strong); }
   .swal2-cancel.sa-cancel:hover{ background:var(--ui-surface-3); }
   .swal2-popup.sa-toast{ border-radius:var(--ui-r); padding:10px 14px; border:1px solid var(--ui-border);
-                         background:var(--ui-ink); color:oklch(0.95 0.005 262); box-shadow:var(--ui-shadow-pop); }
+                         background:var(--ui-tip-bg); color:var(--ui-tip-ink); box-shadow:var(--ui-shadow-pop); }
   .swal2-popup.sa-toast .swal2-title.sa-toast-title{ font-size:13.5px; font-weight:500; color:inherit; }
   .swal2-popup.sa-toast .swal2-icon{ margin:0 8px 0 0; transform:scale(.8); }
 
@@ -386,9 +392,122 @@
   .pagi .page svg{ width:15px; height:15px; display:block; }
   @media (max-width: 760px){ .pagi{ justify-content:center; } .pagi .page{ min-width:40px; height:40px; } }
 
+  /* ===================== Paleta extra ===================== */
+  :root{ --c-slate:#94a3b8; --c-violet:#a78bfa; }
+
+  /* ===================== Resumen: tarjetas con gráfica integrada ===================== */
+  .stats{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; margin-bottom:16px; }
+  .stat{ display:flex; flex-direction:column; gap:10px; padding:18px; background:var(--ui-surface);
+         border:1px solid var(--ui-border); border-radius:18px; min-width:0; }
+  .stat-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .stat-label{ font-size:12.5px; font-weight:500; color:var(--ui-muted); letter-spacing:-.01em; }
+  .stat-num{ font-size:27px; font-weight:600; letter-spacing:-.025em; line-height:1; color:var(--ui-ink); font-variant-numeric:tabular-nums; }
+  .stat-cap{ margin-top:-4px; font-size:12px; color:var(--ui-muted); }
+  .stat-link{ font-size:12px; font-weight:500; color:var(--ui-accent-ink); text-decoration:none; white-space:nowrap; }
+  .stat-link:hover{ text-decoration:underline; }
+  .stat-row{ display:flex; align-items:center; justify-content:space-between; gap:14px; }
+
+  /* Dona compacta */
+  .donut{ --seg:conic-gradient(var(--ui-ok) 0 360deg); position:relative; width:54px; height:54px; flex:0 0 auto; border-radius:50%; background:var(--seg); }
+  .donut::after{ content:""; position:absolute; inset:8px; border-radius:50%; background:var(--ui-surface); }
+  .donut-hole{ position:absolute; inset:0; display:grid; place-content:center; z-index:1; font-size:12px; font-weight:600; color:var(--ui-ink-2); font-variant-numeric:tabular-nums; }
+
+  /* Leyenda */
+  .leg{ list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:5px 14px; }
+  .leg li{ display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ui-muted); white-space:nowrap; }
+  .leg b{ color:var(--ui-ink-2); font-weight:600; font-variant-numeric:tabular-nums; }
+  .leg i{ width:8px; height:8px; border-radius:3px; flex:0 0 auto; }
+
+  /* Barra apilada (salud de stock) */
+  .stackbar{ display:flex; width:100%; height:8px; border-radius:999px; overflow:hidden; background:var(--ui-surface-3); }
+  .stackbar .seg{ height:100%; }
+  .stackbar .seg-ok{ background:var(--ui-ok); }
+  .stackbar .seg-amb{ background:var(--ui-warn); }
+  .stackbar .seg-red{ background:var(--ui-danger); }
+
+  /* Mini barras (alcance) */
+  .mbar + .mbar{ margin-top:12px; }
+  .mbar-top{ display:flex; align-items:baseline; justify-content:space-between; font-size:12px; color:var(--ui-muted); margin-bottom:6px; }
+  .mbar-top b{ color:var(--ui-ink-2); font-weight:600; font-variant-numeric:tabular-nums; }
+  .mbar-track{ height:6px; border-radius:999px; background:var(--ui-surface-3); overflow:hidden; }
+  .mbar-fill{ display:block; height:100%; border-radius:999px; }
+  .mbar-blue{ background:var(--ui-accent); }
+  .mbar-violet{ background:var(--c-violet); }
+
+  @media (max-width: 900px){ .stats{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+  @media (max-width: 560px){ .stats{ grid-template-columns:1fr; } }
+
+  /* ===================== Vista de tarjetas ===================== */
+  .viewtabs .tab svg{ width:15px; height:15px; }
+  .pcards{ display:grid; grid-template-columns:repeat(auto-fill, minmax(238px, 1fr)); gap:14px; margin-top:14px; }
+  .pcard{ position:relative; display:flex; flex-direction:column; background:var(--ui-surface);
+          border:1px solid var(--ui-border); border-radius:16px; overflow:hidden;
+          transition:border-color var(--ui-fast) var(--ui-ease), box-shadow var(--ui-fast) var(--ui-ease); }
+  .pcard:hover{ border-color:var(--ui-border-strong); box-shadow:var(--ui-shadow-xs); }
+  .pcard.is-critical{ border-color:var(--ui-danger); }
+  .pcard.is-sample{ border-color:var(--ui-warn); }
+  .pcard-media{ position:relative; aspect-ratio:4/3; background:var(--ui-surface-3); overflow:hidden; }
+  .pcard-media img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .pcard-badges{ position:absolute; top:8px; left:8px; display:flex; gap:5px; flex-wrap:wrap; max-width:calc(100% - 52px); }
+  .pcard-menu{ position:absolute; top:8px; right:8px; }
+  .pcard-body{ display:flex; flex-direction:column; gap:9px; padding:13px 14px 14px; flex:1; }
+  .pcard-title{ font-size:14px; font-weight:600; line-height:1.3; color:var(--ui-ink); text-decoration:none; }
+  .pcard-title:hover{ color:var(--ui-accent-ink); }
+  .pcard-title mark{ padding:0 1px; border-radius:3px; background:var(--ui-accent-soft); color:var(--ui-accent-ink); }
+  .pcard-meta{ display:flex; gap:6px 12px; flex-wrap:wrap; font-size:12px; color:var(--ui-muted); }
+  .pcard-meta .v{ color:var(--ui-ink-2); font-weight:500; }
+  .pcard-foot{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:auto; padding-top:10px; border-top:1px solid var(--ui-border); }
+  .pcard-price{ font-weight:600; color:var(--ui-ink); font-variant-numeric:tabular-nums; }
+  .pcard-price .sale{ color:var(--ui-ok-ink); }
+  .pcard-price .was{ font-size:11.5px; font-weight:500; color:var(--ui-muted); text-decoration:line-through; }
+  .pcard-date{ font-size:11.5px; color:var(--ui-muted); display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+  .pcard-date svg{ width:12px; height:12px; }
+
+  /* Fecha en la fila (tabla) */
+  .rowdate{ display:flex; flex-direction:column; gap:2px; font-size:12px; color:var(--ui-muted); white-space:nowrap; }
+  .rowdate .v{ color:var(--ui-ink-2); font-weight:500; }
+
+  /* ===================== Menú de acciones (tres puntitos) ===================== */
+  .actions-cell{ text-align:right; }
+  .rowmenu{ position:relative; display:inline-flex; }
+  .rowmenu-btn{ display:inline-grid; place-items:center; width:30px; height:30px; border:0; border-radius:999px;
+                background:none; color:var(--ui-muted); cursor:pointer;
+                transition:background var(--ui-fast) var(--ui-ease), color var(--ui-fast) var(--ui-ease); }
+  .rowmenu-btn:hover,
+  .rowmenu-btn.is-open{ background:var(--ui-surface-3); color:var(--ui-ink); }
+  .rowmenu-btn svg{ width:18px; height:18px; }
+  .pcard-menu .rowmenu-btn{ background:none; color:#fff; filter:drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
+  .pcard-menu .rowmenu-btn:hover,
+  .pcard-menu .rowmenu-btn.is-open{ background:oklch(1 0 0 / .2); color:#fff; filter:none; }
+
+  .rowmenu-pop{ position:fixed; z-index:var(--ui-z-pop); min-width:210px; max-width:264px; padding:6px;
+                background:var(--ui-surface); border:1px solid var(--ui-border); border-radius:var(--ui-r);
+                box-shadow:var(--ui-shadow-pop); display:none; }
+  .rowmenu-pop.is-open{ display:block; }
+  .rowmenu-pop .rm-sep{ height:1px; margin:5px 4px; background:var(--ui-border); }
+  .rowmenu-pop .rm-lbl{ padding:5px 9px 3px; font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--ui-muted); }
+  .rm-item{ display:flex; align-items:center; gap:10px; width:100%; padding:8px 9px; border:0; border-radius:var(--ui-r-sm);
+            background:none; color:var(--ui-ink-2); font:inherit; font-size:13px; font-weight:500; text-align:left; cursor:pointer;
+            text-decoration:none; white-space:nowrap; transition:background var(--ui-fast) var(--ui-ease), color var(--ui-fast) var(--ui-ease); }
+  .rm-item svg{ width:16px; height:16px; flex:0 0 auto; color:var(--ui-muted); }
+  .rm-item:hover{ background:var(--ui-surface-3); color:var(--ui-ink); }
+  .rm-item:hover svg{ color:var(--ui-ink-2); }
+  .rm-item.is-danger{ color:var(--ui-danger-ink); }
+  .rm-item.is-danger svg{ color:var(--ui-danger-ink); }
+  .rm-item.is-danger:hover{ background:var(--ui-danger-soft); }
+  .rowmenu-pop form{ margin:0; }
+
+  /* ===================== Reveal al hacer scroll ===================== */
+  .reveal{ opacity:0; transform:translateY(14px);
+           transition:opacity .5s var(--ui-ease), transform .5s var(--ui-ease);
+           transition-delay:calc(min(var(--i, 0), 6) * 45ms); }
+  .reveal.is-in{ opacity:1; transform:none; }
+
   @media (prefers-reduced-motion: reduce){
-    #listado, .btn, .chip, .tab, .iconbtn, tbody tr, .sheet, .sheet-overlay,
-    .stock-modal, .dl-modal, .search, .fld input, .fld select, .pagi .page, th a.sort svg{ transition:none; }
+    #listado, .btn, .chip, .tab, .iconbtn, .sheet, .sheet-overlay,
+    .stock-modal, .dl-modal, .search, .fld input, .fld select, .pagi .page, th a.sort svg,
+    .pcard, .rowmenu-btn, .rm-item{ transition:none !important; }
+    .reveal{ opacity:1 !important; transform:none !important; transition:none !important; }
   }
 </style>
 @endpush
@@ -404,7 +523,6 @@
   <div class="head">
     <div>
       <h1 class="title" id="tituloLista">{{ $tituloLista }}</h1>
-      <p class="muted subtxt">Gestiona el catálogo público y sincroniza con Mercado Libre con acciones rápidas. Las muestras salen resaltadas en ámbar.</p>
     </div>
 
     <div class="head-actions">
@@ -442,7 +560,7 @@
   </div>
 
   {{-- ===================== Resumen ===================== --}}
-  <div class="kpis" id="kpisBox" data-tour="kpis">
+  <div id="kpisBox" data-tour="kpis">
     @include('admin.catalog._kpis')
   </div>
 
@@ -462,25 +580,14 @@
                    data-scan-titulo="Escanea el producto"
                    data-scan-ayuda="Apunta al código de barras de la caja o del producto. La lista se filtra sola." />
             <span class="sspin" aria-hidden="true"></span>
-            <span class="kbd" aria-hidden="true">/</span>
             <button type="button" class="sclear" id="sClear" aria-label="Limpiar búsqueda">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
           </div>
-          <div class="search-hint">Se filtra solo al escribir. <b>/</b> buscar · <b>Esc</b> limpiar</div>
         </div>
 
         {{-- Todo lo que sigue se mueve a la hoja inferior en móvil --}}
         <div class="filter-tools" id="filterTools" data-tour="filtros">
-          <div class="tt">
-            <span class="tt-bubble">Filtrar por estado</span>
-            <div class="tabs" role="tablist" aria-label="Estado">
-              <button type="button" class="tab {{ $st==='' ? 'is-active' : '' }}" data-status="">Todos <span class="n" data-n="all">{{ $totalEstados }}</span></button>
-              <button type="button" class="tab {{ $st==='1' ? 'is-active' : '' }}" data-status="1">Publicado <span class="n" data-n="1">{{ (int) ($porEstado[1] ?? 0) }}</span></button>
-              <button type="button" class="tab {{ $st==='0' ? 'is-active' : '' }}" data-status="0">Borrador <span class="n" data-n="0">{{ (int) ($porEstado[0] ?? 0) }}</span></button>
-              <button type="button" class="tab {{ $st==='2' ? 'is-active' : '' }}" data-status="2">Oculto <span class="n" data-n="2">{{ (int) ($porEstado[2] ?? 0) }}</span></button>
-            </div>
-          </div>
 
           <div class="tt">
             <span class="tt-bubble">Catálogo, solo muestras o todos juntos</span>
@@ -497,6 +604,20 @@
               <input id="featuredInput" type="checkbox" name="featured_only" value="1" form="filtersForm" @checked($filters['featured_only'])>
               Destacados
             </label>
+          </div>
+
+          <div class="tt">
+            <span class="tt-bubble">Cambiar entre lista y tarjetas</span>
+            <div class="tabs viewtabs" role="tablist" aria-label="Modo de vista">
+              <button type="button" class="tab {{ $view === 'list' ? 'is-active' : '' }}" data-view="list" aria-label="Ver como lista">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                Lista
+              </button>
+              <button type="button" class="tab {{ $view === 'cards' ? 'is-active' : '' }}" data-view="cards" aria-label="Ver como tarjetas">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                Tarjetas
+              </button>
+            </div>
           </div>
 
           <button type="button" class="chip adv-toggle {{ $advActivos > 0 ? 'is-on' : '' }}" id="advToggle" aria-expanded="{{ $advActivos > 0 ? 'true' : 'false' }}" aria-controls="advPanel">
@@ -578,6 +699,7 @@
       <input type="hidden" name="status" id="statusInput" value="{{ $st }}">
       <input type="hidden" name="samples" id="samplesInput" value="{{ $samplesMode }}">
       <input type="hidden" name="per_page" id="perPageInput" value="{{ $perPage }}">
+      <input type="hidden" name="view" id="viewInput" value="{{ $view }}">
     </form>
   </div>
 
@@ -703,6 +825,7 @@
   const statusInput  = document.getElementById('statusInput');
   const samplesInput = document.getElementById('samplesInput');
   const perPageInput = document.getElementById('perPageInput');
+  const viewInput    = document.getElementById('viewInput');
   const featured  = document.getElementById('featuredInput');
   const advToggle = document.getElementById('advToggle');
   const advPanel  = document.getElementById('advPanel');
@@ -719,6 +842,7 @@
     new FormData(form).forEach((v, k)=>{ v = String(v).trim(); if (v !== '') p.set(k, v); });
     if (p.get('per_page') === '20') p.delete('per_page');
     if (p.get('sort') === 'recent') p.delete('sort');
+    if (p.get('view') === 'list') p.delete('view');
     p.delete('page');
     Object.entries(extra || {}).forEach(([k, v])=>{ if (v === null || v === '') p.delete(k); else p.set(k, v); });
     const qs = p.toString();
@@ -727,6 +851,7 @@
 
   async function cargar(url, opciones){
     opciones = opciones || {};
+    if (typeof rmClose === 'function') rmClose();   // cierra el menú de acciones antes de rehacer la lista
     if (ctrl) ctrl.abort();
     const mio = ctrl = new AbortController();
 
@@ -744,6 +869,7 @@
       listado.innerHTML = d.lista;
       kpisBox.innerHTML = d.kpis;
       chipsBox.innerHTML = d.chips;
+      if (typeof revelar === 'function') revelar();
       if (titulo && d.titulo) titulo.textContent = d.titulo;
       pintarConteos(d.estados || {}, d.totalEstados || 0);
       fabCount.textContent = d.activos || 0;
@@ -776,6 +902,7 @@
   function marcarTabs(){
     document.querySelectorAll('.tab[data-status]').forEach(b => b.classList.toggle('is-active', b.dataset.status === statusInput.value));
     document.querySelectorAll('.tab[data-samples]').forEach(b => b.classList.toggle('is-active', b.dataset.samples === samplesInput.value));
+    document.querySelectorAll('.tab[data-view]').forEach(b => b.classList.toggle('is-active', b.dataset.view === viewInput.value));
     featured.closest('.chip').classList.toggle('is-on', featured.checked);
 
     const avanzados = ['category','brand','stock','ml','price_min','price_max'].filter(n => (form.elements[n]?.value || '') !== '').length
@@ -797,6 +924,7 @@
     featured.checked = p.get('featured_only') === '1';
     ['category','brand','stock','ml','price_min','price_max'].forEach(n => set(n, p.get(n) || ''));
     set('sort', p.get('sort') || 'recent');
+    viewInput.value = p.get('view') === 'cards' ? 'cards' : 'list';
     perPageInput.value = p.get('per_page') || '20';
     document.querySelectorAll('[data-perpage]').forEach(s => s.value = perPageInput.value);
     pintarEstadoBusqueda();
@@ -836,6 +964,14 @@
     btn.addEventListener('click', ()=>{ samplesInput.value = btn.dataset.samples ?? ''; marcarTabs(); aplicarFiltros(); });
   });
   featured.addEventListener('change', ()=>{ marcarTabs(); aplicarFiltros(); });
+  document.querySelectorAll('.tab[data-view]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if (viewInput.value === btn.dataset.view) return;
+      viewInput.value = btn.dataset.view;
+      marcarTabs();
+      aplicarFiltros();
+    });
+  });
   document.querySelectorAll('[data-filtro]').forEach(el => el.addEventListener('change', ()=>{ marcarTabs(); aplicarFiltros(); }));
   document.querySelectorAll('[data-filtro-texto]').forEach(el=>{
     el.addEventListener('input', ()=>{ marcarTabs(); aplicarConPausa(); });
@@ -964,6 +1100,75 @@
     }).then((result)=>{ if (result.isConfirmed) formEl.submit(); });
   });
 
+  // =============== Menú de acciones "tres puntitos" (delegado) ===============
+  // El panel se saca al <body> mientras está abierto para que no lo recorte el
+  // scroll de la tabla ni lo descoloque el transform de una tarjeta.
+  let rmOpen = null;
+  function rmClose(){
+    if (!rmOpen) return;
+    const { btn, pop, home } = rmOpen;
+    pop.classList.remove('is-open');
+    btn.classList.remove('is-open');
+    btn.setAttribute('aria-expanded', 'false');
+    if (home && pop.parentElement !== home) home.appendChild(pop);
+    rmOpen = null;
+  }
+  function rmPosition(btn, pop){
+    pop.style.visibility = 'hidden';
+    pop.classList.add('is-open');
+    const r = btn.getBoundingClientRect();
+    const pw = pop.offsetWidth, ph = pop.offsetHeight, gap = 6, m = 8;
+    let left = r.right - pw;
+    left = Math.max(m, Math.min(left, window.innerWidth - m - pw));
+    let top = r.bottom + gap;
+    if (top + ph > window.innerHeight - m) top = Math.max(m, r.top - gap - ph);
+    pop.style.left = Math.round(left) + 'px';
+    pop.style.top  = Math.round(top) + 'px';
+    pop.style.visibility = '';
+  }
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.rowmenu-btn');
+    if (btn){
+      e.preventDefault();
+      const home = btn.parentElement;
+      const pop = home.querySelector('.rowmenu-pop');
+      if (!pop) return;
+      const yaAbierto = rmOpen && rmOpen.pop === pop;
+      rmClose();
+      if (!yaAbierto){
+        document.body.appendChild(pop);
+        rmOpen = { btn, pop, home };
+        btn.classList.add('is-open');
+        btn.setAttribute('aria-expanded', 'true');
+        rmPosition(btn, pop);
+      }
+      return;
+    }
+    // Clic dentro del panel: dejar que el enlace/submit haga lo suyo.
+    if (e.target.closest('.rowmenu-pop')) return;
+    rmClose();
+  });
+  window.addEventListener('scroll', rmClose, true);
+  window.addEventListener('resize', rmClose);
+  document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') rmClose(); });
+
+  // =============== Reveal al hacer scroll (tabla y tarjetas) ===============
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let revObserver = null;
+  if (!reduceMotion && 'IntersectionObserver' in window){
+    revObserver = new IntersectionObserver((entries)=>{
+      entries.forEach(en=>{
+        if (en.isIntersecting){ en.target.classList.add('is-in'); revObserver.unobserve(en.target); }
+      });
+    }, { rootMargin: '0px 0px -6% 0px', threshold: 0.06 });
+  }
+  function revelar(){
+    const items = listado.querySelectorAll('.reveal:not(.is-in)');
+    if (!revObserver){ items.forEach(el=>el.classList.add('is-in')); return; }
+    items.forEach(el=>revObserver.observe(el));
+  }
+  revelar(); // primera carga
+
   @if(session('ok'))
     if (window.Swal) Swal.fire({ toast:true, position:'top-end', icon:'success', title:@json(session('ok')), showConfirmButton:false, timer:2600, timerProgressBar:true, buttonsStyling:false, customClass:{ popup:'sa-toast', title:'sa-toast-title' } });
   @endif
@@ -989,7 +1194,7 @@
         { el: '[data-tour="kpis"]', titulo: 'Lo que hay que atender',
           texto: 'Stock crítico y sin existencia traen un enlace Ver que deja la lista con solo esos productos.' },
         { el: '[data-tour="lista"]', titulo: 'La lista',
-          texto: 'Las filas rojas están en stock crítico y las ámbar son muestras. Los iconos de la derecha son ver, ajustar stock, editar, publicar y eliminar.' },
+          texto: 'Cámbiala entre Lista y Tarjetas con el botón de arriba. Las filas rojas están en stock crítico y las ámbar son muestras. Con el botón de tres puntitos (⋮) de cada producto abres el menú: ver, ajustar stock, editar, publicar, Mercado Libre y eliminar.' },
       ],
     });
   </script>

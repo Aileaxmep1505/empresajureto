@@ -21,6 +21,18 @@
     --gray-dark: #4b5563;
   }
 
+  /* === Solo en Control: quitar el choque de los DOS sidebars ===
+     El layout (layouts.app) trae su propio sidebar (#shSidebar) y esta página
+     además usa el de Control (control-sidebar, fijo a la izquierda). Quedaban
+     encimados. En escritorio dejamos SOLO el de Control y ocultamos el del
+     layout, recuperando el ancho de su columna. En móvil el de Control se
+     oculta solo, así que ahí mandamos el del layout y no tocamos nada. */
+  @media (min-width: 901px) {
+    #shApp #shSidebar { display: none !important; }
+    #shApp.sh-app,
+    #shApp.sh-app.collapsed { grid-template-columns: minmax(0, 1fr) !important; }
+  }
+
   /* --- Base --- */
   .cc-page {
     min-height: 100vh;

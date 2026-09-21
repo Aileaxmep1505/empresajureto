@@ -190,8 +190,8 @@
     .dash-grid.is-editando .dash-quitar { display:flex; }
 
     .dash-medida { display:none; position:absolute; top:8px; right:12px; z-index:6;
-                   padding:1px 6px; border-radius:var(--ui-r-sm); background:var(--ui-ink);
-                   color:#fff; font-size:11px; font-weight:600; font-variant-numeric:tabular-nums; }
+                   padding:1px 6px; border-radius:var(--ui-r-sm); background:var(--ui-tip-bg);
+                   color:var(--ui-tip-ink); font-size:11px; font-weight:600; font-variant-numeric:tabular-nums; }
     .dash-grid.is-editando .dash-medida { display:block; }
 
     .dash-handle { display:none; position:absolute; right:-4px; bottom:-4px; z-index:6;

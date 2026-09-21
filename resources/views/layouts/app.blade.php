@@ -6,1488 +6,1050 @@
   <title>@yield('title', 'Panel')</title>
   <meta name="csrf-token" content="{{ csrf_token() }}">
 
-  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="{{ asset('images/logo-icon.png') }}">
-  <link rel="shortcut icon" type="image/png" href="{{ asset('images/logo-icon.png') }}">
   <link rel="apple-touch-icon" href="{{ asset('images/logo-icon.png') }}">
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/logo-icon.png') }}">
 
-  <link rel="stylesheet" href="{{ asset('css/app-layout.css') }}?v={{ time() }}">
-  @stack('styles')
+  {{-- Aplica el tema guardado antes de pintar, para que no parpadee --}}
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (!t) { t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
 
   <style>
+    /* =====================================================================
+       Variables de las vistas existentes. Se quedan con sus valores de
+       siempre y NO cambian con el tema: hay casi 200 pantallas que las usan
+       junto con colores fijos, y oscurecerlas dejaría texto invisible.
+       ===================================================================== */
     :root{
-      --bg:#f4f7fc;
-      --surface:#ffffff;
-      --surface-soft:#f8faff;
-      --panel:#ffffff;
+      --bg:#f4f7fc; --surface:#ffffff; --surface-soft:#f8faff; --panel:#ffffff;
+      --primary:#2f6df6; --primary-2:#1f56cf; --primary-soft:#eaf1ff;
+      --accent:#ff5ca8; --text:#111827; --text-2:#1f2937; --muted:#6b7280; --muted-2:#94a3b8;
+      --border:#dbe4f2; --border-strong:#cad7eb;
+      --success:#13b981; --success-soft:#dcfce7; --warning:#f59e0b; --warning-soft:#fff4d6;
+      --danger:#ef4444; --danger-soft:#fee2e2; --danger-2:#dc2626; --danger-3:#b91c1c; --danger-soft-2:#fff1f2;
+      --shadow-sm:0 8px 20px rgba(15,23,42,.07); --shadow-md:0 14px 34px rgba(15,23,42,.10); --shadow-lg:0 22px 50px rgba(15,23,42,.14);
+      --radius:16px; --radius-sm:12px; --radius-xs:10px;
+      --topbar-h:74px; --sidebar-w:252px; --fade-h:16px;
+    }
 
-      --primary:#2f6df6;
-      --primary-2:#1f56cf;
-      --primary-soft:#eaf1ff;
-
-      --accent:#ff5ca8;
-      --text:#111827;
-      --text-2:#1f2937;
-      --muted:#6b7280;
-      --muted-2:#94a3b8;
-
-      --border:#dbe4f2;
-      --border-strong:#cad7eb;
-
-      --success:#13b981;
-      --success-soft:#dcfce7;
-
-      --warning:#f59e0b;
-      --warning-soft:#fff4d6;
-
-      --danger:#ef4444;
-      --danger-soft:#fee2e2;
-      --danger-2:#dc2626;
-      --danger-3:#b91c1c;
-      --danger-soft-2:#fff1f2;
-
-      --shadow-sm:0 8px 20px rgba(15,23,42,.07);
-      --shadow-md:0 14px 34px rgba(15,23,42,.10);
-      --shadow-lg:0 22px 50px rgba(15,23,42,.14);
-
-      --radius:16px;
-      --radius-sm:12px;
-      --radius-xs:10px;
-
-      --topbar-h:58px;
-      --sidebar-w:320px;
-      --fade-h:16px;
+    /* =====================================================================
+       Marco de la aplicación (menú lateral + barra superior).
+       Mismo diseño que Obsidiana. Todo lleva prefijo sh- para no chocar con
+       las clases que las pantallas ya definen (.card, .btn, .avatar, .dot…).
+       ===================================================================== */
+    :root{
+      --sh-bg:#ffffff; --sh-surface:#ffffff; --sh-surface-2:#f7f8fa;
+      --sh-text:#1f2633; --sh-muted:#6b7280; --sh-border:#e9ebef;
+      --sh-primary:#2563eb; --sh-primary-strong:#1d4ed8; --sh-primary-soft:#edf2ff; --sh-primary-ink:#1d4ed8;
+      --sh-hover:#f3f5f9;
+      /* Elemento activo: azul profundo con un poco de índigo, con más presencia que un azul plano */
+      --sh-activo:linear-gradient(135deg, #1e40af 0%, #2563eb 55%, #3b82f6 100%);
+      --sh-activo-sombra:0 1px 0 rgba(255,255,255,.18) inset, 0 8px 18px -8px rgba(37,99,235,.75);
+      --sh-danger:#ef4444; --sh-danger-soft:#fdecec;
+      --sh-shadow:0 4px 20px rgba(17,24,39,.08);
+      --sh-sidebar-bg:linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%); --sh-topbar-bg:#ffffff;
+      --sh-ease:cubic-bezier(.22, 1, .36, 1);
+      --sh-sidebar-w:252px; --sh-sidebar-w-collapsed:78px;
+      --sh-page-bg:#f7f8fa;
+      color-scheme:light;
+    }
+    :root[data-theme="dark"]{
+      --sh-bg:#070c17; --sh-surface:#0f1a30; --sh-surface-2:#0c1526;
+      --sh-text:#e8eef8; --sh-muted:#93a4bd; --sh-border:rgba(90,140,230,.16);
+      --sh-primary:#3b82f6; --sh-primary-strong:#2563eb; --sh-primary-soft:rgba(59,130,246,.16); --sh-primary-ink:#93c5fd;
+      --sh-hover:rgba(148,178,235,.07);
+      --sh-activo:linear-gradient(135deg, #1d4ed8 0%, #2563eb 55%, #3b82f6 100%);
+      --sh-activo-sombra:0 1px 0 rgba(255,255,255,.14) inset, 0 8px 22px -8px rgba(37,99,235,.8);
+      --sh-danger:#f87171; --sh-danger-soft:rgba(220,38,38,.14);
+      --sh-shadow:0 10px 30px rgba(0,0,0,.5);
+      --sh-sidebar-bg:linear-gradient(180deg, #0b1427 0%, #091020 100%); --sh-topbar-bg:#0a1223;
+      --sh-page-bg:#070c17;
+      color-scheme:dark;
     }
 
     *{ box-sizing:border-box; }
-    html,body{ height:100%; }
-
-    body.app{
-      margin:0;
-      font-family:"Quicksand", system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial, sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(47,109,246,.06), transparent 28%),
-        radial-gradient(circle at top right, rgba(255,92,168,.05), transparent 24%),
-        var(--bg);
-      color:var(--text);
-      -webkit-font-smoothing:antialiased;
-      -moz-osx-font-smoothing:grayscale;
+    html, body{ margin:0; padding:0; }
+    body{ font-family:'Quicksand', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          background:var(--sh-page-bg); color:var(--sh-text); -webkit-font-smoothing:antialiased; }
+    body.sh-bloqueado{ overflow:hidden; }
+
+    /* ---------- Estructura ---------- */
+    .sh-app{ display:grid; grid-template-columns:var(--sh-sidebar-w) minmax(0, 1fr); min-height:100vh;
+             transition:grid-template-columns .34s cubic-bezier(.4,0,.2,1); }
+    .sh-app.sh-no-anim, .sh-app.sh-no-anim *{ transition:none !important; }
+    .sh-app.collapsed{ grid-template-columns:var(--sh-sidebar-w-collapsed) minmax(0, 1fr); }
+
+    /* ---------- Menú lateral ---------- */
+    .sh-sidebar{ position:sticky; top:0; z-index:40; height:100vh; display:flex; flex-direction:column;
+                 padding:20px 16px 14px; background:var(--sh-sidebar-bg); color:var(--sh-text);
+                 box-shadow:1px 0 3px rgba(17,24,39,.05), 1px 0 1px rgba(17,24,39,.03); }
+    .sh-app.collapsed .sh-sidebar{ padding-left:12px; padding-right:12px; }
+
+    .sh-brand{ display:flex; align-items:center; gap:11px; min-height:56px; padding:4px 6px 18px; text-decoration:none; color:inherit; }
+    .sh-brand-logo{ flex:0 0 auto; display:flex; align-items:center; justify-content:center; width:44px; height:44px; color:var(--sh-primary); }
+    .sh-brand-logo img{ width:100%; height:100%; object-fit:contain; display:block; }
+    .sh-brand-text{ min-width:0; overflow:hidden; opacity:1; transform:translateX(0);
+                    transition:opacity .22s ease .06s, transform .28s cubic-bezier(.4,0,.2,1); }
+    .sh-brand-name{ font-size:19px; font-weight:700; letter-spacing:-.01em; line-height:1.1; white-space:nowrap; }
+    .sh-brand-sub{ margin-top:3px; font-size:8.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--sh-muted); white-space:nowrap; }
+    .sh-app.collapsed .sh-brand{ justify-content:center; gap:0; padding-left:0; padding-right:0; }
+    .sh-app.collapsed .sh-brand-logo{ width:50px; height:50px; margin:0 auto; }
+    .sh-app.collapsed .sh-brand-text{ width:0; margin:0; padding:0; opacity:0; transform:translateX(-8px); pointer-events:none; }
+
+    /* Botón contraer: flotante sobre el borde, gira según el estado */
+    .sh-collapse{ position:absolute; top:30px; right:-13px; z-index:60; display:flex; align-items:center; justify-content:center;
+                  width:26px; height:26px; border:1px solid var(--sh-border); border-radius:50%;
+                  background:var(--sh-surface); color:var(--sh-muted); cursor:pointer; box-shadow:0 2px 8px rgba(17,24,39,.10);
+                  transition:transform .2s ease, color .2s ease, background .2s ease; }
+    .sh-collapse:hover{ color:var(--sh-text); background:var(--sh-surface-2); transform:scale(1.08); }
+    .sh-collapse:active{ transform:scale(.94); }
+    .sh-collapse svg{ width:15px; height:15px; transition:transform .34s cubic-bezier(.4,0,.2,1); }
+    .sh-app.collapsed .sh-collapse svg{ transform:rotate(180deg); }
+
+    /* La lista se desplaza pero sin barra visible. Un desvanecido arriba o
+       abajo avisa que hay más opciones (lo prende el JS según el scroll). */
+    .sh-nav{ --fade-arriba:0px; --fade-abajo:0px;
+             flex:1; min-height:0; display:flex; flex-direction:column; gap:3px; margin:6px -6px 0; padding:2px 6px 12px;
+             overflow-y:auto; overscroll-behavior:contain; scrollbar-width:none; -ms-overflow-style:none; }
+    .sh-nav::-webkit-scrollbar{ display:none; }
+    .sh-nav.puede-arriba{ --fade-arriba:26px; }
+    .sh-nav.puede-abajo{ --fade-abajo:34px; }
+    /* Solo expandido: contraído, la máscara recortaría el panel flotante de los grupos */
+    .sh-app:not(.collapsed) .sh-nav, .sh-app.sidebar-open .sh-nav{
+      -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 var(--fade-arriba), #000 calc(100% - var(--fade-abajo)), transparent 100%);
+              mask-image:linear-gradient(to bottom, transparent 0, #000 var(--fade-arriba), #000 calc(100% - var(--fade-abajo)), transparent 100%); }
+
+    .sh-nav-item{ position:relative; display:flex; align-items:center; gap:13px; width:100%; padding:10px 13px; border:0; border-radius:11px;
+                  background:none; color:var(--sh-muted); font:inherit; font-size:14.5px; font-weight:600; text-align:left; text-decoration:none;
+                  white-space:nowrap; cursor:pointer;
+                  transition:background .18s ease, color .18s ease, box-shadow .25s ease, transform .12s ease; }
+    .sh-nav-item > svg:first-child{ width:20px; height:20px; flex:0 0 auto; transition:color .18s ease, transform .25s var(--sh-ease); }
+    .sh-nav-item:hover{ background:var(--sh-hover); color:var(--sh-text); }
+    .sh-nav-item:hover > svg:first-child{ color:var(--sh-primary); transform:scale(1.08); }
+    .sh-nav-item:active{ transform:scale(.985); }
+    .sh-nav-item:focus-visible{ outline:2px solid var(--sh-primary); outline-offset:-2px; }
+
+    .sh-nav-item.active{ background:var(--sh-activo); color:#fff; box-shadow:var(--sh-activo-sombra); }
+    .sh-nav-item.active > svg:first-child, .sh-nav-item.active:hover > svg:first-child{ color:#fff; transform:none; }
+
+    /* El apartado que contiene la pantalla actual se marca sin gritar */
+    .sh-nav-toggle.has-active{ color:var(--sh-text); }
+    .sh-nav-toggle.has-active > svg:first-child{ color:var(--sh-primary); }
+    .sh-nav-group.open > .sh-nav-toggle{ color:var(--sh-text); }
+
+    .sh-nav-label{ display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; transition:opacity .2s ease .05s; }
+    .sh-app.collapsed .sh-nav-item{ justify-content:center; gap:0; }
+    .sh-app.collapsed .sh-nav-label{ width:0; opacity:0; }
+
+    /* Globo con el nombre (menú contraído). Es un solo elemento fijo que
+       mueve el JS: con un ::after dentro de la lista lo recortaba el scroll. */
+    .sh-tip{ position:fixed; z-index:90; padding:7px 11px; border:1px solid var(--sh-border); border-radius:9px;
+             background:var(--sh-surface); color:var(--sh-text); font-size:13px; font-weight:600; white-space:nowrap;
+             box-shadow:0 10px 28px rgba(17,24,39,.16); pointer-events:none;
+             opacity:0; transform:translate(-4px, -50%); transition:opacity .14s ease, transform .2s var(--sh-ease); }
+    .sh-tip.is-on{ opacity:1; transform:translate(0, -50%); }
+
+    /* Secciones: parten la lista para que no se lea como una sola columna larga */
+    .sh-nav-section{ padding:15px 13px 5px; font-size:10.5px; font-weight:800; letter-spacing:.07em; text-transform:uppercase;
+                     color:var(--sh-muted); white-space:nowrap; }
+    .sh-nav-section:first-child{ padding-top:4px; }
+    .sh-app.collapsed .sh-nav-section{ height:1px; margin:10px 12px; padding:0; overflow:hidden; color:transparent; background:var(--sh-border); }
+
+    /* Grupos con submenú (acordeón). El alto se anima con la rejilla
+       0fr → 1fr, que sí se puede transicionar sin medir con JS. */
+    .sh-nav-group{ display:flex; flex-direction:column; }
+    .sh-nav-chev{ width:16px !important; height:16px !important; margin-left:auto; flex:0 0 auto; pointer-events:none;
+                  color:var(--sh-muted); transition:transform .28s var(--sh-ease); }
+    .sh-nav-group.open .sh-nav-chev{ transform:rotate(180deg); }
+    .sh-sub-wrap{ display:grid; grid-template-rows:0fr; opacity:0;
+                  transition:grid-template-rows .3s var(--sh-ease), opacity .22s ease; }
+    .sh-nav-group.open > .sh-sub-wrap{ grid-template-rows:1fr; opacity:1; }
+    .sh-submenu{ display:flex; flex-direction:column; gap:2px; min-height:0; overflow:hidden;
+                 margin-left:22px; padding-left:11px; border-left:1px solid var(--sh-border); }
+    .sh-submenu > :first-child{ margin-top:4px; }
+    .sh-submenu > :last-child{ margin-bottom:6px; }
+    .sh-submenu form{ margin:0; }
+    .sh-submenu .sh-nav-item{ gap:10px; padding:8px 11px; font-size:13.5px; border-radius:9px; }
+    /* Las opciones entran con un leve deslizamiento al abrir el grupo */
+    .sh-submenu .sh-nav-item{ opacity:.0001; transform:translateX(-4px); }
+    .sh-nav-group.open .sh-submenu .sh-nav-item{ opacity:1; transform:none;
+        transition:background .18s ease, color .18s ease, opacity .25s ease, transform .3s var(--sh-ease); }
+    .sh-nav-bullet{ width:6px !important; height:6px !important; flex:0 0 auto; color:var(--sh-border); transition:color .18s ease, transform .2s var(--sh-ease); }
+    .sh-submenu .sh-nav-item:hover .sh-nav-bullet{ color:var(--sh-primary); }
+
+    /* Dentro de un submenú el activo va en tono suave: el degradado se reserva para el primer nivel */
+    .sh-submenu .sh-nav-item.active{ background:var(--sh-primary-soft); color:var(--sh-primary-ink); box-shadow:none; }
+    .sh-submenu .sh-nav-item.active .sh-nav-bullet{ color:var(--sh-primary); transform:scale(1.35); }
+
+    /* Menú contraído: el grupo se abre en un panel flotante */
+    .sh-app.collapsed .sh-nav-chev{ display:none; }
+    .sh-app.collapsed .sh-sub-wrap{ display:contents; }
+    .sh-app.collapsed .sh-nav-group .sh-submenu{ position:fixed; z-index:80; min-width:220px; margin:0; padding:6px; overflow:visible;
+        border:1px solid var(--sh-border); border-radius:12px; background:var(--sh-surface); box-shadow:0 14px 40px rgba(17,24,39,.18);
+        opacity:0; transform:translateX(-6px); pointer-events:none;
+        transition:opacity .16s ease, transform .22s var(--sh-ease); }
+    .sh-app.collapsed .sh-nav-group[data-flotante] .sh-submenu{ opacity:1; transform:translateX(0); pointer-events:auto; }
+    .sh-app.collapsed .sh-submenu > :first-child, .sh-app.collapsed .sh-submenu > :last-child{ margin:0; }
+    .sh-app.collapsed .sh-submenu .sh-nav-item{ justify-content:flex-start; gap:10px; padding:8px 11px; opacity:1; transform:none; }
+    .sh-app.collapsed .sh-submenu::before{ content:attr(data-nombre); display:block; margin-bottom:5px; padding:7px 11px 8px;
+        border-bottom:1px solid var(--sh-border); color:var(--sh-muted); font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+    .sh-app.collapsed .sh-submenu .sh-nav-label{ width:auto; opacity:1; }
+
+    /* ---------- Área principal ---------- */
+    .sh-main{ display:flex; flex-direction:column; min-width:0; }
+    .sh-topbar{ position:sticky; top:0; z-index:30; display:flex; align-items:center; gap:16px; padding:16px 26px;
+                background:var(--sh-topbar-bg); color:var(--sh-text);
+                box-shadow:0 1px 3px rgba(17,24,39,.05), 0 1px 1px rgba(17,24,39,.03); }
+    .sh-topbar-titulo{ min-width:0; }
+    .sh-page-title{ margin:0; font-size:25px; font-weight:700; line-height:1.15; letter-spacing:-.01em;
+                    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sh-page-sub{ margin:2px 0 0; color:var(--sh-muted); font-size:14px; }
+    .sh-spacer{ flex:1; }
+
+    .sh-hamburger{ display:none; flex:0 0 auto; align-items:center; justify-content:center; width:42px; height:42px;
+                   border:1px solid var(--sh-border); border-radius:11px; background:var(--sh-surface); color:var(--sh-text); cursor:pointer; }
+    .sh-hamburger:hover{ background:var(--sh-surface-2); }
+
+    .sh-icon-btn{ position:relative; display:flex; align-items:center; justify-content:center; width:42px; height:42px;
+                  border:0; border-radius:50%; background:transparent; color:var(--sh-muted); cursor:pointer;
+                  transition:background .18s ease, color .18s ease; }
+    .sh-icon-btn:hover, .sh-dd.open > .sh-icon-btn{ background:var(--sh-surface-2); color:var(--sh-text); }
+    .sh-icon-btn:focus-visible, .sh-user-btn:focus-visible, .sh-hamburger:focus-visible, .sh-collapse:focus-visible{ outline:2px solid var(--sh-primary); outline-offset:2px; }
+    .sh-icon-btn svg{ width:19px; height:19px; }
+
+    /* Tema: luna en claro, sol en oscuro */
+    #shTema .sh-ico-sol{ display:none; }
+    :root[data-theme="dark"] #shTema .sh-ico-sol{ display:block; }
+    :root[data-theme="dark"] #shTema .sh-ico-luna{ display:none; }
+
+    .sh-notif-num{ position:absolute; top:6px; right:6px; display:flex; align-items:center; justify-content:center; min-width:17px; height:17px;
+                   padding:0 4px; border-radius:9px; background:var(--sh-danger); color:#fff; font-size:10.5px; font-weight:800; line-height:1; }
+    .sh-notif-num[hidden]{ display:none; }
+
+    .sh-user-btn{ display:flex; align-items:center; gap:10px; padding:6px 10px 6px 6px; border:1px solid var(--sh-border); border-radius:999px;
+                  background:var(--sh-surface); color:var(--sh-text); font:inherit; cursor:pointer;
+                  transition:background .18s ease, border-color .18s ease, box-shadow .18s ease; }
+    .sh-user-btn:hover{ background:var(--sh-surface-2); box-shadow:0 2px 10px rgba(17,24,39,.06); }
+    .sh-dd.open .sh-user-btn{ background:var(--sh-surface-2); border-color:var(--sh-primary); }
+    .sh-user-btn .sh-chev{ width:16px; height:16px; color:var(--sh-muted); transition:transform .24s cubic-bezier(.4,0,.2,1); }
+    .sh-dd.open .sh-user-btn .sh-chev{ transform:rotate(180deg); }
+    .sh-avatar{ position:relative; flex:0 0 auto; display:flex; align-items:center; justify-content:center; width:34px; height:34px;
+                border-radius:50%; overflow:hidden; background:linear-gradient(135deg, #4da3ff, var(--sh-primary)); color:#fff;
+                font-size:13px; font-weight:700; }
+    .sh-avatar img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+    .sh-user-name{ max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; font-weight:600; }
+
+    /* ---------- Menús desplegables ---------- */
+    .sh-dd{ position:relative; }
+    .sh-dd-panel{ position:absolute; top:calc(100% + 10px); right:0; z-index:50; width:300px; padding:8px;
+                  border:1px solid var(--sh-border); border-radius:18px; background:var(--sh-surface); color:var(--sh-text); box-shadow:var(--sh-shadow);
+                  opacity:0; visibility:hidden; transform:translateY(-8px) scale(.97); transform-origin:top right; pointer-events:none;
+                  transition:opacity .18s ease, transform .22s cubic-bezier(.4,0,.2,1), visibility .18s; }
+    .sh-dd.open .sh-dd-panel{ opacity:1; visibility:visible; transform:translateY(0) scale(1); pointer-events:auto; }
+    .sh-dd-panel--notif{ width:360px; }
+    .sh-dd-head{ display:flex; align-items:center; gap:8px; padding:12px 12px 10px; }
+    .sh-dd-head > div{ flex:1; min-width:0; }
+    .sh-dd-head b{ display:block; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sh-dd-head small{ display:block; margin-top:2px; color:var(--sh-muted); font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sh-dd-sep{ height:1px; margin:4px 6px 6px; background:var(--sh-border); }
+    .sh-dd-item{ display:flex; align-items:center; gap:12px; width:100%; padding:10px 12px; border:0; border-radius:12px;
+                 background:none; color:var(--sh-text); font:inherit; text-align:left; text-decoration:none; cursor:pointer;
+                 transition:background .14s ease; }
+    .sh-dd-item:hover{ background:var(--sh-surface-2); }
+    .sh-dd-item:focus-visible{ outline:2px solid var(--sh-primary); outline-offset:-2px; }
+    .sh-dd-item b{ display:block; font-size:14.5px; }
+    .sh-dd-item small{ display:block; color:var(--sh-muted); font-size:12.5px; }
+    .sh-di-ico{ flex:0 0 auto; display:flex; align-items:center; justify-content:center; width:36px; height:36px;
+                border-radius:10px; background:var(--sh-primary-soft); color:var(--sh-primary); }
+    .sh-di-ico svg{ width:18px; height:18px; }
+    .sh-dd-item.danger .sh-di-ico{ background:var(--sh-danger-soft); color:var(--sh-danger); }
+    .sh-dd-item.danger b{ color:var(--sh-danger); }
+    .sh-dd-empty{ padding:26px 12px; text-align:center; color:var(--sh-muted); font-size:14px; }
+
+    /* Notificaciones */
+    .sh-notif-lista{ max-height:360px; overflow-y:auto; overscroll-behavior:contain; }
+    .sh-notif-item{ position:relative; align-items:flex-start; padding-right:36px; }
+    .sh-notif-item .sh-di-ico{ width:34px; height:34px; }
+    .sh-notif-item.is-warn .sh-di-ico{ background:rgba(245,158,11,.14); color:#d97706; }
+    .sh-notif-item.is-error .sh-di-ico{ background:var(--sh-danger-soft); color:var(--sh-danger); }
+    .sh-notif-txt{ min-width:0; flex:1; }
+    .sh-notif-txt b{ font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sh-notif-txt small{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sh-notif-txt .sh-notif-hora{ font-size:11.5px; }
+    .sh-notif-item.is-unread .sh-notif-txt b::after{ content:""; display:inline-block; width:6px; height:6px; margin-left:6px;
+                                                     vertical-align:middle; border-radius:50%; background:var(--sh-primary); }
+    .sh-notif-quitar{ position:absolute; top:10px; right:8px; display:flex; align-items:center; justify-content:center; width:24px; height:24px;
+                      border:0; border-radius:7px; background:none; color:var(--sh-muted); font-size:17px; line-height:1; cursor:pointer; opacity:0;
+                      transition:opacity .14s ease, background .14s ease; }
+    .sh-notif-item:hover .sh-notif-quitar, .sh-notif-quitar:focus-visible{ opacity:1; }
+    .sh-notif-quitar:hover{ background:var(--sh-border); color:var(--sh-text); }
+    .sh-notif-todas{ padding:0; border:0; background:transparent; color:var(--sh-primary); font:inherit; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; }
+    .sh-notif-todas:hover{ text-decoration:underline; }
+    .sh-notif-todas[hidden]{ display:none; }
+
+    /* ---------- Contenido ---------- */
+    .sh-content{ min-height:calc(100vh - var(--topbar-h)); padding:26px; background:var(--sh-page-bg); }
+    .sh-content.content--flush{ padding:0; }
+
+    /* Pantallas que todavía no están preparadas para el modo oscuro: se
+       quedan en claro dentro del marco oscuro. Sus colores son fijos y al
+       oscurecerlas el texto quedaría invisible. */
+    .sh-content[data-tema-fijo="claro"]{ --sh-page-bg:#f4f7fc; color-scheme:light; color:#111827; }
+
+    /* En oscuro, el calendario y el reloj de los campos nativos se ven blancos */
+    :root[data-theme="dark"] .sh-content:not([data-tema-fijo]) input[type=date]::-webkit-calendar-picker-indicator,
+    :root[data-theme="dark"] .sh-content:not([data-tema-fijo]) input[type=time]::-webkit-calendar-picker-indicator,
+    :root[data-theme="dark"] .sh-content:not([data-tema-fijo]) input[type=datetime-local]::-webkit-calendar-picker-indicator{ filter:invert(1) brightness(1.6); cursor:pointer; }
+
+    /* En oscuro una sombra negra no se ve: se marca el borde con luz tenue */
+    :root[data-theme="dark"] .sh-topbar{ box-shadow:0 1px 0 rgba(255,255,255,.06), 0 2px 8px rgba(0,0,0,.4); }
+    :root[data-theme="dark"] .sh-sidebar{ box-shadow:1px 0 0 rgba(255,255,255,.06), 2px 0 8px rgba(0,0,0,.4); }
+    :root[data-theme="dark"] .sh-nav-item.active{ box-shadow:0 8px 20px rgba(10,132,255,.25); }
+
+    .sh-overlay{ display:none; position:fixed; inset:0; z-index:55; background:rgba(2,6,23,.5); }
+
+    /* Compatibilidad: estilo base de .chip que algunas pantallas usan sin
+       definirlo. Con :where() pesa cero y cualquier definición propia gana. */
+    :where(.chip){ padding:4px 8px; border-radius:999px; background:rgba(47,109,246,.08); color:#1f4db8; font-size:.75rem; font-weight:600; }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width:1024px){
+      .sh-hamburger{ display:flex; }
+      .sh-app, .sh-app.collapsed{ grid-template-columns:minmax(0, 1fr); }
+      .sh-sidebar{ position:fixed; top:0; left:0; z-index:60; width:min(var(--sh-sidebar-w), 86vw);
+                   transform:translateX(-100%); transition:transform .25s cubic-bezier(.4,0,.2,1); }
+      .sh-app.sidebar-open .sh-sidebar{ transform:translateX(0); }
+      .sh-app.sidebar-open .sh-overlay{ display:block; }
+      .sh-collapse{ display:none; }
+
+      /* El cajón del teléfono siempre se ve completo, aunque en escritorio
+         se haya dejado contraído. */
+      .sh-app.collapsed .sh-sidebar{ padding-left:16px; padding-right:16px; }
+      .sh-app.collapsed .sh-brand{ justify-content:flex-start; gap:11px; padding:4px 6px 18px; }
+      .sh-app.collapsed .sh-brand-logo{ width:44px; height:44px; margin:0; }
+      .sh-app.collapsed .sh-brand-text, .sh-app.collapsed .sh-nav-label{ width:auto; opacity:1; transform:none; pointer-events:auto; }
+      .sh-app.collapsed .sh-nav-item{ justify-content:flex-start; gap:13px; }
+      .sh-app.collapsed .sh-nav-chev{ display:block; }
+      .sh-app.collapsed .sh-nav-section{ height:auto; margin:0; padding:15px 13px 5px; color:var(--sh-muted); background:none; }
+      .sh-app.collapsed .sh-sub-wrap{ display:grid; }
+      .sh-app.collapsed .sh-nav-group .sh-submenu{ position:static; min-width:0; margin-left:22px; padding:0 0 0 11px; overflow:hidden;
+          border:0; border-left:1px solid var(--sh-border); border-radius:0; background:none; box-shadow:none;
+          opacity:1; transform:none; pointer-events:auto; }
+      .sh-app.collapsed .sh-submenu > :first-child{ margin-top:4px; }
+      .sh-app.collapsed .sh-submenu > :last-child{ margin-bottom:6px; }
+      .sh-app.collapsed .sh-submenu .sh-nav-item{ opacity:.0001; transform:translateX(-4px); }
+      .sh-app.collapsed .sh-nav-group.open .sh-submenu .sh-nav-item{ opacity:1; transform:none; }
+      .sh-app.collapsed .sh-submenu::before{ display:none; }
+      .sh-tip{ display:none; }
+    }
+    @media (max-width:640px){
+      :root{ --topbar-h:58px; }
+      .sh-content{ padding:16px; }
+      .sh-topbar{ gap:8px; padding:10px 14px; }
+      .sh-topbar-titulo{ flex:1; }
+      .sh-page-title{ font-size:17px; }
+      .sh-page-sub, .sh-spacer, .sh-user-name, .sh-user-btn .sh-chev{ display:none; }
+      .sh-icon-btn{ width:36px; height:36px; }
+      .sh-icon-btn svg{ width:18px; height:18px; }
+      .sh-hamburger{ width:38px; height:38px; }
+      .sh-user-btn{ padding:0; border:0; background:none; }
+      .sh-dd-panel, .sh-dd-panel--notif{ position:fixed; top:64px; right:10px; left:10px; width:auto; }
+    }
+    /* ---------- Animaciones sutiles ---------- */
+    /* Cambio de tema con View Transitions: el nuevo tema se revela con un círculo
+       que se expande desde el botón. Es UNA sola animación compositada (fluida),
+       en vez de transicionar el color de cada elemento a la vez (eso trababa). */
+    ::view-transition-old(root),
+    ::view-transition-new(root){ animation:none; mix-blend-mode:normal; }
+    html[data-tema-vt="active"]::view-transition-group(root){ animation-duration:var(--tema-vt-dur, 450ms); }
+    html[data-tema-vt="active"]::view-transition-new(root){ clip-path:var(--tema-vt-clip-from); }
+    #shTema svg{ transition:transform .45s var(--sh-ease); }
+    #shTema.gira svg{ transform:rotate(-90deg) scale(.85); }
+
+    /* El número de notificaciones "salta" cuando llega una nueva */
+    @keyframes sh-pop{ 0%{ transform:scale(.6); } 60%{ transform:scale(1.18); } 100%{ transform:scale(1); } }
+    .sh-notif-num.pop{ animation:sh-pop .45s var(--sh-ease); }
+    @keyframes sh-campana{ 0%,100%{ transform:rotate(0); } 20%{ transform:rotate(-12deg); } 45%{ transform:rotate(9deg); } 70%{ transform:rotate(-5deg); } }
+    .sh-icon-btn.suena > svg{ animation:sh-campana .7s ease; transform-origin:50% 10%; }
+
+    /* Los desplegables entran con un pequeño desliz de sus opciones */
+    .sh-dd.open .sh-dd-item{ animation:sh-entra .26s var(--sh-ease) both; }
+    .sh-dd.open .sh-dd-item:nth-child(3){ animation-delay:.03s; }
+    .sh-dd.open .sh-dd-item:nth-child(4){ animation-delay:.06s; }
+    @keyframes sh-entra{ from{ opacity:0; transform:translateY(-4px); } to{ opacity:1; transform:none; } }
+
+    .sh-avatar{ transition:box-shadow .2s ease; }
+    .sh-user-btn:hover .sh-avatar{ box-shadow:0 0 0 3px var(--sh-primary-soft); }
+
+    @media (prefers-reduced-motion:reduce){
+      .sh-app, .sh-sidebar, .sh-brand-text, .sh-nav-label, .sh-collapse, .sh-collapse svg, .sh-nav-chev, .sh-nav-item,
+      .sh-nav-item > svg:first-child, .sh-sub-wrap, .sh-submenu .sh-nav-item, .sh-dd-panel, .sh-app .sh-submenu, .sh-tip,
+      #shTema svg{ transition:none !important; }
+      .sh-notif-num.pop, .sh-icon-btn.suena > svg, .sh-dd.open .sh-dd-item{ animation:none !important; }
+      html.sh-tema-anim *{ transition:none !important; }
     }
-
-    body.lock-scroll{
-      overflow:hidden;
-      touch-action:none;
-    }
-
-    *:focus-visible{
-      outline:2px solid rgba(47,109,246,.24);
-      outline-offset:2px;
-    }
-
-    .avatar,
-    .avatar.avatar--sm{
-      position:relative;
-      overflow:hidden;
-      border-radius:50%;
-      flex-shrink:0;
-    }
-
-    .avatar img,
-    .avatar.avatar--sm img{
-      width:100%;
-      height:100%;
-      object-fit:cover;
-      display:block;
-    }
-
-    .avatar img + span,
-    .avatar.avatar--sm img + span{
-      display:none !important;
-    }
-
-    .avatar-link{
-      display:inline-flex;
-      border-radius:50%;
-      text-decoration:none;
-      line-height:0;
-      position:relative;
-    }
-
-    .shell{
-      min-height:100vh;
-      display:flex;
-      flex-direction:column;
-      transition:filter .28s ease;
-      background:transparent;
-    }
-
-    .shell.dimmed{
-      filter: blur(1.5px) saturate(.96);
-    }
-
-    .sidebar{
-      position:fixed;
-      left:0;
-      top:0;
-      bottom:0;
-      width:var(--sidebar-w);
-      max-width:calc(100vw - 14px);
-      background:#ffffff;
-      backdrop-filter:none;
-      -webkit-backdrop-filter:none;
-      border-right:1px solid rgba(202,215,235,.72);
-      transform:translateX(-105%);
-      transition:transform .42s cubic-bezier(.16,1,.3,1);
-      z-index:70;
-      box-shadow:var(--shadow-lg);
-      will-change:transform;
-      display:flex;
-      flex-direction:column;
-      overflow:hidden;
-    }
-
-    .sidebar::before{
-      content:"";
-      position:absolute;
-      top:-110px;
-      right:-80px;
-      width:180px;
-      height:180px;
-      background:radial-gradient(circle, rgba(47,109,246,.14), transparent 70%);
-      pointer-events:none;
-    }
-
-    .sidebar::after{
-      content:"";
-      position:absolute;
-      bottom:-100px;
-      left:-80px;
-      width:180px;
-      height:180px;
-      background:radial-gradient(circle, rgba(255,92,168,.08), transparent 72%);
-      pointer-events:none;
-    }
-
-    .sidebar.is-open{
-      transform:translateX(0);
-    }
-
-    .backdrop{
-      position:fixed;
-      inset:0;
-      background:rgba(12,18,31,.40);
-      backdrop-filter:blur(2px);
-      -webkit-backdrop-filter:blur(2px);
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .28s ease;
-      z-index:60;
-    }
-
-    .backdrop.is-show{
-      opacity:1;
-      pointer-events:auto;
-    }
-
-    .sidebar__head{
-      position:relative;
-      z-index:1;
-      display:flex;
-      align-items:flex-start;
-      gap:12px;
-      padding:14px 14px 12px;
-      border-bottom:1px solid rgba(202,215,235,.65);
-      background:#ffffff;
-    }
-
-    .sidebar__close{
-      margin-left:auto;
-      background:rgba(15,23,42,.03);
-      border:1px solid rgba(202,215,235,.78);
-      cursor:pointer;
-      color:#475569;
-      width:36px;
-      height:36px;
-      border-radius:12px;
-      display:grid;
-      place-items:center;
-      transition:background .2s ease, transform .12s ease, color .2s ease, box-shadow .2s ease;
-      box-shadow:0 4px 10px rgba(15,23,42,.04);
-      flex-shrink:0;
-    }
-
-    .sidebar__close:hover{
-      background:rgba(47,109,246,.10);
-      color:var(--primary);
-      box-shadow:0 10px 20px rgba(47,109,246,.10);
-    }
-
-    .sidebar__close:active{
-      transform:scale(.97);
-    }
-
-    .user{
-      display:flex;
-      gap:12px;
-      align-items:center;
-      min-width:0;
-      flex:1;
-    }
-
-    .avatar{
-      width:46px;
-      height:46px;
-      border-radius:15px;
-      background:linear-gradient(135deg, #1e3a8a, #2f6df6 55%, #7aa6ff);
-      color:#fff;
-      display:grid;
-      place-items:center;
-      font-weight:700;
-      box-shadow:0 10px 22px rgba(47,109,246,.18);
-      border:2px solid rgba(255,255,255,.85);
-    }
-
-    .avatar--sm{
-      width:36px;
-      height:36px;
-      border-radius:50%;
-      background:linear-gradient(135deg, #1e3a8a, #2f6df6 55%, #7aa6ff);
-      color:#fff;
-      display:grid;
-      place-items:center;
-      font-weight:700;
-      border:2px solid rgba(255,255,255,.92);
-      box-shadow:0 8px 16px rgba(47,109,246,.13);
-    }
-
-    .user__meta{
-      line-height:1.08;
-      min-width:0;
-    }
-
-    .user__name{
-      font-size:.95rem;
-      font-weight:700;
-      color:#1e293b;
-      word-break:break-word;
-    }
-
-    .user__mail{
-      color:#667085;
-      font-size:.85rem;
-      margin-top:4px;
-      word-break:break-word;
-    }
-
-    .user__roles{
-      margin-top:8px;
-      display:flex;
-      gap:6px;
-      flex-wrap:wrap;
-    }
-
-    .chip{
-      padding:4px 8px;
-      border-radius:999px;
-      background:rgba(47,109,246,.08);
-      color:#1f4db8;
-      font-size:.68rem;
-      font-weight:700;
-      border:1px solid rgba(47,109,246,.13);
-      transition:transform .12s ease, box-shadow .18s ease;
-    }
-
-    .chip:hover{
-      transform:translateY(-1px);
-      box-shadow:0 8px 14px rgba(47,109,246,.08);
-    }
-
-    .content.content--flush {
-      padding: 0;
-    }
-
-    .side-nav{
-      position:relative;
-      z-index:1;
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-      padding:10px 10px 12px;
-      overflow:auto;
-      overscroll-behavior:contain;
-      scrollbar-width:none;
-      -ms-overflow-style:none;
-      flex:1;
-      -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-h), #000 calc(100% - var(--fade-h)), transparent 100%);
-              mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-h), #000 calc(100% - var(--fade-h)), transparent 100%);
-    }
-
-    .side-nav::-webkit-scrollbar{
-      display:none;
-    }
-
-    .nav__link,
-    .nav__sublink,
-    .side-nav .nav__group > summary{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      width:100%;
-      padding:10px 11px;
-      border-radius:14px;
-      color:#1f2937;
-      text-decoration:none;
-      transition:
-        background .18s ease,
-        color .18s ease,
-        transform .12s ease,
-        box-shadow .18s ease,
-        border-color .18s ease;
-      border:1px solid transparent;
-      position:relative;
-      min-height:44px;
-    }
-
-    .nav__link svg,
-    .nav__sublink svg,
-    .side-nav .nav__group > summary svg{
-      flex-shrink:0;
-    }
-
-    .nav__link > span,
-    .nav__sublink > span,
-    .side-nav .nav__group > summary > span{
-      font-size:.97rem;
-      font-weight:600;
-      letter-spacing:.01em;
-    }
-
-    .nav__link:hover,
-    .nav__sublink:hover,
-    .side-nav .nav__group > summary:hover{
-      background:linear-gradient(180deg, #ffffff, #f3f7ff);
-      color:#0f172a;
-      transform:translateX(2px);
-      border-color:rgba(47,109,246,.12);
-      box-shadow:0 10px 20px rgba(15,23,42,.05);
-    }
-
-    .nav__link.is-active,
-    .nav__sublink.is-active,
-    .side-nav .nav__group > summary.is-active{
-      background:linear-gradient(180deg, #f1f6ff, #e8f0ff);
-      color:#1447b8;
-      border-color:rgba(47,109,246,.18);
-      box-shadow:0 10px 20px rgba(47,109,246,.08);
-    }
-
-    .nav__link.is-active::before,
-    .nav__sublink.is-active::before,
-    .side-nav .nav__group > summary.is-active::before{
-      content:"";
-      position:absolute;
-      left:7px;
-      top:8px;
-      bottom:8px;
-      width:3px;
-      border-radius:999px;
-      background:linear-gradient(180deg, var(--primary), #7ea6ff);
-    }
-
-    .side-nav .nav__group{
-      margin:0;
-    }
-
-    .side-nav .nav__group > summary{
-      list-style:none;
-      cursor:pointer;
-      user-select:none;
-    }
-
-    .side-nav .nav__group > summary::-webkit-details-marker{
-      display:none;
-    }
-
-    .side-nav .nav__group[open] > summary{
-      background:linear-gradient(180deg, #f7faff, #eef4ff);
-      border-color:rgba(47,109,246,.12);
-    }
-
-    .side-nav .nav__group[open]{
-      background:rgba(255,255,255,.45);
-      border-radius:15px;
-    }
-
-    .nav__chev{
-      margin-left:auto;
-      transition:transform .22s ease, opacity .18s ease;
-      opacity:.72;
-    }
-
-    .side-nav .nav__group[open] .nav__chev{
-      transform:rotate(90deg);
-      opacity:1;
-    }
-
-    .nav__submenu{
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-      padding:4px 0 5px 12px;
-      margin-left:14px;
-      border-left:1px dashed rgba(47,109,246,.18);
-    }
-
-    .nav__submenu .nav__sublink{
-      min-height:40px;
-      border-radius:12px;
-      padding:9px 10px;
-    }
-
-    .logout{
-      position:relative;
-      z-index:1;
-      padding:12px 10px 12px;
-      border-top:1px solid rgba(202,215,235,.65);
-      background:linear-gradient(180deg, rgba(255,255,255,.84), rgba(251,252,255,.95));
-    }
-
-    .btn-logout{
-      width:100%;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:12px 13px;
-      border-radius:17px;
-      background:linear-gradient(180deg, #fff1f3, #ffe6eb);
-      color:#b42341;
-      border:1px solid rgba(230,96,126,.20);
-      cursor:pointer;
-      font-weight:700;
-      font-size:.96rem;
-      box-shadow:0 8px 20px rgba(180,35,65,.08);
-      transition:transform .10s ease, box-shadow .18s ease, filter .18s ease;
-    }
-
-    .btn-logout:hover{
-      filter:brightness(1.01);
-      box-shadow:0 12px 24px rgba(180,35,65,.10);
-      transform:translateY(-1px);
-    }
-
-    .btn-logout:active{
-      transform:scale(.99);
-    }
-
-    .topbar{
-      position:sticky;
-      top:0;
-      z-index:40;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:8px 14px;
-      background:#ffffff;
-      backdrop-filter:none;
-      -webkit-backdrop-filter:none;
-      border-bottom:1px solid rgba(202,215,235,.72);
-      min-height:var(--topbar-h);
-    }
-
-    .topbar::after{
-      content:"";
-      position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
-      height:1px;
-      background:linear-gradient(90deg, transparent, rgba(47,109,246,.14), transparent);
-      pointer-events:none;
-    }
-
-    .icon-btn{
-      background:#ffffff;
-      border:1px solid rgba(202,215,235,.78);
-      cursor:pointer;
-      color:#243041;
-      width:38px;
-      height:38px;
-      border-radius:13px;
-      display:grid;
-      place-items:center;
-      transition:
-        background .18s ease,
-        transform .08s ease,
-        color .18s ease,
-        box-shadow .18s ease,
-        border-color .18s ease;
-      box-shadow:0 6px 16px rgba(15,23,42,.05);
-      backdrop-filter:none;
-      -webkit-backdrop-filter:none;
-      flex-shrink:0;
-    }
-
-    .icon-btn:hover{
-      background:#fff;
-      color:var(--primary);
-      border-color:rgba(47,109,246,.16);
-      box-shadow:0 10px 20px rgba(47,109,246,.10);
-      transform:translateY(-1px);
-    }
-
-    .icon-btn:active{
-      transform:scale(.98);
-    }
-
-    .topbar__title{
-      font-size:1.05rem;
-      font-weight:700;
-      color:#111827;
-      letter-spacing:.01em;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    .topbar__right{
-      margin-left:auto;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-width:0;
-    }
-
-    .notif{
-      position:relative;
-    }
-
-    .dot{
-      position:absolute;
-      top:-4px;
-      right:-4px;
-      min-width:24px;
-      height:24px;
-      padding:0 6px;
-      background:linear-gradient(180deg, #ef4444, #b91c1c);
-      color:#fff;
-      border-radius:999px;
-      box-shadow:
-        0 0 0 3px rgba(245,247,252,.95),
-        0 10px 20px rgba(185,28,28,.28);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:.68rem;
-      font-weight:700;
-      letter-spacing:.01em;
-      animation: dotPulse 2.2s infinite cubic-bezier(.66,0,0,1);
-      white-space:nowrap;
-    }
-
-    @keyframes dotPulse{
-      0%,100%{ transform:scale(1); opacity:1; }
-      50%{ transform:scale(1.08); opacity:.92; }
-    }
-
-    .notif__panel{
-      position:absolute;
-      right:0;
-      top:46px;
-      width:360px;
-      max-width:min(92vw, 360px);
-      background:rgba(255,255,255,.98);
-      border:1px solid rgba(202,215,235,.8);
-      border-radius:20px;
-      box-shadow:0 22px 46px rgba(15,23,42,.16);
-      opacity:0;
-      transform:translateY(-8px) scale(.985);
-      pointer-events:none;
-      transition:opacity .18s ease, transform .22s cubic-bezier(.22,1,.36,1);
-      overflow:hidden;
-      z-index:85;
-      backdrop-filter:blur(14px);
-      -webkit-backdrop-filter:blur(14px);
-    }
-
-    .notif__panel.is-open{
-      opacity:1;
-      transform:translateY(0) scale(1);
-      pointer-events:auto;
-    }
-
-    .notif__head{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
-      padding:14px 14px 12px;
-      border-bottom:1px solid rgba(219,228,242,.92);
-      background:linear-gradient(180deg, #ffffff, #f6f9ff);
-    }
-
-    .notif__head-main{
-      min-width:0;
-    }
-
-    .notif__title{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-size:1rem;
-      font-weight:700;
-      color:#111827;
-      line-height:1.1;
-    }
-
-    .notif__subtitle{
-      margin-top:4px;
-      color:#667085;
-      font-size:.84rem;
-      font-weight:600;
-    }
-
-    .notif__markall{
-      background:none;
-      border:none;
-      padding:0;
-      margin:0;
-      color:var(--danger-2);
-      font-weight:700;
-      font-size:.84rem;
-      cursor:pointer;
-      white-space:nowrap;
-      transition:opacity .18s ease, transform .12s ease, color .18s ease;
-    }
-
-    .notif__markall:hover{
-      opacity:.92;
-      transform:translateY(-1px);
-      color:var(--danger-3);
-    }
-
-    .notif__list{
-      max-height:380px;
-      overflow:auto;
-      overscroll-behavior:contain;
-      padding:8px;
-      background:linear-gradient(180deg, #fbfcff, #f7f9ff);
-    }
-
-    .notif__list::-webkit-scrollbar{ width:7px; }
-    .notif__list::-webkit-scrollbar-thumb{ background:rgba(148,163,184,.38); border-radius:999px; }
-
-    .notif__empty{
-      padding:18px 14px;
-      font-size:.9rem;
-      color:var(--muted);
-      text-align:center;
-    }
-
-    .notif__item{
-      position:relative;
-      display:grid;
-      grid-template-columns:42px 1fr;
-      gap:10px;
-      padding:11px 11px;
-      border:1px solid rgba(219,228,242,.96);
-      border-radius:16px;
-      background:linear-gradient(180deg, #ffffff, #fbfdff);
-      margin-bottom:8px;
-      transition:transform .14s ease, box-shadow .18s ease, border-color .18s ease, opacity .18s ease;
-      cursor:pointer;
-      padding-right:38px;
-    }
-
-    .notif__item:last-child{ margin-bottom:0; }
-    .notif__item:hover{ transform:translateY(-1px); border-color:rgba(239,68,68,.18); box-shadow:0 12px 22px rgba(15,23,42,.07); }
-    .notif__item.is-unread{ background:linear-gradient(180deg, #fffefe, #fff4f5); border-color:rgba(239,68,68,.18); box-shadow:0 10px 22px rgba(239,68,68,.06); }
-    .notif__item.is-unread::before{ content:""; position:absolute; left:0; top:10px; bottom:10px; width:4px; border-radius:999px; background:linear-gradient(180deg, #ef4444, #dc2626); }
-    .notif__item.is-read{ opacity:.92; }
-
-    .notif__icon{ width:34px; height:34px; border-radius:11px; display:grid; place-items:center; background:linear-gradient(180deg, #fff0f0, #ffe4e6); color:#b91c1c; border:1px solid rgba(239,68,68,.14); box-shadow:inset 0 1px 0 rgba(255,255,255,.65); margin-top:1px; }
-    .notif__item.warn .notif__icon{ background:linear-gradient(180deg, #fff8e8, #fff2cf); color:#9a6700; border-color:rgba(245,158,11,.14); }
-    .notif__item.error .notif__icon{ background:linear-gradient(180deg, #fff0f0, #ffe1e1); color:#b42318; border-color:rgba(239,68,68,.14); }
-
-    .notif__content{ min-width:0; }
-    .notif__text{ color:#991b1b; font-size:.92rem; font-weight:700; line-height:1.22; margin-bottom:3px; word-break:break-word; padding-right:4px; }
-    .notif__msg{ color:#7f1d1d; font-size:.84rem; line-height:1.28; word-break:break-word; }
-    .notif__item.is-read .notif__text{ color:#334155; }
-    .notif__item.is-read .notif__msg{ color:#6b7280; }
-    .notif__meta{ display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin-top:8px; }
-    .notif__time{ color:#7c8798; font-size:.8rem; font-weight:700; }
-    .notif__sep{ color:#b2bccb; font-size:.8rem; }
-
-    .pill{ padding:4px 8px; border-radius:999px; font-size:.66rem; font-weight:700; align-self:flex-start; border:1px solid transparent; line-height:1; }
-    .pill--info{ background:#fee2e2; color:#b91c1c; border-color:rgba(239,68,68,.16); }
-    .pill--warn{ background:#fff3d4; color:#956100; border-color:rgba(245,158,11,.16); }
-    .pill--error{ background:#fee5e5; color:#b42318; border-color:rgba(239,68,68,.14); }
-
-    .notif__item-close{ position:absolute; top:10px; right:10px; width:23px; height:23px; border-radius:999px; border:none; background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; color:#dc2626; transition:background .16s ease,color .16s ease,transform .08s ease, box-shadow .16s ease; }
-    .notif__item-close:hover{ background:rgba(239,68,68,.12); color:#b91c1c; box-shadow:0 6px 14px rgba(239,68,68,.14); }
-    .notif__item-close:active{ transform:scale(.94); }
-
-    .notif__footer{ padding:8px 10px 10px; border-top:1px solid rgba(219,228,242,.92); background:linear-gradient(180deg, #ffffff, #f9fbff); }
-    .notif__link{ display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:10px 12px; text-decoration:none; color:#b91c1c; border-radius:14px; border:1px solid rgba(239,68,68,.14); font-weight:700; font-size:.88rem; text-align:center; background:linear-gradient(180deg, #fff4f5, #ffecee); cursor:pointer; transition:transform .12s ease, box-shadow .18s ease, filter .18s ease, color .18s ease; }
-    .notif__link:hover{ transform:translateY(-1px); box-shadow:0 10px 18px rgba(239,68,68,.10); filter:brightness(1.01); color:#991b1b; }
-
-    .content{ padding:18px; min-height:calc(100vh - var(--topbar-h)); background:transparent; }
-    .no-anim *{ transition:none !important; animation:none !important; }
-
-    @media (max-width: 991.98px){
-      :root{ --topbar-h:56px; --sidebar-w:300px; }
-      .topbar{ padding:8px 12px; }
-      .topbar__title{ font-size:1rem; }
-      .content{ padding:15px; }
-      .notif__panel{ width:340px; }
-    }
-
-    @media (max-width: 767.98px){
-      :root{ --topbar-h:54px; --sidebar-w:88vw; }
-      .sidebar{ max-width:88vw; }
-      .sidebar__head{ padding:12px 12px 11px; }
-      .avatar{ width:42px; height:42px; border-radius:14px; }
-      .user__name{ font-size:.92rem; }
-      .user__mail{ font-size:.81rem; }
-      .topbar{ gap:8px; padding:8px 10px; }
-      .icon-btn{ width:36px; height:36px; border-radius:12px; }
-      .topbar__title{ font-size:.96rem; }
-      .topbar__right{ gap:8px; }
-      .avatar--sm{ width:34px; height:34px; }
-      .dot{ min-width:22px; height:22px; font-size:.64rem; padding:0 6px; }
-      .notif__panel{ position:fixed; left:8px; right:8px; top:62px; width:auto; max-width:none; border-radius:18px; }
-      .notif__head{ padding:12px 12px 10px; }
-      .notif__title{ font-size:.95rem; }
-      .notif__subtitle{ font-size:.8rem; }
-      .notif__list{ max-height:min(58vh, 450px); padding:8px; }
-      .notif__item{ grid-template-columns:38px 1fr; gap:9px; padding:10px; padding-right:34px; border-radius:15px; }
-      .notif__icon{ width:32px; height:32px; border-radius:10px; }
-      .notif__text{ font-size:.88rem; }
-      .notif__msg{ font-size:.8rem; }
-      .notif__time{ font-size:.77rem; }
-      .nav__link > span, .nav__sublink > span, .side-nav .nav__group > summary > span{ font-size:.93rem; }
-      .btn-logout{ border-radius:16px; padding:11px 12px; }
-      .content{ padding:12px; }
-    }
-
-    @media (max-width: 420px){
-      .topbar__title{ max-width:130px; }
-      .notif__panel{ left:6px; right:6px; top:60px; }
-      .sidebar__close{ width:34px; height:34px; }
-    }
-
-    /* ✅ Ajuste final: header y menú en blanco puro */
-    .topbar{
-      background:#ffffff !important;
-      backdrop-filter:none !important;
-      -webkit-backdrop-filter:none !important;
-    }
-
-    .icon-btn,
-    #btnSidebar{
-      background:#ffffff !important;
-      backdrop-filter:none !important;
-      -webkit-backdrop-filter:none !important;
-    }
-
-    .sidebar,
-    .sidebar__head{
-      background:#ffffff !important;
-      backdrop-filter:none !important;
-      -webkit-backdrop-filter:none !important;
-    }
-
   </style>
+
+  {{-- Los estilos de cada pantalla van después para que ganen sobre los del marco --}}
+  @stack('styles')
 </head>
 
-<body class="app">
-  <aside id="sidebar" class="sidebar" aria-hidden="true" aria-label="Menú lateral">
-    <div class="sidebar__head">
-      <div class="user">
-        @php
-          $u  = auth()->user();
-          $nm = $u?->name ?? 'Usuario';
-          $ini = mb_strtoupper(mb_substr($nm,0,1));
+@php
+  use Illuminate\Support\Facades\Route as R;
 
-          $isAdmin   = $u && method_exists($u,'hasRole') ? $u->hasRole('admin') : false;
-          $isManager = $u && method_exists($u,'hasRole') ? $u->hasRole('manager') : false;
-          $restrictManager = $isManager && !$isAdmin;
+  $u  = auth()->user();
+  $nm = $u?->name ?? 'Usuario';
+  $iniciales = mb_strtoupper(collect(explode(' ', trim($nm)))->filter()->take(2)->map(fn ($p) => mb_substr($p, 0, 1))->implode('')) ?: 'U';
 
-          // ✅ IDs con acceso a Bitácora de Parte Contable
-          $bitacoraUserIds = [2, 18];
-          $canSeeBitacora  = $u && in_array($u->id, $bitacoraUserIds);
+  $isAdmin   = $u && method_exists($u, 'hasRole') ? $u->hasRole('admin') : false;
+  $isManager = $u && method_exists($u, 'hasRole') ? $u->hasRole('manager') : false;
+  $restrictManager = $isManager && ! $isAdmin;
 
-          $baseAvatar = null;
-          if ($u && !empty($u->avatar_url)) { $baseAvatar = $u->avatar_url; }
-          if (!$baseAvatar && $u && !empty($u->email)) {
-              $hash = md5(strtolower(trim($u->email)));
-              $baseAvatar = "https://www.gravatar.com/avatar/{$hash}?s=300&d=mp";
-          }
-          $ver = null;
-          if ($u && !empty($u->avatar_updated_at)) {
-              $ver = $u->avatar_updated_at instanceof \Illuminate\Support\Carbon ? $u->avatar_updated_at->timestamp : strtotime($u->avatar_updated_at);
-          } elseif ($u && !empty($u->updated_at)) {
-              $ver = $u->updated_at instanceof \Illuminate\Support\Carbon ? $u->updated_at->timestamp : strtotime($u->updated_at);
-          }
+  // IDs con acceso a la Bitácora de Parte Contable
+  $canSeeBitacora = $u && in_array($u->id, [2, 18]);
+
+  // Foto solo si subió una; si no, se muestran sus iniciales.
+  $avatarSrc = null;
+  if ($u && ! empty($u->avatar_path)) {
+      try {
+          $avatarSrc = $u->avatar_url;
+      } catch (\Throwable $e) {
           $avatarSrc = null;
-          if (!empty($baseAvatar)) {
-              $sep = (strpos($baseAvatar, '?') !== false) ? '&' : '?';
-              $avatarSrc = $baseAvatar . ($ver ? ($sep.'v='.$ver) : '');
-          }
-          $fallbackMp = ($u && !empty($u->email))
-              ? "https://www.gravatar.com/avatar/".md5(strtolower(trim($u->email)))."?s=300&d=mp"
-              : "https://www.gravatar.com/avatar/?s=300&d=mp";
+      }
+  }
 
-          if (\Illuminate\Support\Facades\Route::has('profile.show')) {
-              $profileHref = route('profile.show');
-          } elseif (\Illuminate\Support\Facades\Route::has('profile')) {
-              $profileHref = route('profile');
-          } else {
-              $profileHref = url('/panel/perfil');
-          }
+  $ruta = fn (string $nombre, array $p = []) => R::has($nombre) ? route($nombre, $p) : null;
 
-          if (\Illuminate\Support\Facades\Route::has('notifications.feed')) {
-              $notifFeedUrl = route('notifications.feed');
-          } else {
-              $notifFeedUrl = url('/notifications/feed');
-          }
-          if (\Illuminate\Support\Facades\Route::has('notifications.read-all')) {
-              $notifReadAllUrl = route('notifications.read-all');
-          } else {
-              $notifReadAllUrl = url('/notifications/read-all');
-          }
-          if (\Illuminate\Support\Facades\Route::has('notifications.read-one')) {
-              $notifReadOneUrl = route('notifications.read-one', ['notification' => '__ID__']);
-          } else {
-              $notifReadOneUrl = url('/notifications/__ID__/read');
-          }
-        @endphp
+  $profileHref = $ruta('profile.show') ?? $ruta('profile') ?? url('/panel/perfil');
+  $notifFeedUrl    = $ruta('notifications.feed') ?? url('/notifications/feed');
+  $notifReadAllUrl = $ruta('notifications.read-all') ?? url('/notifications/read-all');
+  $notifReadOneUrl = R::has('notifications.read-one')
+      ? route('notifications.read-one', ['notification' => '__ID__'])
+      : url('/notifications/__ID__/read');
 
-        <a href="{{ $profileHref }}" class="avatar-link" title="Ver mi perfil">
-          <div class="avatar" aria-hidden="true">
-            @if($avatarSrc)
-              <img src="{{ $avatarSrc }}" alt="Avatar de {{ $nm }}" onerror="this.onerror=null;this.src='{{ $fallbackMp }}';">
-              <span>{{ $ini }}</span>
-            @else
-              <img src="{{ $fallbackMp }}" alt="Avatar de {{ $nm }}">
-              <span>{{ $ini }}</span>
-            @endif
-          </div>
-        </a>
+  // ---------------- Menú ----------------
+  // Un acceso: si su ruta no existe se descarta solo y no rompe la página.
+  $item = fn (string $label, ?string $href, bool $activo = false) => $href ? ['label' => $label, 'href' => $href, 'activo' => $activo] : null;
+  $en   = fn (...$patrones) => request()->routeIs(...$patrones);
+  $grupo = function (string $label, string $icono, array $items) {
+      $items = array_values(array_filter($items));
+      if (! $items) return null;
+      $abierto = collect($items)->contains(fn ($i) => ! empty($i['activo']));
+      return ['tipo' => 'grupo', 'label' => $label, 'icon' => $icono, 'items' => $items, 'abierto' => $abierto];
+  };
+  $enlace = fn (string $label, string $icono, ?string $href, bool $activo = false) => $href
+      ? ['tipo' => 'link', 'label' => $label, 'icon' => $icono, 'href' => $href, 'activo' => $activo]
+      : null;
 
-        <div class="user__meta">
-          <div class="user__name">{{ $nm }}</div>
-          <div class="user__mail">{{ $u?->email ?? 'correo@dominio.com' }}</div>
-          @if($u && method_exists($u,'getRoleNames'))
-            <div class="user__roles">
-              @foreach($u->getRoleNames() as $r)
-                <span class="chip">{{ $r }}</span>
-              @endforeach
+  $ico = [
+      'inicio'     => '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>',
+      'ventas'     => '<circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/><path d="M17 5a3 3 0 0 1 0 6"/><path d="M20 20c0-2.5-1.3-4.2-3.5-5"/>',
+      'licitacion' => '<path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h5"/><path d="M8 12h8"/><path d="M8 16h5"/>',
+      'inventario' => '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+      'almacen'    => '<path d="M3 21V9l9-6 9 6v12"/><path d="M7 21v-8h10v8"/><path d="M7 17h10"/>',
+      'logistica'  => '<rect x="1" y="7" width="13" height="10" rx="1.5"/><path d="M14 10h4l3 3v4h-7"/><circle cx="6" cy="18.5" r="1.8"/><circle cx="17.5" cy="18.5" r="1.8"/>',
+      'finanzas'   => '<path d="M4 19h16"/><path d="M7 16V10"/><path d="M12 16V5"/><path d="M17 16v-7"/>',
+      'whatsapp'   => '<path d="M12 4a8 8 0 0 0-6.9 12l-1.1 4 4.1-1A8 8 0 1 0 12 4z"/><path d="M9 10c.5 2 2.5 4 4.5 4.5"/>',
+      'correo'     => '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/>',
+      'tickets'    => '<path d="M8 4h8l3 3v10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V7l3-3z"/><path d="M9 11h6"/><path d="M9 15h4"/>',
+      'ayuda'      => '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.7C13 11.5 12 12 12 13"/><path d="M12 16h.01"/>',
+      'documentos' => '<path d="M4 7a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z"/>',
+      'admin'      => '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+      'perfil'     => '<circle cx="12" cy="8" r="4"/><path d="M5 20a7 7 0 0 1 14 0"/>',
+      'contable'   => '<path d="M4 19h16"/><path d="M7 16V8"/><path d="M12 16V5"/><path d="M17 16v-4"/>',
+      'altas'      => '<path d="M8 3h6l5 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/>',
+      'propuestas' => '<path d="M9 12h6"/><path d="M9 16h6"/><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+      'bitacora'   => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+  ];
+
+  if ($restrictManager) {
+      $menu = [
+          ['titulo' => 'Accesos', 'entradas' => array_values(array_filter([
+              $enlace('Mi perfil', $ico['perfil'], $ruta('profile.show'), $en('profile.*')),
+              $enlace('Part. contable', $ico['contable'], $ruta('partcontable.index'), $en('partcontable.index', 'partcontable.company')),
+              $enlace('Documentación de altas', $ico['altas'], $ruta('alta.docs.index'), $en('alta.docs.*')),
+              $enlace('Propuestas comerciales', $ico['propuestas'], $ruta('propuestas-comerciales.index'), $en('propuestas-comerciales.*')),
+              $canSeeBitacora ? $enlace('Bitácora', $ico['bitacora'], $ruta('partcontable.activity.all'), $en('partcontable.activity.*')) : null,
+          ]))],
+      ];
+  } else {
+      $menu = [
+          ['titulo' => null, 'entradas' => array_values(array_filter([
+              $enlace('Inicio', $ico['inicio'], $ruta('dashboard'), $en('dashboard')),
+          ]))],
+
+          ['titulo' => 'Comercial', 'entradas' => array_values(array_filter([
+              $grupo('Ventas y clientes', $ico['ventas'], [
+                  $item('Clientes', $ruta('clients.index'), $en('clients.*')),
+                  $item('Cotizaciones', $ruta('cotizaciones.index'), $en('cotizaciones.*')),
+                  $item('Ventas', $ruta('ventas.index'), $en('ventas.*')),
+                  $item('Proveedores', $ruta('providers.index'), $en('providers.*')),
+                  $item('Propuestas comerciales', $ruta('propuestas-comerciales.index'), $en('propuestas-comerciales.*')),
+                  $item('Compras y ventas', $ruta('publications.index'), $en('publications.index', 'publications.show')),
+                  $item('Pedidos web', $ruta('admin.orders.index'), $en('admin.orders.*')),
+              ]),
+              $grupo('Licitaciones', $ico['licitacion'], [
+                  $item('Centro de control', $ruta('projects.control'), $en('projects.control')),
+                  $item('Tablero de licitaciones', $ruta('projects.index'), $en('projects.index', 'projects.show')),
+                  $item('Tabla global IA', $ruta('licitaciones-ai.tabla-global'), $en('licitaciones-ai.*')),
+                  $item('PDFs / Bases', $ruta('admin.licitacion-pdfs.index'), $en('admin.licitacion-pdfs.*')),
+                  $item('Comparativas', $ruta('admin.licitacion-propuestas.index'), $en('admin.licitacion-propuestas.*')),
+              ]),
+          ]))],
+
+          ['titulo' => 'Operación', 'entradas' => array_values(array_filter([
+              $grupo('Inventario', $ico['inventario'], [
+                  $item('Productos', $ruta('admin.catalog.index'), $en('admin.catalog.*')),
+                  $item('Catálogo', $ruta('products.index'), $en('products.index', 'products.show')),
+                  $item('Fichas técnicas', $ruta('tech-sheets.index'), $en('tech-sheets.*')),
+                  $item('Activos e inventario', url('/internal-assets'), request()->is('internal-assets*') || $en('assets.board')),
+              ]),
+              $grupo('Almacén', $ico['almacen'], [
+                  $item('Panel del almacén', $ruta('admin.wms.home'), $en('admin.wms.home')),
+                  $item('Reabastecimiento', $ruta('admin.wms.replenishment.index'), $en('admin.wms.replenishment.*')),
+                  $item('Conteos', $ruta('admin.wms.counts.index'), $en('admin.wms.counts.*')),
+                  $item('Cross-docking', $ruta('admin.wms.crossdock.index'), $en('admin.wms.crossdock.*')),
+                  $item('Productividad', $ruta('admin.wms.labor.index'), $en('admin.wms.labor.*')),
+                  $item('Citas de andén', $ruta('admin.wms.docks.index'), $en('admin.wms.docks.*')),
+              ]),
+              $grupo('Logística', $ico['logistica'], [
+                  $item('Rutas', $ruta('routes.index'), $en('routes.index', 'routes.show')),
+                  $item('Vehículos', $ruta('vehicles.index'), $en('vehicles.*')),
+                  $item('Agenda', $ruta('agenda.calendar'), $en('agenda.*')),
+              ]),
+          ]))],
+
+          ['titulo' => 'Finanzas', 'entradas' => array_values(array_filter([
+              $grupo('Finanzas', $ico['finanzas'], [
+                  $item('Facturas', $ruta('manual_invoices.index'), $en('manual_invoices.index', 'manual_invoices.show')),
+                  $item('Contabilidad', $ruta('accounting.dashboard'), $en('accounting.*')),
+                  $item('Part. contable', $ruta('partcontable.index'), $en('partcontable.index', 'partcontable.company')),
+                  $item('Gastos', $ruta('expenses.index'), $en('expenses.*')),
+                  $canSeeBitacora ? $item('Bitácora', $ruta('partcontable.activity.all'), $en('partcontable.activity.*')) : null,
+              ]),
+          ]))],
+
+          ['titulo' => 'Comunicación', 'entradas' => array_values(array_filter([
+              $enlace('WhatsApp', $ico['whatsapp'], $ruta('admin.whatsapp.conversations'), $en('admin.whatsapp.*')),
+              $enlace('Correo', $ico['correo'], $ruta('mail.index'), $en('mail.*')),
+              $grupo('Tickets', $ico['tickets'], [
+                  $item('Lista de tickets', $ruta('tickets.index'), $en('tickets.index', 'tickets.show')),
+                  $item('Mis tickets', $ruta('tickets.my'), $en('tickets.my')),
+              ]),
+              ($g = $grupo('Help Desk', $ico['ayuda'], [
+                  $item('Tickets de usuarios', $ruta('admin.help.index'), $en('admin.help.index', 'admin.help.show')),
+              ])) && R::has('admin.help.sync')
+                  ? array_merge($g, ['items' => array_merge($g['items'], [['tipo' => 'form', 'label' => 'Reindexar conocimiento', 'action' => route('admin.help.sync')]])])
+                  : $g,
+          ]))],
+
+          ['titulo' => 'Administración', 'entradas' => array_values(array_filter([
+              $grupo('Documentación', $ico['documentos'], [
+                  $item('Documentación', url('/confidential/vault/6'), request()->is('confidential*')),
+                  $item('Documentación de altas', $ruta('alta.docs.index'), $en('alta.docs.*')),
+              ]),
+              $grupo('Administración', $ico['admin'], [
+                  $item('Usuarios', $ruta('admin.users.index'), $en('admin.users.*')),
+                  $item('Banners del inicio', $ruta('admin.home-banners.index'), $en('admin.home-banners.*')),
+                  $item('Filas del inicio', $ruta('admin.home-product-sections.index'), $en('admin.home-product-sections.*')),
+                  $item('Categorías web', $ruta('admin.category-products.index'), $en('admin.category-products.*')),
+              ]),
+          ]))],
+      ];
+  }
+
+  $titulo = trim($__env->yieldContent('header')) ?: trim($__env->yieldContent('title')) ?: 'Panel';
+  $temaOscuro = trim($__env->yieldContent('tema_oscuro')) !== '';
+@endphp
+
+<body class="app">
+<div class="sh-app" id="shApp">
+  <div class="sh-overlay" id="shOverlay"></div>
+
+  {{-- ===================== MENÚ LATERAL ===================== --}}
+  <aside class="sh-sidebar" id="shSidebar" aria-label="Menú principal">
+    <a class="sh-brand" href="{{ $ruta('dashboard') ?? url('/') }}">
+      <span class="sh-brand-logo">
+        <img src="{{ asset('images/logo-icon.png') }}" alt=""
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+        <svg style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>
+      </span>
+      <span class="sh-brand-text">
+        <span class="sh-brand-name" style="display:block;">{{ config('app.name') }}</span>
+        <span class="sh-brand-sub" style="display:block;">Plataforma empresarial</span>
+      </span>
+    </a>
+
+    <button class="sh-collapse" id="shCollapse" type="button" aria-label="Contraer menú" title="Contraer menú">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+
+    <nav class="sh-nav" id="shNav">
+      @foreach($menu as $seccion)
+        @continue(empty($seccion['entradas']))
+        @if($seccion['titulo'])<div class="sh-nav-section">{{ $seccion['titulo'] }}</div>@endif
+
+        @foreach($seccion['entradas'] as $e)
+          @if($e['tipo'] === 'link')
+            <a class="sh-nav-item {{ $e['activo'] ? 'active' : '' }}" href="{{ $e['href'] }}" data-tip="{{ $e['label'] }}" @if($e['activo']) aria-current="page" @endif>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{!! $e['icon'] !!}</svg>
+              <span class="sh-nav-label">{{ $e['label'] }}</span>
+            </a>
+          @else
+            <div class="sh-nav-group {{ $e['abierto'] ? 'open' : '' }}">
+              <a class="sh-nav-item sh-nav-toggle {{ $e['abierto'] ? 'has-active' : '' }}" href="#" role="button"
+                 aria-expanded="{{ $e['abierto'] ? 'true' : 'false' }}" data-tip="{{ $e['label'] }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{!! $e['icon'] !!}</svg>
+                <span class="sh-nav-label">{{ $e['label'] }}</span>
+                <svg class="sh-nav-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </a>
+              <div class="sh-sub-wrap"><div class="sh-submenu">
+                @foreach($e['items'] as $s)
+                  @if(($s['tipo'] ?? 'link') === 'form')
+                    <form method="POST" action="{{ $s['action'] }}">
+                      @csrf
+                      <button type="submit" class="sh-nav-item sh-nav-sub" data-tip="{{ $s['label'] }}">
+                        <svg class="sh-nav-bullet" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>
+                        <span class="sh-nav-label">{{ $s['label'] }}</span>
+                      </button>
+                    </form>
+                  @else
+                    <a class="sh-nav-item sh-nav-sub {{ $s['activo'] ? 'active' : '' }}" href="{{ $s['href'] }}" data-tip="{{ $s['label'] }}" @if($s['activo']) aria-current="page" @endif>
+                      <svg class="sh-nav-bullet" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>
+                      <span class="sh-nav-label">{{ $s['label'] }}</span>
+                    </a>
+                  @endif
+                @endforeach
+              </div></div>
             </div>
           @endif
+        @endforeach
+      @endforeach
+    </nav>
+    <div class="sh-tip" id="shTip" role="tooltip" aria-hidden="true"></div>
+  </aside>
+
+  {{-- ===================== ÁREA PRINCIPAL ===================== --}}
+  <div class="sh-main">
+    <header class="sh-topbar">
+      <button class="sh-hamburger" id="shHamburger" type="button" aria-label="Abrir menú" aria-controls="shSidebar" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+
+      <div class="sh-topbar-titulo">
+        <h1 class="sh-page-title">{{ $titulo }}</h1>
+        @hasSection('page-sub')<p class="sh-page-sub">@yield('page-sub')</p>@endif
+      </div>
+      <div class="sh-spacer"></div>
+
+      {{-- Tema claro / oscuro --}}
+      <button class="sh-icon-btn" id="shTema" type="button" aria-label="Cambiar a modo oscuro" title="Cambiar tema">
+        <svg class="sh-ico-luna" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="sh-ico-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
+      </button>
+
+      {{-- Notificaciones --}}
+      <div class="sh-dd" id="shNotif">
+        <button class="sh-icon-btn" type="button" data-dd="shNotif" aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span class="sh-notif-num" id="shNotifNum" hidden></span>
+        </button>
+        <div class="sh-dd-panel sh-dd-panel--notif" role="menu" aria-label="Notificaciones">
+          <div class="sh-dd-head">
+            <div><b>Notificaciones</b><small id="shNotifSub">Cargando…</small></div>
+            <button type="button" class="sh-notif-todas" id="shNotifTodas" hidden>Marcar todas leídas</button>
+          </div>
+          <div class="sh-notif-lista" id="shNotifLista"><div class="sh-dd-empty">Cargando…</div></div>
         </div>
       </div>
 
-      <button class="sidebar__close" id="btnCloseSidebar" aria-label="Cerrar menú">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6L6 18M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
-
-    <nav class="side-nav" id="sidebarNav">
-
-      @if($restrictManager)
-
-        <details class="nav__group" {{ request()->routeIs('profile.*') ? 'open' : '' }}>
-          <summary class="{{ request()->routeIs('profile.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-              <circle cx="12" cy="8" r="4"></circle>
-              <path d="M5 20a7 7 0 0 1 14 0"></path>
-            </svg>
-            <span>Mi perfil</span>
-            <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-              <path d="M9 6l6 6-6 6"/>
-            </svg>
-          </summary>
-          <div class="nav__submenu">
-            <a href="{{ route('profile.show') }}" class="nav__sublink {{ request()->routeIs('profile.show') ? 'is-active':'' }}">
-              <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-                <path d="M4 7h16"></path><path d="M4 12h11"></path><path d="M4 17h8"></path>
-              </svg>
-              <span>Ver perfil</span>
-            </a>
-          </div>
-        </details>
-
-        <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.index') || request()->routeIs('partcontable.company') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-            <path d="M4 19h16"></path><path d="M7 16V8"></path><path d="M12 16V5"></path><path d="M17 16v-4"></path>
-          </svg>
-          <span>Part. contable</span>
-        </a>
-
-        <a href="{{ route('alta.docs.index') }}" class="nav__link {{ request()->routeIs('alta.docs.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-            <path d="M8 3h6l5 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-            <path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path>
-          </svg>
-          <span>Documentación de altas</span>
-        </a>
-
-        {{-- ✅ Propuestas Comerciales — visible para TODOS incluyendo manager --}}
-        <a href="{{ route('propuestas-comerciales.index') }}" class="nav__link {{ request()->routeIs('propuestas-comerciales.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-            <path d="M9 12h6"></path><path d="M9 16h6"></path>
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <path d="M14 2v6h6"></path>
-          </svg>
-          <span>Propuestas comerciales</span>
-        </a>
-
-        {{-- ✅ Bitácora — solo users 2 y 18 --}}
-        @if($canSeeBitacora)
-          <a href="{{ route('partcontable.activity.all') }}" class="nav__link {{ request()->routeIs('partcontable.activity.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-              <circle cx="12" cy="12" r="9"></circle>
-              <path d="M12 7v5l3 3"></path>
-            </svg>
-            <span>Bitácora</span>
+      {{-- Usuario --}}
+      <div class="sh-dd" id="shUser">
+        <button class="sh-user-btn" type="button" data-dd="shUser" aria-haspopup="true" aria-expanded="false" aria-label="Tu cuenta">
+          <span class="sh-avatar">
+            {{ $iniciales }}
+            @if($avatarSrc)<img src="{{ $avatarSrc }}" alt="" onerror="this.remove()">@endif
+          </span>
+          <span class="sh-user-name">{{ $nm }}</span>
+          <svg class="sh-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="sh-dd-panel" role="menu">
+          <div class="sh-dd-head"><div><b>{{ $nm }}</b><small>{{ $u?->email }}</small></div></div>
+          <a class="sh-dd-item" href="{{ $profileHref }}">
+            <span class="sh-di-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4v16h16v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></span>
+            <span><b>Mi perfil</b><small>Foto, contraseña y datos personales</small></span>
           </a>
-        @endif
-
-      @else
-
-      <a href="{{ route('dashboard') }}" class="nav__link {{ request()->routeIs('dashboard') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M4 13.5 12 5l8 8.5"></path><path d="M7 11.5V20h10v-8.5"></path>
-        </svg>
-        <span>Dashboard</span>
-      </a>
-
-      <a href="{{ route('profile.show') }}" class="nav__link {{ request()->routeIs('profile.show') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <circle cx="12" cy="8" r="4"></circle><path d="M5 20a7 7 0 0 1 14 0"></path>
-        </svg>
-        <span>Mi Perfil</span>
-      </a>
-
-      <a href="{{ route('products.index') }}" class="nav__link {{ request()->routeIs('products.index') || request()->routeIs('products.show') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M12 3 4 7l8 4 8-4-8-4Z"></path><path d="M4 7v10l8 4 8-4V7"></path><path d="M12 11v10"></path>
-        </svg>
-        <span>Catálogo</span>
-      </a>
-
-      <a href="{{ route('providers.index') }}" class="nav__link {{ request()->routeIs('providers.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M3 10h18"></path><path d="M5 10V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"></path>
-          <path d="M6 10v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-8"></path><path d="M10 14h4"></path>
-        </svg>
-        <span>Proveedores</span>
-      </a>
-
-      <a href="{{ route('clients.index') }}" class="nav__link {{ request()->routeIs('clients.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <circle cx="9" cy="8" r="3.5"></circle><path d="M3.5 19a5.5 5.5 0 0 1 11 0"></path>
-          <path d="M16 8a3 3 0 0 1 0 6"></path><path d="M18.5 19a5 5 0 0 0-2.5-4.33"></path>
-        </svg>
-        <span>Clientes</span>
-      </a>
-
-
-      <a href="{{ route('manual_invoices.index') }}" class="nav__link {{ request()->routeIs('manual_invoices.index') || request()->routeIs('manual_invoices.show') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M8 3h8l4 4v14H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-          <path d="M16 3v4h4"></path><path d="M9 12h6"></path><path d="M9 16h6"></path>
-        </svg>
-        <span>Facturas</span>
-      </a>
-
-      <a href="{{ route('tech-sheets.index') }}" class="nav__link {{ request()->routeIs('tech-sheets.index') || request()->routeIs('tech-sheets.show') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <rect x="5" y="3" width="14" height="18" rx="2"></rect>
-          <path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path>
-        </svg>
-        <span>Fichas técnicas</span>
-      </a>
-
-      <a href="{{ route('publications.index') }}" class="nav__link {{ request()->routeIs('publications.index') || request()->routeIs('publications.show') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M5 6.5A2.5 2.5 0 0 1 7.5 4H20v14H7.5A2.5 2.5 0 0 0 5 20.5z"></path>
-          <path d="M5 6v14"></path><path d="M9 8h7"></path><path d="M9 12h7"></path>
-        </svg>
-        <span>Compras y Ventas</span>
-      </a>
-
-      <a href="{{ route('partcontable.index') }}" class="nav__link {{ request()->routeIs('partcontable.index') || request()->routeIs('partcontable.company') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M4 19h16"></path><path d="M7 16V8"></path><path d="M12 16V5"></path><path d="M17 16v-4"></path>
-        </svg>
-        <span>Part. contable</span>
-      </a>
-
-      <a href="{{ url('/confidential/vault/6') }}" class="nav__link">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M4 7a2 2 0 0 1 2-2h3l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z"></path>
-          <path d="M8 13h8"></path>
-        </svg>
-        <span>Documentación</span>
-      </a>
-
-      <a href="{{ route('expenses.index') }}" class="nav__link {{ request()->routeIs('expenses.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M6 4h10"></path><path d="M5 8h14"></path><path d="M7 12h10"></path>
-          <path d="M9 16h6"></path><path d="M17 4v12"></path>
-        </svg>
-        <span>Gastos</span>
-      </a>
-
-      <a href="{{ route('vehicles.index') }}" class="nav__link {{ request()->routeIs('vehicles.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M5 15l2-5h10l2 5"></path><path d="M4 15h16v3a2 2 0 0 1-2 2h-1"></path>
-          <path d="M5 20H4a2 2 0 0 1-2-2v-3"></path>
-          <circle cx="7" cy="18" r="2"></circle><circle cx="17" cy="18" r="2"></circle>
-        </svg>
-        <span>Vehículos</span>
-      </a>
-
-      <a href="{{ route('alta.docs.index') }}" class="nav__link {{ request()->routeIs('alta.docs.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M8 3h6l5 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-          <path d="M14 3v5h5"></path><path d="M9 13h6"></path><path d="M9 17h4"></path>
-        </svg>
-        <span>Documentación de altas</span>
-      </a>
-
-
-      <a href="{{ route('agenda.calendar') }}" class="nav__link {{ request()->routeIs('agenda.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M8 3v4"></path><path d="M16 3v4"></path><path d="M3 10h18"></path>
-        </svg>
-        <span>Agenda</span>
-      </a>
-
-      <details class="nav__group" {{ request()->routeIs('tickets.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('tickets.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-            <path d="M8 4h8l3 3v10a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V7l3-3z"></path>
-            <path d="M9 11h6"></path><path d="M9 15h4"></path>
-          </svg>
-          <span>Tickets</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('tickets.index') }}" class="nav__sublink {{ request()->routeIs('tickets.index') || request()->routeIs('tickets.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M5 7h14"></path><path d="M5 12h14"></path><path d="M5 17h8"></path></svg>
-            <span>Lista de tickets</span>
-          </a>
-          @if(\Illuminate\Support\Facades\Route::has('tickets.my'))
-            <a href="{{ route('tickets.my') }}" class="nav__sublink {{ request()->routeIs('tickets.my') ? 'is-active':'' }}">
-              <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 19a7 7 0 0 1 14 0"></path></svg>
-              <span>Mis tickets</span>
+          @if($isAdmin && R::has('admin.users.index'))
+            <a class="sh-dd-item" href="{{ route('admin.users.index') }}">
+              <span class="sh-di-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg></span>
+              <span><b>Panel de usuarios</b><small>Aprobar cuentas y asignar roles</small></span>
             </a>
           @endif
-        </div>
-      </details>
-
-      <a href="{{ route('routes.index') }}" class="nav__link {{ request()->routeIs('routes.index') || request()->routeIs('routes.show') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <circle cx="6" cy="6" r="2"></circle><circle cx="18" cy="8" r="2"></circle><circle cx="9" cy="18" r="2"></circle>
-          <path d="M8 7.2 16 8"></path><path d="M17 9.8 10 16.2"></path>
-        </svg>
-        <span>Logística</span>
-      </a>
-
-      <a href="{{ route('admin.catalog.index') }}" class="nav__link {{ request()->routeIs('admin.catalog.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M12 3 4 7l8 4 8-4-8-4Z"></path><path d="M4 7v10l8 4 8-4V7"></path><path d="M12 11v10"></path>
-        </svg>
-        <span>Productos</span>
-      </a>
-
-      <a href="{{ route('admin.wms.home') }}" class="nav__link {{ request()->routeIs('admin.wms.home') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M4 10 12 4l8 6v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9z"></path>
-          <path d="M9 13h6"></path><path d="M9 17h6"></path>
-        </svg>
-        <span>Almacén</span>
-      </a>
-      <a href="{{ url('/internal-assets') }}" class="nav__link {{ request()->is('internal-assets*') || request()->routeIs('assets.board') ? 'is-active':'' }}">
-  <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-    <rect x="3" y="4" width="18" height="6" rx="1.5"></rect>
-    <rect x="3" y="14" width="18" height="6" rx="1.5"></rect>
-    <path d="M7 7h.01"></path><path d="M7 17h.01"></path>
-  </svg>
-  <span>Activos e Inventario</span>
-</a>
-
-      <a href="{{ route('accounting.dashboard') }}" class="nav__link {{ request()->routeIs('accounting.dashboard') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M4 19h16"></path><path d="M7 16V10"></path><path d="M12 16V5"></path><path d="M17 16v-7"></path>
-        </svg>
-        <span>Contabilidad</span>
-      </a>
-<a href="{{ route('projects.control') }}" class="nav__link {{ request()->routeIs('projects.control') ? 'is-active':'' }}">
-  <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"></path>
-    <path d="M14 2v5h5"></path>
-    <path d="M8 12h8"></path>
-    <path d="M8 16h5"></path>
-    <path d="M9 8h1"></path>
-  </svg>
-  <span>Licitaciones</span>
-</a>
-      <a href="{{ route('admin.whatsapp.conversations') }}" class="nav__link {{ request()->routeIs('admin.whatsapp.conversations') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M12 4a8 8 0 0 0-6.9 12l-1.1 4 4.1-1A8 8 0 1 0 12 4z"></path>
-          <path d="M9 10c.5 2 2.5 4 4.5 4.5"></path>
-        </svg>
-        <span>WhatsApp</span>
-      </a>
-
-      <details class="nav__group" {{ request()->routeIs('admin.help.*') ? 'open' : '' }}>
-        <summary class="{{ request()->routeIs('admin.help.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-            <circle cx="12" cy="12" r="9"></circle>
-            <path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.7C13 11.5 12 12 12 13"></path>
-            <path d="M12 16h.01"></path>
-          </svg>
-          <span>Help Desk</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('admin.help.index') }}" class="nav__sublink {{ request()->routeIs('admin.help.index') || request()->routeIs('admin.help.show') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M5 7h14"></path><path d="M5 12h14"></path><path d="M5 17h9"></path></svg>
-            <span>Tickets de usuarios</span>
-          </a>
-          <form action="{{ route('admin.help.sync') }}" method="POST" class="nav__sublink" style="padding:0; border:none; min-height:auto; background:transparent;">
+          <div class="sh-dd-sep"></div>
+          <form method="POST" action="{{ route('logout') }}">
             @csrf
-            <button type="submit" class="nav__sublink" style="width:100%; text-align:left; background:transparent; border:none; cursor:pointer;">
-              <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M20 11a8 8 0 1 1-2.34-5.66"></path><path d="M20 4v6h-6"></path></svg>
-              <span>Reindexar conocimiento</span>
+            <button class="sh-dd-item danger" type="submit">
+              <span class="sh-di-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
+              <span><b>Cerrar sesión</b><small>Salir de tu cuenta en este equipo</small></span>
             </button>
           </form>
         </div>
-      </details>
-
-      <a href="{{ route('mail.index') }}" class="nav__link {{ request()->routeIs('mail.index') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path>
-        </svg>
-        <span>Correo</span>
-      </a>
-
-
-      {{-- ✅ Propuestas Comerciales — visible para TODOS --}}
-      <a href="{{ route('propuestas-comerciales.index') }}" class="nav__link {{ request()->routeIs('propuestas-comerciales.*') ? 'is-active':'' }}">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M9 12h6"></path><path d="M9 16h6"></path>
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-          <path d="M14 2v6h6"></path>
-        </svg>
-        <span>Propuestas comerciales</span>
-      </a>
-
-      {{-- ✅ Bitácora — solo users 2 y 18 --}}
-      @if($canSeeBitacora)
-        <a href="{{ route('partcontable.activity.all') }}" class="nav__link {{ request()->routeIs('partcontable.activity.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-            <circle cx="12" cy="12" r="9"></circle>
-            <path d="M12 7v5l3 3"></path>
-          </svg>
-          <span>Bitácora</span>
-        </a>
-      @endif
-
-      <details class="nav__group">
-        <summary class="{{ request()->routeIs('admin.users.*') || request()->routeIs('admin.catalog.*') || request()->routeIs('admin.orders.*') || request()->routeIs('admin.home-banners.*') || request()->routeIs('admin.home-product-sections.*') || request()->routeIs('admin.category-products.*') ? 'is-active':'' }}">
-          <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-            <path d="M4 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1"></path>
-            <circle cx="10" cy="8" r="3.5"></circle><path d="M18 8v6"></path><path d="M15 11h6"></path>
-          </svg>
-          <span>Administración</span>
-          <svg class="nav__chev" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
-        </summary>
-        <div class="nav__submenu">
-          <a href="{{ route('admin.users.index') }}" class="nav__sublink {{ request()->routeIs('admin.users.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><circle cx="9" cy="8" r="3.5"></circle><path d="M4 19a5 5 0 0 1 10 0"></path><path d="M17 8v6"></path><path d="M14 11h6"></path></svg>
-            <span>Usuarios</span>
-          </a>
-
-          @if(\Illuminate\Support\Facades\Route::has('admin.home-banners.index'))
-            <a href="{{ route('admin.home-banners.index') }}" class="nav__sublink {{ request()->routeIs('admin.home-banners.*') ? 'is-active':'' }}">
-              <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-                <rect x="4" y="5" width="16" height="14" rx="2"></rect>
-                <path d="M8 13l2.3-2.3a1 1 0 0 1 1.4 0L15 14"></path>
-                <path d="M14 12l1.3-1.3a1 1 0 0 1 1.4 0L20 14"></path>
-                <circle cx="8.5" cy="8.5" r="1"></circle>
-              </svg>
-              <span>Banners home</span>
-            </a>
-          @endif
-
-          @if(\Illuminate\Support\Facades\Route::has('admin.home-product-sections.index'))
-            <a href="{{ route('admin.home-product-sections.index') }}" class="nav__sublink {{ request()->routeIs('admin.home-product-sections.*') ? 'is-active':'' }}">
-              <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-                <path d="M4 7h16"></path>
-                <path d="M4 12h16"></path>
-                <path d="M4 17h16"></path>
-                <path d="M8 7v10"></path>
-              </svg>
-              <span>Filas del home</span>
-            </a>
-          @endif
-
-          @if(\Illuminate\Support\Facades\Route::has('admin.category-products.index'))
-            <a href="{{ route('admin.category-products.index') }}" class="nav__sublink {{ request()->routeIs('admin.category-products.*') ? 'is-active':'' }}">
-              <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9">
-                <path d="M4 6h7l2 3h7v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z"></path>
-                <path d="M8 13h8"></path>
-              </svg>
-              <span>Categorías web</span>
-            </a>
-          @endif
-          <a href="{{ route('admin.orders.index') }}" class="nav__sublink {{ request()->routeIs('admin.orders.*') ? 'is-active':'' }}">
-            <svg viewBox="0 0 24 24" width="17" height="17" stroke="currentColor" fill="none" stroke-width="1.9"><path d="M6 6h15l-2 8H8L6 4H3"></path><circle cx="9" cy="19" r="1.6"></circle><circle cx="18" cy="19" r="1.6"></circle></svg>
-            <span>Pedidos web</span>
-          </a>
-        </div>
-      </details>
-
-      @endif
-    </nav>
-
-    <form method="POST" action="{{ route('logout') }}" class="logout">
-      @csrf
-      <button type="submit" class="btn-logout">
-        <svg viewBox="0 0 24 24" width="19" height="19" stroke="currentColor" fill="none" stroke-width="1.9">
-          <path d="M10 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-          <path d="M15 16l5-4-5-4"></path><path d="M20 12H9"></path>
-        </svg>
-        <span>Cerrar sesión</span>
-      </button>
-    </form>
-  </aside>
-
-  <div id="backdrop" class="backdrop" tabindex="-1" aria-hidden="true"></div>
-
-  <div class="shell" id="shell">
-    <header class="topbar">
-      <button id="btnSidebar" class="icon-btn" aria-label="Abrir menú">
-        <svg viewBox="0 0 24 24" width="21" height="21" stroke="currentColor" fill="none" stroke-width="2">
-          <path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path>
-        </svg>
-      </button>
-
-      <div class="topbar__title">@yield('header','Panel')</div>
-
-      <div class="topbar__right">
-        <div class="notif">
-          <button id="btnNotif" class="icon-btn" aria-haspopup="true" aria-expanded="false" aria-label="Notificaciones">
-            <svg viewBox="0 0 24 24" width="21" height="21" stroke="currentColor" fill="none" stroke-width="2">
-              <path d="M6 8a6 6 0 1 1 12 0v3.2c0 .53.21 1.04.59 1.41L20 14H4l1.41-1.39c.38-.37.59-.88.59-1.41V8"></path>
-              <path d="M10 18a2 2 0 0 0 4 0"></path>
-            </svg>
-            <span id="notifBadge" class="dot" aria-hidden="true" style="display:none;"></span>
-          </button>
-
-          <div id="notifPanel" class="notif__panel" role="menu" aria-label="Panel de notificaciones" aria-hidden="true">
-            <div class="notif__head">
-              <div class="notif__head-main">
-                <div class="notif__title">
-                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
-                    <path d="M6 8a6 6 0 1 1 12 0v3.2c0 .53.21 1.04.59 1.41L20 14H4l1.41-1.39c.38-.37.59-.88.59-1.41V8"></path>
-                    <path d="M10 18a2 2 0 0 0 4 0"></path>
-                  </svg>
-                  <span>Notificaciones</span>
-                </div>
-                <div class="notif__subtitle"><span id="notifCountText">Cargando…</span></div>
-              </div>
-              <button type="button" id="btnMarkAllTop" class="notif__markall">Marcar leídas</button>
-            </div>
-
-            <div id="notifList" class="notif__list">
-              <div class="notif__empty">Cargando…</div>
-            </div>
-
-            <div class="notif__footer">
-              <button type="button" id="btnMarkAll" class="notif__link">Marcar todas como leídas</button>
-            </div>
-          </div>
-        </div>
-
-        <a href="{{ $profileHref }}" class="avatar-link" title="Ver mi perfil">
-          <div class="avatar avatar--sm" aria-hidden="true">
-            @if($avatarSrc)
-              <img src="{{ $avatarSrc }}" alt="Avatar de {{ $nm }}" onerror="this.onerror=null;this.src='{{ $fallbackMp }}';">
-              <span>{{ $ini }}</span>
-            @else
-              <img src="{{ $fallbackMp }}" alt="Avatar de {{ $nm }}">
-              <span>{{ $ini }}</span>
-            @endif
-          </div>
-        </a>
       </div>
     </header>
 
-    <main id="content" class="content @yield('content_class')">
+    <main id="content" class="content sh-content @yield('content_class')" @unless($temaOscuro) data-tema-fijo="claro" @endunless>
       @yield('content')
     </main>
   </div>
+</div>
 
-  @stack('scripts')
+<script>
+(function () {
+  var app       = document.getElementById('shApp');
+  var sidebar   = document.getElementById('shSidebar');
+  var hamburger = document.getElementById('shHamburger');
+  var collapse  = document.getElementById('shCollapse');
+  var overlay   = document.getElementById('shOverlay');
+  var movil     = function () { return window.matchMedia('(max-width:1024px)').matches; };
 
-  <script>
-    (function(){
-      const shell      = document.getElementById('shell');
-      const sidebar    = document.getElementById('sidebar');
-      const sidebarNav = document.getElementById('sidebarNav');
-      const backdrop   = document.getElementById('backdrop');
-      const btnOpen    = document.getElementById('btnSidebar');
-      const btnClose   = document.getElementById('btnCloseSidebar');
+  // ---------------- Menú lateral ----------------
+  function etiquetaContraer() {
+    var c = app.classList.contains('collapsed');
+    collapse.setAttribute('aria-label', c ? 'Expandir menú' : 'Contraer menú');
+    collapse.setAttribute('title', c ? 'Expandir menú' : 'Contraer menú');
+  }
+  function abrirCajon(abrir) {
+    app.classList.toggle('sidebar-open', abrir);
+    document.body.classList.toggle('sh-bloqueado', abrir);
+    hamburger.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+  }
 
-      const notifBtn        = document.getElementById('btnNotif');
-      const notifPane       = document.getElementById('notifPanel');
-      const notifList       = document.getElementById('notifList');
-      const notifBadge      = document.getElementById('notifBadge');
-      const notifMarkAll    = document.getElementById('btnMarkAll');
-      const notifMarkAllTop = document.getElementById('btnMarkAllTop');
-      const notifCountText  = document.getElementById('notifCountText');
+  // El estado contraído se aplica sin animación al cargar.
+  if (!movil()) {
+    app.classList.add('sh-no-anim');
+    try { if (localStorage.getItem('sidebar-collapsed') === '1') app.classList.add('collapsed'); } catch (e) {}
+    void app.offsetWidth;
+    requestAnimationFrame(function () { app.classList.remove('sh-no-anim'); });
+  }
+  etiquetaContraer();
 
-      const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+  collapse.addEventListener('click', function () {
+    app.classList.toggle('collapsed');
+    try { localStorage.setItem('sidebar-collapsed', app.classList.contains('collapsed') ? '1' : '0'); } catch (e) {}
+    etiquetaContraer();
+  });
+  hamburger.addEventListener('click', function () { abrirCajon(!app.classList.contains('sidebar-open')); });
+  overlay.addEventListener('click', function () { abrirCajon(false); });
+  window.addEventListener('resize', function () { if (!movil()) abrirCajon(false); });
 
-      const NOTIF_FEED_URL    = @json($notifFeedUrl);
-      const NOTIF_READALL_URL = @json($notifReadAllUrl);
-      const NOTIF_READONE_URL = @json($notifReadOneUrl);
+  // ---------------- Submenús ----------------
+  var grupos = Array.prototype.slice.call(document.querySelectorAll('.sh-nav-group'));
+  var flotante = null, espera = null;
 
-      let sidebarOpen = false;
-      let notifLoaded = false;
-      let lastPayloadKey = null;
+  grupos.forEach(function (g) {
+    var sub = g.querySelector('.sh-submenu'), t = g.querySelector('.sh-nav-toggle');
+    if (sub && t) sub.dataset.nombre = t.dataset.tip || '';
+  });
 
-      const applyOverlay = () => {
-        if (!backdrop || !shell || !sidebar) return;
-        backdrop.classList.toggle('is-show', sidebarOpen);
-        shell.classList.toggle('dimmed', sidebarOpen);
-        document.body.classList.toggle('lock-scroll', sidebarOpen);
-        sidebar.setAttribute('aria-hidden', sidebarOpen ? 'false' : 'true');
-      };
+  // En el teléfono el menú se ve completo aunque en escritorio esté contraído.
+  function contraido() { return app.classList.contains('collapsed') && !movil(); }
 
-      const openSidebar = () => { if (!sidebar || sidebarOpen) return; sidebarOpen = true; sidebar.classList.add('is-open'); applyOverlay(); };
-      const closeSidebar = () => { if (!sidebar || !sidebarOpen) return; sidebarOpen = false; sidebar.classList.remove('is-open'); applyOverlay(); };
+  function ocultarFlotante() {
+    if (!flotante) return;
+    flotante.removeAttribute('data-flotante');
+    flotante = null;
+  }
+  function mostrarFlotante(g) {
+    clearTimeout(espera);
+    if (flotante === g) return;
+    ocultarFlotante();
+    var sub = g.querySelector('.sh-submenu');
+    var r = g.getBoundingClientRect();
+    // Se ancla al ancho final de la barra: durante la animación la medida en pantalla todavía cambia.
+    var barra = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sh-sidebar-w-collapsed'), 10) || 78;
+    sub.style.left = (barra + 8) + 'px';
+    sub.style.top = Math.max(10, Math.min(r.top, window.innerHeight - sub.offsetHeight - 10)) + 'px';
+    g.setAttribute('data-flotante', '');
+    flotante = g;
+  }
 
-      if (btnOpen)  btnOpen.addEventListener('click', openSidebar);
-      if (btnClose) btnClose.addEventListener('click', closeSidebar);
-      if (backdrop) backdrop.addEventListener('click', closeSidebar);
+  grupos.forEach(function (g) {
+    var t = g.querySelector('.sh-nav-toggle');
+    if (!t) return;
 
-      if (sidebarNav){
-        sidebarNav.addEventListener('click', (e) => {
-          const summary = e.target.closest('summary');
-          if (summary) return;
-          const link = e.target.closest('a');
-          if (!link) return;
-          const href = link.getAttribute('href') || '';
-          const keep = link.hasAttribute('data-keep-open');
-          const isAnchorOnly = href.startsWith('#') || href === '' || href.startsWith('javascript');
-          if (!keep && !isAnchorOnly) closeSidebar();
-        });
+    t.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (contraido()) { flotante === g ? ocultarFlotante() : mostrarFlotante(g); return; }
+
+      // Acordeón: un solo apartado abierto a la vez.
+      var abierto = g.classList.contains('open');
+      grupos.forEach(function (o) {
+        o.classList.remove('open');
+        o.querySelector('.sh-nav-toggle')?.setAttribute('aria-expanded', 'false');
+      });
+      if (!abierto) { g.classList.add('open'); t.setAttribute('aria-expanded', 'true'); }
+    });
+
+    g.addEventListener('mouseenter', function () { if (contraido()) mostrarFlotante(g); });
+    g.addEventListener('mouseleave', function () { if (contraido()) espera = setTimeout(ocultarFlotante, 200); });
+  });
+
+  document.addEventListener('click', function (e) { if (!e.target.closest('.sh-nav-group')) ocultarFlotante(); });
+  window.addEventListener('resize', ocultarFlotante);
+
+  // ---------------- Desvanecido del menú ----------------
+  // En vez de barra de desplazamiento: se desvanece el borde por donde hay más opciones.
+  var nav = document.getElementById('shNav');
+  function bordesNav() {
+    var arriba = nav.scrollTop > 4;
+    var abajo = nav.scrollTop + nav.clientHeight < nav.scrollHeight - 4;
+    nav.classList.toggle('puede-arriba', arriba);
+    nav.classList.toggle('puede-abajo', abajo);
+  }
+  nav.addEventListener('scroll', bordesNav, { passive: true });
+  window.addEventListener('resize', bordesNav);
+  // Al abrir o cerrar un grupo el alto cambia durante la animación: se revisa al terminar.
+  nav.addEventListener('transitionend', function (e) { if (e.target.classList.contains('sh-sub-wrap')) bordesNav(); });
+
+  // La opción de la pantalla actual queda a la vista aunque esté al fondo del menú.
+  var actual = nav.querySelector('.sh-nav-item.active');
+  if (actual) {
+    var r = actual.getBoundingClientRect(), n = nav.getBoundingClientRect();
+    if (r.bottom > n.bottom - 30) nav.scrollTop += r.bottom - n.bottom + 60;
+  }
+  bordesNav();
+
+  // ---------------- Globo con el nombre (menú contraído) ----------------
+  var tip = document.getElementById('shTip');
+  nav.addEventListener('mouseover', function (e) {
+    var it = e.target.closest('.sh-nav-item');
+    // Los grupos ya abren su panel con el nombre; dentro del panel no hace falta globo.
+    if (!it || !contraido() || it.classList.contains('sh-nav-toggle') || it.closest('.sh-submenu')) return;
+    var r = it.getBoundingClientRect();
+    // Se ancla al ancho final de la barra: si el menú se acaba de contraer, la medida en pantalla todavía está cambiando.
+    var barra = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sh-sidebar-w-collapsed'), 10) || 78;
+    tip.textContent = it.dataset.tip || '';
+    tip.style.left = (barra + 10) + 'px';
+    tip.style.top = (r.top + r.height / 2) + 'px';
+    tip.classList.add('is-on');
+  });
+  nav.addEventListener('mouseout', function (e) {
+    if (!e.relatedTarget || !e.relatedTarget.closest || e.relatedTarget.closest('.sh-nav-item') !== e.target.closest('.sh-nav-item')) {
+      tip.classList.remove('is-on');
+    }
+  });
+  function ocultarTip() { tip.classList.remove('is-on'); }
+  nav.addEventListener('scroll', ocultarTip, { passive: true });
+  nav.addEventListener('mouseleave', ocultarTip);
+  collapse.addEventListener('click', ocultarTip);
+
+  // ---------------- Tema ----------------
+  var btnTema = document.getElementById('shTema');
+  function etiquetaTema() {
+    var oscuro = document.documentElement.getAttribute('data-theme') === 'dark';
+    btnTema.setAttribute('aria-label', oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
+  }
+  etiquetaTema();
+  btnTema.addEventListener('click', function () {
+    var html = document.documentElement;
+    var t = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+
+    // Aplica el tema (data-theme + guardado + evento). Es lo único que cambia el DOM.
+    function aplicarTema() {
+      html.setAttribute('data-theme', t);
+      try { localStorage.setItem('theme', t); } catch (e) {}
+      etiquetaTema();
+      document.dispatchEvent(new CustomEvent('tema:cambio', { detail: { tema: t } }));
+    }
+
+    // Giro del icono siempre.
+    btnTema.classList.add('gira');
+    clearTimeout(window._shTema);
+    window._shTema = setTimeout(function () { btnTema.classList.remove('gira'); }, 450);
+
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Sin soporte de View Transitions (o reduced-motion): cambio instantáneo, sin
+    // transicionar cada elemento (eso era lo que trababa).
+    if (typeof document.startViewTransition !== 'function' || reduce) { aplicarTema(); return; }
+    if (html.dataset.temaVt === 'active') return; // ya hay una animación en curso
+
+    // Círculo que se expande desde el centro del botón.
+    var r = btnTema.getBoundingClientRect();
+    var x = r.left + r.width / 2, y = r.top + r.height / 2;
+    var w = window.innerWidth, h = window.innerHeight;
+    var maxR = Math.hypot(Math.max(x, w - x), Math.max(y, h - y));
+    var dur = 450;
+    var px = (x / w * 100) + '%', py = (y / h * 100) + '%';
+    var radPct = (maxR / (Math.hypot(w, h) / Math.SQRT2) * 100) + '%';
+    var clipFrom = 'circle(0% at ' + px + ' ' + py + ')';
+    var clipTo = 'circle(' + radPct + ' at ' + px + ' ' + py + ')';
+
+    html.dataset.temaVt = 'active';
+    html.style.setProperty('--tema-vt-dur', dur + 'ms');
+    html.style.setProperty('--tema-vt-clip-from', clipFrom);
+
+    function limpiar() {
+      delete html.dataset.temaVt;
+      html.style.removeProperty('--tema-vt-dur');
+      html.style.removeProperty('--tema-vt-clip-from');
+    }
+
+    var vt = document.startViewTransition(function () { aplicarTema(); });
+
+    if (vt.finished && typeof vt.finished.finally === 'function') {
+      vt.finished.finally(limpiar).catch(function () {});
+    } else { limpiar(); }
+
+    if (vt.ready && typeof vt.ready.then === 'function') {
+      vt.ready.then(function () {
+        document.documentElement.animate(
+          { clipPath: [clipFrom, clipTo] },
+          { duration: dur, easing: 'ease-in-out', fill: 'forwards', pseudoElement: '::view-transition-new(root)' }
+        );
+      }).catch(function () {});
+    }
+  });
+
+  // ---------------- Desplegables ----------------
+  function cerrarDesplegables() {
+    document.querySelectorAll('.sh-dd.open').forEach(function (d) {
+      d.classList.remove('open');
+      d.querySelector('[data-dd]')?.setAttribute('aria-expanded', 'false');
+    });
+  }
+  document.querySelectorAll('[data-dd]').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var dd = document.getElementById(btn.getAttribute('data-dd'));
+      var estaba = dd.classList.contains('open');
+      cerrarDesplegables();
+      if (!estaba) {
+        dd.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+        if (dd.id === 'shNotif') cargarNotificaciones();
       }
+    });
+  });
+  document.querySelectorAll('.sh-dd-panel').forEach(function (p) { p.addEventListener('click', function (e) { e.stopPropagation(); }); });
+  document.addEventListener('click', cerrarDesplegables);
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    cerrarDesplegables(); ocultarFlotante(); abrirCajon(false);
+  });
 
-      function buildPayloadKey(payload){ if (!payload || !Array.isArray(payload.items)) return ''; return payload.items.map(n => n.id + (n.read_at ? '1' : '0')).join('|') + '|' + (payload.unread || 0); }
-      function escapeHtml(value){ return String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+  // ---------------- Notificaciones ----------------
+  var FEED = @json($notifFeedUrl), LEER_TODAS = @json($notifReadAllUrl), LEER_UNA = @json($notifReadOneUrl);
+  var csrf  = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+  var lista = document.getElementById('shNotifLista');
+  var num   = document.getElementById('shNotifNum');
+  var sub   = document.getElementById('shNotifSub');
+  var todas = document.getElementById('shNotifTodas');
+  var ultima = null;
 
-      function getNotifIcon(level){
-        if (level === 'warn') return `<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2"><path d="M12 4 3 20h18L12 4z"></path><path d="M12 10v4"></path><path d="M12 17h.01"></path></svg>`;
-        if (level === 'error') return `<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M15 9 9 15"></path><path d="m9 9 6 6"></path></svg>`;
-        return `<svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2"><rect x="5" y="4" width="14" height="16" rx="2"></rect><path d="M8 8h8"></path><path d="M8 12h8"></path></svg>`;
-      }
+  var ICONOS = {
+    info:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    warn:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4 3 20h18L12 4z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg>',
+    error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M15 9 9 15"/><path d="m9 9 6 6"/></svg>'
+  };
+  function esc(v) { return String(v ?? '').replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
 
-      function updateNotifCounter(unread){
-        if (notifBadge){ if (unread > 0){ notifBadge.style.display=''; notifBadge.textContent=unread>99?'99+':unread; } else { notifBadge.style.display='none'; notifBadge.textContent=''; } }
-        if (notifCountText){ notifCountText.textContent = unread > 0 ? `${unread} nueva${unread===1?'':'s'}` : 'Sin notificaciones nuevas'; }
-      }
+  var previo = null;
+  function contador(n) {
+    // Si llegó una nueva, el número salta y la campana se mueve una vez.
+    if (previo !== null && n > previo) {
+      num.classList.remove('pop'); void num.offsetWidth; num.classList.add('pop');
+      var campana = num.closest('.sh-icon-btn');
+      campana.classList.remove('suena'); void campana.offsetWidth; campana.classList.add('suena');
+    }
+    previo = n;
+    num.hidden = !(n > 0);
+    num.textContent = n > 9 ? '9+' : String(n || '');
+    sub.textContent = n > 0 ? n + (n === 1 ? ' sin leer' : ' sin leer') : 'Estás al día';
+    todas.hidden = !(n > 0);
+  }
+  function vacio(txt) { lista.innerHTML = '<div class="sh-dd-empty">' + esc(txt) + '</div>'; }
 
-      function renderEmptyNotifications(){ notifList.innerHTML=''; const e=document.createElement('div'); e.className='notif__empty'; e.textContent='No tienes notificaciones.'; notifList.appendChild(e); }
+  function pintar(datos) {
+    var items = Array.isArray(datos?.items) ? datos.items : [];
+    contador(Number(datos?.unread || 0));
+    if (!items.length) return vacio('No tienes notificaciones.');
+    lista.innerHTML = items.map(function (n) {
+      var nivel = ['warn', 'error'].indexOf(n.status) >= 0 ? n.status : 'info';
+      // Un div con rol de enlace: dentro va el botón de quitar, y un botón no puede ir dentro de un <a>.
+      return '<div class="sh-dd-item sh-notif-item is-' + nivel + ' ' + (n.read_at ? 'is-read' : 'is-unread') + '" role="link" tabindex="0"'
+        + ' data-href="' + esc(n.url || '') + '" data-id="' + esc(n.id) + '">'
+        + '<span class="sh-di-ico">' + ICONOS[nivel] + '</span>'
+        + '<span class="sh-notif-txt"><b>' + esc(n.title || 'Notificación') + '</b>'
+        + (n.message ? '<small>' + esc(n.message) + '</small>' : '')
+        + '<small class="sh-notif-hora">' + esc(n.time || '') + '</small></span>'
+        + '<button type="button" class="sh-notif-quitar" aria-label="Quitar notificación" data-quitar="' + esc(n.id) + '">&times;</button>'
+        + '</div>';
+    }).join('');
+  }
 
-      function removeNotificationFromView(itemEl){
-        if (!itemEl) return;
-        itemEl.style.opacity='0'; itemEl.style.transform='translateY(-6px) scale(.98)';
-        setTimeout(()=>{ itemEl.remove(); const r=notifList.querySelectorAll('.notif__item.is-unread').length; updateNotifCounter(r); if (!notifList.querySelector('.notif__item')) renderEmptyNotifications(); }, 180);
-      }
+  async function cargarNotificaciones() {
+    if (!FEED) return;
+    try {
+      var r = await fetch(FEED, { headers: { 'Accept': 'application/json' } });
+      var d = await r.json();
+      if (!r.ok) throw new Error(d.message || 'Error');
+      var llave = (d.items || []).map(function (n) { return n.id + (n.read_at ? '1' : '0'); }).join('|') + '|' + (d.unread || 0);
+      if (llave !== ultima) { ultima = llave; pintar(d); } else { contador(Number(d.unread || 0)); }
+    } catch (e) {
+      if (ultima === null) { vacio('No se pudieron cargar las notificaciones.'); sub.textContent = 'Sin conexión'; }
+    }
+  }
 
-      function renderNotifItems(payload){
-        if (!notifList) return;
-        const items = Array.isArray(payload?.items) ? payload.items : [];
-        updateNotifCounter(Number(payload?.unread || 0));
-        notifList.innerHTML='';
-        if (!items.length){ renderEmptyNotifications(); return; }
-        items.forEach(n => {
-          const level=n.status||'info';
-          const pillClass=level==='warn'?'pill--warn':level==='error'?'pill--error':'pill--info';
-          const pillText=level==='warn'?'Aviso':level==='error'?'Alerta':'Nueva';
-          const item=document.createElement('div');
-          item.className=`notif__item ${n.read_at?'is-read':'is-unread'} ${level}`;
-          item.dataset.id=n.id; item.dataset.read=n.read_at?'1':'0';
-          if (n.url) item.dataset.url=n.url;
-          item.innerHTML=`<div class="notif__icon">${getNotifIcon(level)}</div><div class="notif__content"><div class="notif__text">${escapeHtml(n.title||'Notificación')}</div><div class="notif__msg">${escapeHtml(n.message||'')}</div><div class="notif__meta"><span class="pill ${pillClass}">${pillText}</span><span class="notif__sep">•</span><span class="notif__time">${escapeHtml(n.time||'')}</span></div></div><button type="button" class="notif__item-close" aria-label="Quitar notificación" data-id="${escapeHtml(n.id)}">&times;</button>`;
-          notifList.appendChild(item);
-        });
-      }
+  function post(url) { return fetch(url, { method: 'POST', headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' } }); }
 
-      async function loadNotifications(){
-        if (!NOTIF_FEED_URL || !notifList) return;
-        if (!notifLoaded) notifList.innerHTML='<div class="notif__empty">Cargando…</div>';
-        try{
-          const res=await fetch(NOTIF_FEED_URL,{headers:{'Accept':'application/json'}});
-          const json=await res.json();
-          if (!res.ok) throw new Error(json.message||'Error');
-          const key=buildPayloadKey(json);
-          if (key!==lastPayloadKey){ lastPayloadKey=key; renderNotifItems(json); } else { updateNotifCounter(Number(json?.unread||0)); }
-          notifLoaded=true;
-        }catch(e){ console.error(e); notifList.innerHTML='<div class="notif__empty">No se pudieron cargar las notificaciones.</div>'; if(notifCountText)notifCountText.textContent='No se pudieron cargar'; }
-      }
+  todas.addEventListener('click', async function () {
+    try { await post(LEER_TODAS); } catch (e) {}
+    ultima = null; cargarNotificaciones();
+  });
 
-      async function markAllNotifications(){
-        if (!NOTIF_READALL_URL || !csrf) return;
-        try{ await fetch(NOTIF_READALL_URL,{method:'POST',headers:{'X-CSRF-TOKEN':csrf,'Accept':'application/json'}}); const rows=[...notifList.querySelectorAll('.notif__item.is-unread')]; rows.forEach(r=>removeNotificationFromView(r)); updateNotifCounter(0); await loadNotifications(); }catch(e){ console.error(e); }
-      }
+  async function abrirNotificacion(fila, quitar) {
+    var id = fila.dataset.id;
 
-      async function markOneNotification(id, itemEl, removeFromView=false){
-        if (!NOTIF_READONE_URL || !csrf || !id) return;
-        try{
-          const url=NOTIF_READONE_URL.replace('__ID__',encodeURIComponent(id));
-          await fetch(url,{method:'POST',headers:{'X-CSRF-TOKEN':csrf,'Accept':'application/json'}});
-          if (removeFromView && itemEl){ removeNotificationFromView(itemEl); return; }
-          if (itemEl){ itemEl.classList.remove('is-unread'); itemEl.classList.add('is-read'); itemEl.dataset.read='1'; }
-          await loadNotifications();
-        }catch(e){ console.error(e); }
-      }
+    if (quitar) {
+      fila.remove();
+      try { await post(LEER_UNA.replace('__ID__', encodeURIComponent(id))); } catch (err) {}
+      ultima = null; cargarNotificaciones();
+      return;
+    }
 
-      function openNotifPanel(){ if (!notifPane||!notifBtn) return; notifPane.classList.add('is-open'); notifPane.setAttribute('aria-hidden','false'); notifBtn.setAttribute('aria-expanded','true'); loadNotifications(); }
-      function closeNotifPanel(){ if (!notifPane||!notifBtn) return; notifPane.classList.remove('is-open'); notifPane.setAttribute('aria-hidden','true'); notifBtn.setAttribute('aria-expanded','false'); }
+    var destino = fila.dataset.href;
+    try { if (id) await post(LEER_UNA.replace('__ID__', encodeURIComponent(id))); } catch (err) {}
+    if (destino) window.location.href = destino;
+    else { ultima = null; cargarNotificaciones(); }
+  }
 
-      if (notifBtn) notifBtn.addEventListener('click',function(e){ e.stopPropagation(); if(!notifPane)return; notifPane.classList.contains('is-open')?closeNotifPanel():openNotifPanel(); });
-      if (notifMarkAll) notifMarkAll.addEventListener('click',function(e){ e.preventDefault(); markAllNotifications(); });
-      if (notifMarkAllTop) notifMarkAllTop.addEventListener('click',function(e){ e.preventDefault(); markAllNotifications(); });
+  lista.addEventListener('click', function (e) {
+    var fila = e.target.closest('.sh-notif-item');
+    if (!fila) return;
+    e.preventDefault();
+    abrirNotificacion(fila, !!e.target.closest('[data-quitar]'));
+  });
+  lista.addEventListener('keydown', function (e) {
+    var fila = e.target.closest('.sh-notif-item');
+    if (!fila || e.target !== fila || (e.key !== 'Enter' && e.key !== ' ')) return;
+    e.preventDefault();
+    abrirNotificacion(fila, false);
+  });
 
-      if (notifList){
-        notifList.addEventListener('click',function(e){
-          const closeBtn=e.target.closest('.notif__item-close');
-          if (closeBtn){ const id=closeBtn.getAttribute('data-id'); const itemEl=closeBtn.closest('.notif__item'); if(id)markOneNotification(id,itemEl,true); e.stopPropagation(); return; }
-          const row=e.target.closest('.notif__item');
-          if (!row) return;
-          const id=row.dataset.id; const url=row.dataset.url||'';
-          if (!url) return;
-          e.preventDefault();
-          (async()=>{ if(id)await markOneNotification(id,row,false); window.location.href=url; })();
-        });
-      }
+  if (FEED) { cargarNotificaciones(); setInterval(cargarNotificaciones, 15000); }
+})();
+</script>
 
-      document.addEventListener('click',function(e){ if(!notifPane||!notifBtn)return; if(!notifPane.contains(e.target)&&!notifBtn.contains(e.target))closeNotifPanel(); });
-      window.addEventListener('keydown',function(e){ if(e.key==='Escape'){ closeNotifPanel(); closeSidebar(); } });
-
-      if (NOTIF_FEED_URL){ loadNotifications(); setInterval(loadNotifications,10000); }
-    })();
-  </script>
+@stack('scripts')
 </body>
 </html>

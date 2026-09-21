@@ -1,4 +1,6 @@
 @extends('layouts.app')
+{{-- Pantalla preparada para modo oscuro: el layout no la fuerza a claro --}}
+@section('tema_oscuro', '1')
 @section('title', 'WMS · Citas de andén')
 
 @push('styles')

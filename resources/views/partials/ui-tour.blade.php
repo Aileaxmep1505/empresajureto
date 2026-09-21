@@ -95,12 +95,12 @@
   .tour-btn[hidden]{ display:none; }
 
   /* Botón "¿Cómo funciona?" que cada pantalla coloca en su encabezado */
-  .tour-abrir{ display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 12px;
-               border:1px solid var(--ui-border-strong); border-radius:var(--ui-r); background:var(--ui-surface);
-               color:var(--ui-ink-2); font:inherit; font-size:13px; font-weight:600; cursor:pointer; text-decoration:none; white-space:nowrap;
-               transition:background var(--ui-fast) var(--ui-ease), border-color var(--ui-fast) var(--ui-ease), color var(--ui-fast) var(--ui-ease); }
-  .tour-abrir:hover{ background:var(--ui-surface-3); color:var(--ui-ink); border-color:var(--ui-border-strong); }
-  .tour-abrir svg{ width:15px; height:15px; }
+  .tour-abrir{ display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 10px;
+               border:0; border-radius:var(--ui-r); background:none;
+               color:var(--ui-muted); font:inherit; font-size:13px; font-weight:500; cursor:pointer; text-decoration:none; white-space:nowrap;
+               transition:background var(--ui-fast) var(--ui-ease), color var(--ui-fast) var(--ui-ease); }
+  .tour-abrir:hover{ background:var(--ui-surface-3); color:var(--ui-ink); }
+  .tour-abrir svg{ width:15px; height:15px; opacity:.85; }
 
   /* En el teléfono el globo es una hoja fija abajo */
   @media (max-width: 640px){
@@ -168,6 +168,11 @@ window.UITour = (function () {
     // Se descartan los pasos cuyo elemento no está en esta pantalla.
     pasos = g.pasos.filter(p => !p.el || document.querySelector(p.el));
     if (!pasos.length) return;
+
+    // Cuando sale sola (primera vez), se marca como vista al instante: así ya no
+    // vuelve a aparecer aunque el usuario salga sin cerrarla o recargue la página.
+    // El botón "¿Cómo funciona?" pasa forzar:true, por eso no cuenta como "vista".
+    if (!opciones?.forzar) marcarVisto(clave);
 
     activa = clave;
     i = 0;
