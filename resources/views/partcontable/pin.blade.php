@@ -443,6 +443,31 @@
 @media (max-width: 420px){
     .pin-card{ padding: 22px; border-radius: 22px; }
 }
+
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"]{
+  --bg-base:#0b1220;
+  --glass-bg: rgba(20,28,45,0.72);
+  --glass-border: rgba(255,255,255,0.10);
+  --glass-shadow: 0 18px 60px rgba(0,0,0,0.45);
+  --text-dark:#eaf0fb;
+  --text-gray:#9aa6bd;
+  --primary:#eaf0fb;
+  --primary-soft: rgba(255,255,255,0.12);
+}
+:root[data-theme="dark"] .pin-bg{
+  background:
+    radial-gradient(1200px 420px at 50% 0%, rgba(59,130,246,0.30) 0%, rgba(37,99,235,0.18) 35%, rgba(11,18,32,0) 72%),
+    linear-gradient(180deg, #0e1a30 0%, #0b1426 32%, #0a111f 62%, #070c17 100%);
+  filter:none;
+}
+:root[data-theme="dark"] .brand-icon{ background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.10); color:#eaf0fb; }
+:root[data-theme="dark"] .brand-subtitle strong{ color:#eaf0fb; }
+:root[data-theme="dark"] .slot{ background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
+:root[data-theme="dark"] .slot.active{ border-color: rgba(255,255,255,0.35); box-shadow:0 0 0 4px var(--primary-soft), 0 16px 34px rgba(0,0,0,.4); }
+:root[data-theme="dark"] .slot::after{ background:#eaf0fb; }
+:root[data-theme="dark"] .btn-aurora{ color:#0b1220; background: linear-gradient(180deg, #eaf0fb 0%, #cbd5e1 100%); box-shadow:0 14px 30px rgba(0,0,0,.4); }
+:root[data-theme="dark"] .spinner .path{ stroke:#0b1220; }
 </style>
 
 <script>

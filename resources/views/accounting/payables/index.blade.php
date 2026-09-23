@@ -734,6 +734,13 @@
       justify-content:space-between;
     }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .pay-card, :root[data-theme="dark"] .pay-dd-menu, :root[data-theme="dark"] .pay-dd-trigger,
+:root[data-theme="dark"] .pay-search input, :root[data-theme="dark"] .pay-summary-chip, :root[data-theme="dark"] .pay-empty{ background:#111d33; color:#eaf0fb; border-color:#243450; }
+:root[data-theme="dark"] .pay-card *:not([class*="badge"]):not([class*="status"]){ border-color:#243450; }
+:root[data-theme="dark"] .pay-dd-option:hover, :root[data-theme="dark"] .pay-search input:hover, :root[data-theme="dark"] .pay-search input:focus{ background:rgba(255,255,255,.05); }
+:root[data-theme="dark"] .pay-dd-option.active{ background:rgba(59,130,246,.14); }
+:root[data-theme="dark"] .pay-alert{ background:#0f1a2e; }
 </style>
 
 @php

@@ -218,6 +218,9 @@
     }
   }
 
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .pkf-modal-dialog, :root[data-theme="dark"] .pkf-modal-footer, :root[data-theme="dark"] .pkf-virtual-panel, :root[data-theme="dark"] .pkf-virtual-fields{ background:#111d33; color:#eaf0fb; border-color:#243450; }
+:root[data-theme="dark"] .pkf-virtual-fields input, :root[data-theme="dark"] .pkf-virtual-fields textarea{ background:#111d33; color:#eaf0fb; border-color:#243450; }
 </style>
 @endpush
 @section('content_class', 'content--flush')

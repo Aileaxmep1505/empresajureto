@@ -113,6 +113,12 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
 @media (max-width: 768px){
   .hgroup .subtitle{ display:none; }
 }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] body{ background:var(--sh-page-bg, #0b1220); }
+:root[data-theme="dark"] .back-link, :root[data-theme="dark"] .field, :root[data-theme="dark"] .block,
+:root[data-theme="dark"] .drop-box, :root[data-theme="dark"] .preview, :root[data-theme="dark"] .btn-ghost{ background:var(--card, #111d33); color:var(--ink, #eaf0fb); border-color:var(--line, #243450); }
+:root[data-theme="dark"] .back-link:hover, :root[data-theme="dark"] .btn-ghost:hover, :root[data-theme="dark"] .btn-primary:hover{ background:rgba(255,255,255,.06); }
+:root[data-theme="dark"] .dropzone.dragover .drop-box{ background:rgba(59,130,246,.12); }
 </style>
 
 <div class="edit-wrap">

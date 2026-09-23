@@ -87,6 +87,12 @@ body{font-family:"Open Sans",sans-serif;background:#eaebec}
 
 .is-invalid{ border-color:#f9c0c0 !important }
 .error{ color:#cc4b4b; font-size:12px; margin-top:6px }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] body{ background:var(--sh-page-bg, #0b1220); }
+:root[data-theme="dark"] .back-link, :root[data-theme="dark"] .field, :root[data-theme="dark"] .status-row,
+:root[data-theme="dark"] .btn-ghost{ background:var(--card, #111d33); color:var(--ink, #eaf0fb); border-color:var(--line, #243450); }
+:root[data-theme="dark"] .back-link:hover, :root[data-theme="dark"] .btn-ghost:hover, :root[data-theme="dark"] .btn-primary:hover{ background:rgba(255,255,255,.06); }
+:root[data-theme="dark"] .switch .track{ background:#2b3c5a; }
 </style>
 
 <div class="edit-wrap">

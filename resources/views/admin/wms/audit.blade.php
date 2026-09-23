@@ -1235,6 +1235,9 @@
             flex-direction: column;
         }
     }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .audit-action-card, :root[data-theme="dark"] .audit-evidence-card, :root[data-theme="dark"] .n-panel-head, :root[data-theme="dark"] .n-panel-head-side, :root[data-theme="dark"] .n-side-row.minimal, :root[data-theme="dark"] .n-table td{ background:#111d33; color:#eaf0fb; border-color:#243450; }
+:root[data-theme="dark"] .n-side-row.minimal:hover{ background:rgba(255,255,255,.05); }
 </style>
 @endpush
 

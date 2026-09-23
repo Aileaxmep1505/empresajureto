@@ -1450,6 +1450,11 @@
     .rpv2-chart-bars{ gap:10px; }
     .rpv2-bar{ width:16px; }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .rpv2-kpi, :root[data-theme="dark"] .rpv2-rank, :root[data-theme="dark"] .rpv2-soft,
+:root[data-theme="dark"] .rpv2-empty, :root[data-theme="dark"] .rpv2-note, :root[data-theme="dark"] .rpv2-compare-track{ background:#111d33; color:#eaf0fb; border-color:#243450; }
+:root[data-theme="dark"] .rpv2-compare-track{ background:#1a2740; }
+:root[data-theme="dark"] .rpv2-select:focus{ background:#111d33; color:#eaf0fb; }
 </style>
 
 <div class="rpv2">

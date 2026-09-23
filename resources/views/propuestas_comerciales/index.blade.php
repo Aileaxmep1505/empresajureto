@@ -951,6 +951,26 @@
     .jureto-dashboard-page .jureto-toast { transition-duration: .01ms; }
     .jureto-dashboard-page * { scroll-behavior: auto; }
   }
+  /* ===== Modo oscuro ===== */
+  :root[data-theme="dark"] .jureto-dashboard-page{
+    --bg:#0b1220; --card:#111d33; --ink:#eaf0fb; --ink-soft:#b3bfd2; --muted:#8a99b1;
+    --line:#243450; --line-soft:#1e2c46;
+    background:
+      radial-gradient(1200px 480px at 78% -10%, rgba(59,130,246,.14) 0%, rgba(59,130,246,0) 60%),
+      var(--bg);
+    color:var(--ink);
+  }
+  :root[data-theme="dark"] .jureto-dashboard-page .quote-head{ background:#0f1a2e; }
+  :root[data-theme="dark"] .jureto-dashboard-page .quote-row:hover{ background:rgba(255,255,255,.04); }
+  :root[data-theme="dark"] .jureto-dashboard-page .avatar{ background:linear-gradient(140deg, rgba(59,130,246,.24), rgba(59,130,246,.10)); }
+  :root[data-theme="dark"] .jureto-dashboard-page .trend.flat{ background:#1a2740; color:#9aa6bd; }
+  :root[data-theme="dark"] .jureto-dashboard-page .badge-pending{ background:#1a2740; color:#c4cfe0; }
+  /* Textos/valores que estaban en negro fijo → claros en oscuro */
+  :root[data-theme="dark"] .jureto-dashboard-page :is(.dash-title, .stat-value, .panel-title, .dist-val, .section-title, .quote-folio, .quote-code, .quote-total, .empty-title, .foot-num, .jureto-modal-title){ color:var(--ink); }
+  :root[data-theme="dark"] .jureto-dashboard-page .jureto-modal-desc strong{ color:var(--ink); }
+  :root[data-theme="dark"] .jureto-dashboard-page .btn-secondary:hover,
+  :root[data-theme="dark"] .jureto-dashboard-page .pager-btn:not(.is-disabled):hover{ color:var(--ink); }
+  :root[data-theme="dark"] .jureto-dashboard-page .stat-card.is-blue .stat-value{ color:#fff; }
 </style>
 
 @php

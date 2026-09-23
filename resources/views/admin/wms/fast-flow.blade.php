@@ -946,6 +946,11 @@
     .ff2-cards{grid-template-columns:1fr}
     .ff2-metrics-4{grid-template-columns:repeat(2,minmax(0,1fr))}
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .ff2-flow-card, :root[data-theme="dark"] .ff2-empty, :root[data-theme="dark"] .ff2-search input, :root[data-theme="dark"] .ff2-tabs, :root[data-theme="dark"] .ff2-top-btn-out, :root[data-theme="dark"] .ff2-metric, :root[data-theme="dark"] .ff2-status-gray{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .ff2-tab:hover{ background:rgba(255,255,255,.05); }
+:root[data-theme="dark"] .ff2-tab.is-active{ background:var(--card,#111d33); }
+:root[data-theme="dark"] .ff2-flow-icon{ background:#1a2740; }
 </style>
 @endpush
 

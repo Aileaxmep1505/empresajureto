@@ -271,6 +271,10 @@
     .scan-grid{grid-template-columns:1fr}
     .modal-card{margin:18px 10px}
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .card, :root[data-theme="dark"] .btn-ghost, :root[data-theme="dark"] .chip, :root[data-theme="dark"] .inp, :root[data-theme="dark"] .mini, :root[data-theme="dark"] .modal-card, :root[data-theme="dark"] .pill, :root[data-theme="dark"] .qtybtn, :root[data-theme="dark"] .qtyinp, :root[data-theme="dark"] .stat{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .inp:focus, :root[data-theme="dark"] .qtyinp:focus{ background:var(--card,#111d33); }
+:root[data-theme="dark"] .x:hover{ background:rgba(255,255,255,.06); }
 </style>
 @endpush
 

@@ -568,6 +568,9 @@
 .sold-line-tag-blue { background: var(--blue-soft); color: var(--blue); }
 .sold-line-tag-success { background: var(--success-soft); color: var(--success); }
 
+/* dark */
+:root[data-theme="dark"] .label-card, :root[data-theme="dark"] .labels-modal-content, :root[data-theme="dark"] .labels-modal-header, :root[data-theme="dark"] .reception-screen .table-wrapper, :root[data-theme="dark"] .sold-line-box{ background:#111d33; color:#eaf0fb; border-color:#243450; }
+:root[data-theme="dark"] .btn-close-modal:hover{ background:rgba(255,255,255,.06); }
 </style>
 
 <div class="reception-screen">

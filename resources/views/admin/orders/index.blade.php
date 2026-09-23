@@ -1,4 +1,4 @@
-@extends('layouts.web')
+@extends('layouts.app')
 @section('title','Pedidos')
 
 @section('content')
@@ -205,6 +205,12 @@
   #orders .filters{grid-template-columns:1fr}
   #orders table{min-width:760px}
 }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] #orders{ --bg:#0b1220; --card:#111d33; --line:#243450; --ink:#eaf0fb; --muted:#8a99b1; }
+:root[data-theme="dark"] #orders input, :root[data-theme="dark"] #orders select{ background:var(--card); }
+:root[data-theme="dark"] #orders input::placeholder{ color:var(--muted); }
+:root[data-theme="dark"] #orders .tabs{ background:var(--card); }
+:root[data-theme="dark"] #orders .tab:hover{ background:rgba(255,255,255,.05); color:var(--ink); }
 </style>
 
 <div id="orders">

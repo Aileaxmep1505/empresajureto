@@ -429,6 +429,13 @@ select:focus {
   .actions { justify-content: stretch; }
   .actions .btn-clean { width: 100%; }
 }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .dropzone, :root[data-theme="dark"] .switch-row, :root[data-theme="dark"] .toast-clean,
+:root[data-theme="dark"] .btn-clean, :root[data-theme="dark"] .btn-outline-clean, :root[data-theme="dark"] .sig-wrap,
+:root[data-theme="dark"] select{ background:var(--card, #111d33); color:var(--ink, #eaf0fb); border-color:var(--line, #243450); }
+:root[data-theme="dark"] .notice{ background:#0f1a2e; }
+:root[data-theme="dark"] .notice.warn{ background:rgba(245,158,11,.12); }
+:root[data-theme="dark"] .btn-ghost:hover{ background:rgba(255,255,255,.06); }
 </style>
 
 <div class="expenses-page">

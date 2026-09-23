@@ -535,6 +535,9 @@
     .an-actions{width:100%}
     .an-actions form,.an-inp{width:100%}
   }
+/* dark */
+:root[data-theme="dark"] .an-btn-ghost, :root[data-theme="dark"] .an-inp, :root[data-theme="dark"] .return-box, :root[data-theme="dark"] .tbl th{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .tbl tbody tr:hover{ background:rgba(255,255,255,.04); }
 </style>
 @endpush
 

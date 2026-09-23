@@ -102,6 +102,16 @@
   color:var(--muted);
   margin-top:4px;
 }
+
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .back-link{ background:var(--card); border-color:var(--line); }
+:root[data-theme="dark"] .field{ background:var(--card); border-color:var(--line); }
+:root[data-theme="dark"] .field:focus-within{ border-color:var(--mint); box-shadow:0 8px 24px rgba(0,0,0,.35); }
+:root[data-theme="dark"] .switch-wrap{ background:var(--card); border-color:var(--line); }
+:root[data-theme="dark"] .switch .track{ background:#2b3c5a; }
+:root[data-theme="dark"] .btn-primary:hover{ background:var(--mint-dark); color:#08221c; box-shadow:0 16px 32px rgba(0,0,0,.4); }
+:root[data-theme="dark"] .btn-ghost{ background:var(--card); color:var(--ink); border:1px solid var(--line); }
+:root[data-theme="dark"] .btn-ghost:hover{ background:rgba(255,255,255,.05); color:var(--ink); border-color:var(--line); box-shadow:none; }
 </style>
 @endpush
 

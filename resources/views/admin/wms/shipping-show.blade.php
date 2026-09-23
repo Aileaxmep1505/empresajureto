@@ -366,5 +366,7 @@
     .shipd-line-stats{ grid-template-columns:1fr; }
     .shipd-kpis{ grid-template-columns:1fr; }
 }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .shipd-panel, :root[data-theme="dark"] .shipd-info, :root[data-theme="dark"] .shipd-kpi, :root[data-theme="dark"] .shipd-scan, :root[data-theme="dark"] .shipd-line, :root[data-theme="dark"] .shipd-btn-ghost, :root[data-theme="dark"] .shipd-reason, :root[data-theme="dark"] .shipd-scan-type, :root[data-theme="dark"] .shipd-line-stats > div{ background:#111d33; color:#eaf0fb; border-color:#243450; }
 </style>
 @endsection

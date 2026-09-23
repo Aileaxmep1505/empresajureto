@@ -57,6 +57,8 @@
   .btn-primary{background:var(--brand);color:#eff6ff;box-shadow:0 14px 30px rgba(37,99,235,.30)}
   .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
   .chip{font-size:.78rem;font-weight:800;padding:6px 10px;border-radius:999px;background:#eff6ff;color:#1e40af;border:1px solid #dbeafe;white-space:nowrap}
+/* dark */
+:root[data-theme="dark"] .btn-ghost, :root[data-theme="dark"] .chip, :root[data-theme="dark"] .inp, :root[data-theme="dark"] .panel{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
 </style>
 @endpush
 

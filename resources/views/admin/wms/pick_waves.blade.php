@@ -156,6 +156,10 @@
   .area{min-height:140px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
   .toggle{display:flex;gap:10px;align-items:center;color:#334155;font-weight:900}
   @media (max-width: 900px){ .mcard{margin:18px 10px} }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .btn-ghost, :root[data-theme="dark"] .card, :root[data-theme="dark"] .chip, :root[data-theme="dark"] .chip-soft, :root[data-theme="dark"] .inp, :root[data-theme="dark"] .mcard, :root[data-theme="dark"] .tag, :root[data-theme="dark"] .tbl th{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .inp:focus{ background:var(--card,#111d33); }
+:root[data-theme="dark"] .x:hover{ background:rgba(255,255,255,.06); }
 </style>
 @endpush
 

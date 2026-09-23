@@ -321,6 +321,8 @@
     .hm-hint{display:none}
     .hm-tip{width:min(320px, calc(100vw - 20px))}
   }
+/* dark */
+:root[data-theme="dark"] .btn-ghost, :root[data-theme="dark"] .inp{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
 </style>
 @endpush
 

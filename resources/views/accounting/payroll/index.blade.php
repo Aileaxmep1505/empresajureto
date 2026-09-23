@@ -40,6 +40,12 @@
   #acc .badge-soft{ padding:7px 10px; border-radius:999px; border:1px solid var(--line); font-size:12px; color:var(--muted); background:#fff; }
   #acc .tiny{ font-size:12px; }
   #acc .muted{ color:var(--muted); }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] #acc{ --card:#111d33; --bg:#0b1220; --line:#243450; --ink:#eaf0fb; --muted:#8a99b1; }
+:root[data-theme="dark"] #acc .badge-soft{ background:#1a2740; color:var(--ink); }
+:root[data-theme="dark"] #acc .btn-ghost{ background:var(--card); color:var(--ink); border-color:var(--line); }
+:root[data-theme="dark"] #acc .btn-pastel:hover{ background:rgba(255,255,255,.06); }
+:root[data-theme="dark"] #acc .form-control, :root[data-theme="dark"] #acc .form-select{ background:var(--card); color:var(--ink); border-color:var(--line); }
 </style>
 
 <div id="acc">

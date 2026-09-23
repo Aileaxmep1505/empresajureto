@@ -819,6 +819,9 @@
       grid-template-columns:1fr;
     }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .ffs-box-card, :root[data-theme="dark"] .ffs-summary, :root[data-theme="dark"] .ffs-btn-ghost, :root[data-theme="dark"] .ffs-mini-btn, :root[data-theme="dark"] .ffs-status-gray{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .ffs-back:hover{ background:rgba(255,255,255,.05); }
 </style>
 @endpush
 

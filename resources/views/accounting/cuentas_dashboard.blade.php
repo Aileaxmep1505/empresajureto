@@ -816,6 +816,8 @@
     }
     .acc-item-foot .arr { align-self: flex-end; }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .acc-filter-btn:hover{ background:rgba(255,255,255,.06); }
 </style>
 
 <div class="acc-dash">

@@ -478,6 +478,8 @@
     .ff-batch-head { flex-direction: column; }
     .ff-batch-kpis { justify-content: flex-start; }
   }
+/* dark */
+:root[data-theme="dark"] .ff-box-card{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
 </style>
 @endpush
 

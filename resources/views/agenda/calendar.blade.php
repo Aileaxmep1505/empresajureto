@@ -968,6 +968,32 @@
         justify-content:center;
       }
     }
+    /* ===== Modo oscuro ===== */
+    :root[data-theme="dark"] #agenda-clean{ --bg:#0b1220; --card:#111d33; --ink:#eaf0fb; --muted:#8a99b1; --line:#243450; --soft:#0f1a2e; background:var(--bg); color:var(--ink); }
+    :root[data-theme="dark"] #agenda-clean .fc{ background:var(--card); }
+    :root[data-theme="dark"] #agenda-clean .fc td,
+    :root[data-theme="dark"] #agenda-clean .fc th{ border-color:var(--line); }
+    :root[data-theme="dark"] #agenda-clean .fc-col-header-cell,
+    :root[data-theme="dark"] #agenda-clean .fc .fc-timegrid-allday,
+    :root[data-theme="dark"] #agenda-clean .fc .fc-timegrid-allday .fc-timegrid-slot-lane,
+    :root[data-theme="dark"] #agenda-clean .fc .fc-timegrid-divider{ background:var(--soft); }
+    :root[data-theme="dark"] #agenda-clean .fc-day-today,
+    :root[data-theme="dark"] #agenda-clean .fc-timegrid-col.fc-day-today{ background:rgba(59,130,246,.10) !important; }
+    :root[data-theme="dark"] #agenda-clean .fc-daygrid-day:hover{ background:rgba(255,255,255,.04); }
+    :root[data-theme="dark"] #agenda-clean .fc-daygrid-day-number,
+    :root[data-theme="dark"] #agenda-clean .custom-header-week .day-num{ color:var(--ink); }
+    :root[data-theme="dark"] #agenda-clean .modal-box,
+    :root[data-theme="dark"] #agenda-clean .show-box{ background:var(--card); color:var(--ink); }
+    :root[data-theme="dark"] #agenda-clean .nav-btn,
+    :root[data-theme="dark"] #agenda-clean .today-btn,
+    :root[data-theme="dark"] #agenda-clean .view-switch,
+    :root[data-theme="dark"] #agenda-clean .chip,
+    :root[data-theme="dark"] #agenda-clean .textarea,
+    :root[data-theme="dark"] #agenda-clean .modal-btn.cancel{ background:var(--card); color:var(--ink); border-color:var(--line); }
+    :root[data-theme="dark"] #agenda-clean .nav-btn:hover,
+    :root[data-theme="dark"] #agenda-clean .today-btn:hover{ background:rgba(255,255,255,.06); }
+    :root[data-theme="dark"] #agenda-clean .view-btn.active{ background:#243450; color:var(--ink); }
+    :root[data-theme="dark"] #agenda-clean .show-check{ background:var(--card); border-color:var(--line); }
   </style>
 
   <div class="agenda-layout">

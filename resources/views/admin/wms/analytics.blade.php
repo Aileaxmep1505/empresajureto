@@ -1200,6 +1200,10 @@ $productsUrl = $productsUrl ?? (
         .wmsdash-table-wrap{padding:0 8px 10px;}
         .alert-metrics{grid-template-columns:1fr;}
     }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .ops-item, :root[data-theme="dark"] .wmsdash-btn-ghost, :root[data-theme="dark"] .wmsdash-select{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .wmsdash-table tbody tr:hover{ background:rgba(255,255,255,.04); }
+:root[data-theme="dark"] .mini-count{ background:#1a2740; }
 </style>
 @endpush
 

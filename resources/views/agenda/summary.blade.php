@@ -754,6 +754,26 @@
         justify-content:center;
       }
     }
+
+    /* ===== Modo oscuro ===== */
+    :root[data-theme="dark"] #agenda-summary{ --bg:#0b1220; --card:#111d33; --ink:#eaf0fb; --muted:#8a99b1; --line:#243450; --soft:#0f1a2e; background:var(--bg); color:var(--ink); }
+    :root[data-theme="dark"] #agenda-summary .card-head,
+    :root[data-theme="dark"] #agenda-summary .modal,
+    :root[data-theme="dark"] #agenda-summary .modal-foot,
+    :root[data-theme="dark"] #agenda-summary .show-details-box,
+    :root[data-theme="dark"] #agenda-summary .detail-row,
+    :root[data-theme="dark"] #agenda-summary .textarea,
+    :root[data-theme="dark"] #agenda-summary .btn.secondary,
+    :root[data-theme="dark"] #agenda-summary .check,
+    :root[data-theme="dark"] #agenda-summary .chip-name{ background:var(--card); color:var(--ink); border-color:var(--line); }
+    :root[data-theme="dark"] #agenda-summary .btn.secondary:hover,
+    :root[data-theme="dark"] #agenda-summary .event-row:hover{ background:rgba(255,255,255,.05); }
+    :root[data-theme="dark"] #agenda-summary .title,
+    :root[data-theme="dark"] #agenda-summary .event-title,
+    :root[data-theme="dark"] #agenda-summary .timeline-title,
+    :root[data-theme="dark"] #agenda-summary .show-title-wrapper h3{ color:var(--ink); }
+    :root[data-theme="dark"] #agenda-summary .switch::after{ background:#fff; }
+    :root[data-theme="dark"] #agenda-summary .timeline::before{ background:var(--line); }
   </style>
 
   <div class="wrap">

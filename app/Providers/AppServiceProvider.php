@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Gate;
 
 use App\Models\HomeBanner;
 use App\Models\HomeProductSection;
@@ -48,6 +49,11 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // El rol "admin" pasa antes de cualquier revisión de permiso (@can / ->can).
+        Gate::before(function ($user, $ability) {
+            return (is_object($user) && method_exists($user, 'hasRole') && $user->hasRole('admin')) ? true : null;
+        });
+
         View::composer('web.home', function ($view) {
             $homeBanners = HomeBanner::query()
                 ->where('is_active', true)

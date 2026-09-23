@@ -323,6 +323,9 @@
     .wms-head-actions button { width: 100%; }
     .wms-row { flex-direction: column; align-items: stretch; }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .mf{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .empty-state-icon{ background:#1a2740; }
 </style>
 @endpush
 

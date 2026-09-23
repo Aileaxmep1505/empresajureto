@@ -40,6 +40,8 @@
   .vs-alert{padding:14px 16px;border-radius:12px;margin-bottom:16px;font-weight:700;}.vs-alert-ok{border:1px solid var(--success-soft);background:var(--success-soft);color:var(--success);}.vs-alert-error{border:1px solid var(--danger-soft);background:var(--danger-soft);color:var(--danger);}
   .vs-footer{position:sticky;bottom:0;background:rgba(249,250,251,.9);backdrop-filter:blur(8px);padding:14px 0;margin-top:18px;display:flex;justify-content:flex-end;gap:10px;}
   @media(max-width:1180px){.vs-page{padding:18px}.vs-header{flex-direction:column}.vs-grid{grid-template-columns:1fr}.vs-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.vs-line{grid-template-columns:1fr}}
+/* dark */
+:root[data-theme="dark"] .vs-field, :root[data-theme="dark"] .vs-match, :root[data-theme="dark"] .vs-mode-help{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
 </style>
 
 <div class="vs-page">

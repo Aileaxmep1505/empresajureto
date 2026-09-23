@@ -1,4 +1,4 @@
-@extends('layouts.web')
+@extends('layouts.app')
 @section('title','Pedido #'.$order->id)
 
 @section('content')
@@ -69,6 +69,13 @@
 @media (max-width:980px){
   #od .grid{grid-template-columns:1fr}
 }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] #od{ --bg:#0b1220; --card:#111d33; --line:#243450; --ink:#eaf0fb; --muted:#8a99b1; }
+:root[data-theme="dark"] #od .btn{ background:var(--card); }
+:root[data-theme="dark"] #od .thumb{ background:var(--card); }
+:root[data-theme="dark"] #od .copy{ background:var(--card); }
+:root[data-theme="dark"] #od .row{ border-top-color:var(--line); }
+:root[data-theme="dark"] #od .kv{ border-top-color:var(--line); }
 </style>
 
 @php

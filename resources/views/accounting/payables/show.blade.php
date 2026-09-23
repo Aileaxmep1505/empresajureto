@@ -850,6 +850,14 @@
       width: calc(100vw - 24px) !important;
     }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .cxp-btn, :root[data-theme="dark"] .cxp-method, :root[data-theme="dark"] .cxp-movement,
+:root[data-theme="dark"] .cxp-empty, :root[data-theme="dark"] .pay-modal-dialog, :root[data-theme="dark"] .pay-select,
+:root[data-theme="dark"] .pay-upload, :root[data-theme="dark"] .swal-enterprise-popup,
+:root[data-theme="dark"] .pay-btn-cancel{ background:#111d33; color:#eaf0fb; border-color:#243450; }
+:root[data-theme="dark"] .pay-upload:hover, :root[data-theme="dark"] .pay-modal-close:hover,
+:root[data-theme="dark"] .swal-enterprise-cancel:hover{ background:rgba(255,255,255,.06); }
+:root[data-theme="dark"] .cxp-btn.danger{ background:rgba(244,63,94,.14); color:#fca5a5; }
 </style>
 
 <div class="cxp-page">

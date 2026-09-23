@@ -664,6 +664,12 @@
       width: 100%;
     }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .acc-switcher, :root[data-theme="dark"] .acc-upload{ background:var(--card,#111d33); border-color:var(--line,#243450); color:var(--ink,#eaf0fb); }
+:root[data-theme="dark"] .acc-upload:hover, :root[data-theme="dark"] .acc-upload:focus-within{ background:rgba(255,255,255,.05); }
+:root[data-theme="dark"] .acc-modern-option:hover{ background:rgba(255,255,255,.05); }
+:root[data-theme="dark"] .acc-modern-option.is-selected{ background:rgba(59,130,246,.14); }
+:root[data-theme="dark"] .acc-cancelbtn:hover{ background:rgba(255,255,255,.06); }
 </style>
 
 <div class="acc-form-page">

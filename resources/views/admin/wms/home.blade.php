@@ -867,5 +867,9 @@
     .wms-sub { font-size: 0.98rem; }
     .globe-canvas { width: 300px !important; height: 300px !important; }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] html, :root[data-theme="dark"] body{ background:var(--sh-page-bg, #0b1220); }
+:root[data-theme="dark"] .bento-card, :root[data-theme="dark"] .card-analytics-light, :root[data-theme="dark"] .fake-item, :root[data-theme="dark"] .fake-line{ background:#111d33; color:#eaf0fb; border-color:#243450; }
+:root[data-theme="dark"] .bento-icon-wrapper, :root[data-theme="dark"] .light-icon{ background:#1a2740; }
 </style>
 @endpush

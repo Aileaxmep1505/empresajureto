@@ -28,8 +28,7 @@ class DashboardAccesos
                 'titulo' => 'Finanzas y Ventas',
                 'icono' => 'payments',
                 'items' => [
-                    self::item('Cotizaciones', 'request_quote', 'cotizaciones.index'),
-                    self::item('Ventas', 'point_of_sale', 'ventas.index'),
+                    self::item('Cotizaciones', 'request_quote', 'propuestas-comerciales.index'),
                     self::item('Facturas', 'receipt_long', 'manual_invoices.index'),
                     self::item('Compras y Ventas', 'article', 'publications.index'),
                     self::item('Part. contable', 'monitoring', 'partcontable.index'),
@@ -72,11 +71,8 @@ class DashboardAccesos
                 'titulo' => 'Licitaciones',
                 'icono' => 'gavel',
                 'items' => [
-                    self::item('Licitaciones', 'gavel', 'projects.control', null, 'Nuevo'),
+                    self::item('Centro de control', 'gavel', 'projects.control', null, 'Nuevo'),
                     self::item('Tablero de licitaciones', 'view_kanban', 'projects.index'),
-                    self::item('Tabla global IA', 'table_chart', 'licitaciones-ai.tabla-global'),
-                    self::item('PDFs / Bases', 'attach_file', 'admin.licitacion-pdfs.index'),
-                    self::item('Propuestas / comparativas', 'query_stats', 'admin.licitacion-propuestas.index'),
                 ],
             ],
             'tickets' => [
@@ -133,7 +129,7 @@ class DashboardAccesos
     public static function accionesRapidas(int $nivel = 1): array
     {
         $items = [
-            self::item('Nueva cotización', 'add_circle', 'cotizaciones.create'),
+            self::item('Nueva cotización', 'add_circle', 'propuestas-comerciales.create'),
             self::item('Nuevo cliente', 'person_add', 'clients.create'),
             self::item('Nuevo producto', 'add_box', 'admin.catalog.create'),
             self::item('Nuevo ticket', 'add_task', 'tickets.create'),

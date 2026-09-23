@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\Admin\UserManagementController;
+use App\Http\Controllers\Admin\RolesController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProviderController;
 use App\Http\Controllers\ClientController;
@@ -496,6 +497,13 @@ Route::prefix('admin')->middleware(['auth', 'verified', 'approved', 'role:admin'
     Route::post('/users/{user}/revoke',        [UserManagementController::class, 'revoke'])->name('admin.users.revoke');
     Route::post('/users/{user}/role',          [UserManagementController::class, 'assignRole'])->name('admin.users.role.assign');
     Route::delete('/users/{user}/role/{role}', [UserManagementController::class, 'removeRole'])->name('admin.users.role.remove');
+
+    // Roles y permisos (estilo Obsidiana)
+    Route::get('/roles',                 [RolesController::class, 'index'])->name('admin.roles.index');
+    Route::post('/roles',                [RolesController::class, 'store'])->name('admin.roles.store');
+    Route::get('/roles/{role:name}/edit',[RolesController::class, 'edit'])->name('admin.roles.edit');
+    Route::put('/roles/{role:name}',     [RolesController::class, 'update'])->name('admin.roles.update');
+    Route::delete('/roles/{role:name}',  [RolesController::class, 'destroy'])->name('admin.roles.destroy');
 
     Route::resource('catalog', CatalogItemController::class)
         ->parameters(['catalog' => 'catalogItem'])
@@ -1850,6 +1858,9 @@ Route::middleware(['auth'])->group(function () {
 
 Route::get('/partcontable/activity/all', [ActivityController::class, 'all'])
     ->name('partcontable.activity.all');
+
+Route::get('/partcontable/activity/analytics', [ActivityController::class, 'analytics'])
+    ->name('partcontable.activity.analytics');
 
     Route::middleware(['auth'])->group(function () {
 

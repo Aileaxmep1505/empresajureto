@@ -79,6 +79,9 @@
   .vp-product-mini-sub { margin-top:5px; color:var(--muted); font-size:12px; font-weight:600; line-height:1.45; }
   @media (max-width: 1100px) { .vp-page{padding:18px;} .vp-header{flex-direction:column;} .vp-summary{grid-template-columns:repeat(2,minmax(0,1fr));} .vp-filter-grid{grid-template-columns:1fr;} }
   @media (max-width: 640px) { .vp-summary{grid-template-columns:1fr;} .vp-title{font-size:25px;} }
+/* dark */
+:root[data-theme="dark"] .vp-btn-outline, :root[data-theme="dark"] .vp-input, :root[data-theme="dark"] .vp-select, :root[data-theme="dark"] .vp-product-mini, :root[data-theme="dark"] .vp-table th{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .vp-btn-ghost:hover{ background:rgba(255,255,255,.05); }
 </style>
 
 <div class="vp-page">

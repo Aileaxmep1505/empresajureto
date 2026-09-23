@@ -239,6 +239,20 @@
   .table-hover tbody tr:hover { background-color: #f8fafc; }
   .table-light th { background-color: #f1f5f9; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; border-bottom: none; padding: 12px 16px; }
   .table td { padding: 16px; vertical-align: middle; border-bottom: 1px solid var(--border); font-weight: 500; color: #334155; }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] #expensesPage{ --card:#111d33; --bg:#0b1220; --line:#243450; --ink:#eaf0fb; --muted:#8a99b1; }
+:root[data-theme="dark"] #expensesPage .xcard, :root[data-theme="dark"] #expensesPage .tabs-pills,
+:root[data-theme="dark"] #expensesPage .chart-toolbar, :root[data-theme="dark"] #expensesPage .ex-filter-menu,
+:root[data-theme="dark"] #expensesPage .form-select, :root[data-theme="dark"] #expensesPage .form-control,
+:root[data-theme="dark"] #expensesPage .pill-count, :root[data-theme="dark"] #expensesPage .pill-can{ background:var(--card); color:var(--ink); border-color:var(--line); }
+:root[data-theme="dark"] #expensesPage .tab-pill:hover, :root[data-theme="dark"] #expensesPage .top-row:hover,
+:root[data-theme="dark"] #expensesPage .btn-outline-soft:hover, :root[data-theme="dark"] #expensesPage .btn-pastel-blue:hover,
+:root[data-theme="dark"] #expensesPage .btn-pastel-green:hover{ background:rgba(255,255,255,.05); }
+:root[data-theme="dark"] #expensesPage .tag, :root[data-theme="dark"] #expensesPage .tag.soft,
+:root[data-theme="dark"] #expensesPage .skeleton, :root[data-theme="dark"] #expensesPage .chart-toggle.active{ background:#1a2740; color:var(--ink); }
+:root[data-theme="dark"] #expensesPage .btn-outline-soft{ background:var(--card); color:var(--ink); border-color:var(--line); }
+:root[data-theme="dark"] #expensesPage .form-control:focus, :root[data-theme="dark"] #expensesPage .form-select:focus{ background:var(--card); }
+:root[data-theme="dark"] .modal.expenses-scope .modal-footer{ background:#0f1a2e; }
 </style>
 
 <div id="expensesPage">

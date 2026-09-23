@@ -362,6 +362,11 @@ body {
   .page-head { flex-direction: column; align-items: flex-start; }
   .btn { width: 100%; }
 }
+/* dark */
+:root[data-theme="dark"] .btn-outline, :root[data-theme="dark"] .btn-table.neutral, :root[data-theme="dark"] .form-input{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .btn-outline:hover, :root[data-theme="dark"] .form-input:hover, :root[data-theme="dark"] .table-clean tbody tr:hover{ background:rgba(255,255,255,.05); }
+:root[data-theme="dark"] .form-input:focus{ background:var(--card,#111d33); }
+:root[data-theme="dark"] .empty-icon{ background:#1a2740; }
 </style>
 
 @php

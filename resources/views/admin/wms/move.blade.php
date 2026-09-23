@@ -162,6 +162,8 @@
   .link{color:#2563eb;text-decoration:underline;cursor:pointer}
 
   @media (max-width: 980px){ .mv-grid{grid-template-columns:1fr} }
+/* dark */
+:root[data-theme="dark"] .btn-ghost, :root[data-theme="dark"] .card, :root[data-theme="dark"] .chip, :root[data-theme="dark"] .inp, :root[data-theme="dark"] .mini, :root[data-theme="dark"] .tbl th{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
 </style>
 @endpush
 

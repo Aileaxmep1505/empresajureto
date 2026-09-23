@@ -899,6 +899,9 @@ body {
   line-height: 1.4;
 }
 
+/* dark */
+:root[data-theme="dark"] .big-screen-right, :root[data-theme="dark"] .btn-outline, :root[data-theme="dark"] .dropdown-footer, :root[data-theme="dark"] .form-select, :root[data-theme="dark"] .loc-none, :root[data-theme="dark"] .lote-input, :root[data-theme="dark"] .modal{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .btn-ghost:hover, :root[data-theme="dark"] .modal-close:hover, :root[data-theme="dark"] .product-dropdown-item:hover{ background:rgba(255,255,255,.05); }
 </style>
 
 <script>

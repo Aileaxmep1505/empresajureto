@@ -305,6 +305,25 @@
        oscurecerlas el texto quedaría invisible. */
     .sh-content[data-tema-fijo="claro"]{ --sh-page-bg:#f4f7fc; color-scheme:light; color:#111827; }
 
+    /* ===== Modo oscuro global para vistas con paleta propia =====
+       Muchas vistas definen sus colores con variables neutras (--bg, --card,
+       --ink, --line, --muted, etc.) en su :root. Aquí, en oscuro, las
+       redefinimos sobre .sh-content (ancestro más cercano que gana en la
+       cascada) para que TODAS esas vistas se oscurezcan sin tocarlas una por
+       una. Solo fondos/superficies/texto/bordes; los acentos se dejan igual. */
+    :root[data-theme="dark"] .sh-content:not([data-tema-fijo]){
+      color-scheme: dark;
+      --bg:#0b1220; --bg-base:#0b1220; --bg-top:#0e1a30; --bg-mid:#0b1426;
+      --soft:#0f1a2e; --soft-2:#0f1a2e;
+      --surface:#111d33; --surface-1:#111d33; --surface-2:#0f1a2e; --surface-3:#1a2740;
+      --card:#111d33; --panel:#111d33; --panel-2:#0f1a2e;
+      --ink:#eaf0fb; --ink-1:#eaf0fb; --ink-2:#c4cfe0; --heading:#eaf0fb;
+      --text:#c4cfe0; --text-dark:#eaf0fb; --text-1:#eaf0fb; --text-2:#c4cfe0; --text-gray:#9aa6bd; --text-muted:#9aa6bd;
+      --muted:#8a99b1; --muted-2:#7c8aa3;
+      --ink-soft:#b3bfd2; --text-soft:#b3bfd2;
+      --line:#243450; --line-2:#2b3c5a; --line-soft:#1e2c46; --border:#243450; --border-1:#243450; --border-2:#2b3c5a; --border-soft:#1e2c46;
+    }
+
     /* En oscuro, el calendario y el reloj de los campos nativos se ven blancos */
     :root[data-theme="dark"] .sh-content:not([data-tema-fijo]) input[type=date]::-webkit-calendar-picker-indicator,
     :root[data-theme="dark"] .sh-content:not([data-tema-fijo]) input[type=time]::-webkit-calendar-picker-indicator,
@@ -477,8 +496,9 @@
               $enlace('Mi perfil', $ico['perfil'], $ruta('profile.show'), $en('profile.*')),
               $enlace('Part. contable', $ico['contable'], $ruta('partcontable.index'), $en('partcontable.index', 'partcontable.company')),
               $enlace('Documentación de altas', $ico['altas'], $ruta('alta.docs.index'), $en('alta.docs.*')),
-              $enlace('Propuestas comerciales', $ico['propuestas'], $ruta('propuestas-comerciales.index'), $en('propuestas-comerciales.*')),
-              $canSeeBitacora ? $enlace('Bitácora', $ico['bitacora'], $ruta('partcontable.activity.all'), $en('partcontable.activity.*')) : null,
+              $enlace('Cotizaciones', $ico['propuestas'], $ruta('propuestas-comerciales.index'), $en('propuestas-comerciales.*')),
+              $canSeeBitacora ? $enlace('Bitácora', $ico['bitacora'], $ruta('partcontable.activity.all'), $en('partcontable.activity.all')) : null,
+              $canSeeBitacora ? $enlace('Analíticas de actividad', '<path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16V9"/><path d="M13 16V6"/><path d="M18 16v-4"/>', $ruta('partcontable.activity.analytics'), $en('partcontable.activity.analytics')) : null,
           ]))],
       ];
   } else {
@@ -490,19 +510,14 @@
           ['titulo' => 'Comercial', 'entradas' => array_values(array_filter([
               $grupo('Ventas y clientes', $ico['ventas'], [
                   $item('Clientes', $ruta('clients.index'), $en('clients.*')),
-                  $item('Cotizaciones', $ruta('cotizaciones.index'), $en('cotizaciones.*')),
-                  $item('Ventas', $ruta('ventas.index'), $en('ventas.*')),
                   $item('Proveedores', $ruta('providers.index'), $en('providers.*')),
-                  $item('Propuestas comerciales', $ruta('propuestas-comerciales.index'), $en('propuestas-comerciales.*')),
+                  $item('Cotizaciones', $ruta('propuestas-comerciales.index'), $en('propuestas-comerciales.*')),
                   $item('Compras y ventas', $ruta('publications.index'), $en('publications.index', 'publications.show')),
                   $item('Pedidos web', $ruta('admin.orders.index'), $en('admin.orders.*')),
               ]),
               $grupo('Licitaciones', $ico['licitacion'], [
                   $item('Centro de control', $ruta('projects.control'), $en('projects.control')),
                   $item('Tablero de licitaciones', $ruta('projects.index'), $en('projects.index', 'projects.show')),
-                  $item('Tabla global IA', $ruta('licitaciones-ai.tabla-global'), $en('licitaciones-ai.*')),
-                  $item('PDFs / Bases', $ruta('admin.licitacion-pdfs.index'), $en('admin.licitacion-pdfs.*')),
-                  $item('Comparativas', $ruta('admin.licitacion-propuestas.index'), $en('admin.licitacion-propuestas.*')),
               ]),
           ]))],
 
@@ -534,7 +549,8 @@
                   $item('Contabilidad', $ruta('accounting.dashboard'), $en('accounting.*')),
                   $item('Part. contable', $ruta('partcontable.index'), $en('partcontable.index', 'partcontable.company')),
                   $item('Gastos', $ruta('expenses.index'), $en('expenses.*')),
-                  $canSeeBitacora ? $item('Bitácora', $ruta('partcontable.activity.all'), $en('partcontable.activity.*')) : null,
+                  $canSeeBitacora ? $item('Bitácora', $ruta('partcontable.activity.all'), $en('partcontable.activity.all')) : null,
+                  $canSeeBitacora ? $item('Analíticas de actividad', $ruta('partcontable.activity.analytics'), $en('partcontable.activity.analytics')) : null,
               ]),
           ]))],
 
@@ -559,6 +575,7 @@
               ]),
               $grupo('Administración', $ico['admin'], [
                   $item('Usuarios', $ruta('admin.users.index'), $en('admin.users.*')),
+                  $isAdmin ? $item('Roles y permisos', $ruta('admin.roles.index'), $en('admin.roles.*')) : null,
                   $item('Banners del inicio', $ruta('admin.home-banners.index'), $en('admin.home-banners.*')),
                   $item('Filas del inicio', $ruta('admin.home-product-sections.index'), $en('admin.home-product-sections.*')),
                   $item('Categorías web', $ruta('admin.category-products.index'), $en('admin.category-products.*')),
@@ -569,6 +586,9 @@
 
   $titulo = trim($__env->yieldContent('header')) ?: trim($__env->yieldContent('title')) ?: 'Panel';
   $temaOscuro = trim($__env->yieldContent('tema_oscuro')) !== '';
+  // Por defecto todas las vistas siguen el tema (día/oscuro). Una vista puede
+  // forzar el modo claro con @section('tema_claro', '1') si aún no está adaptada.
+  $temaClaroForzado = trim($__env->yieldContent('tema_claro')) !== '';
 @endphp
 
 <body class="app">
@@ -706,7 +726,7 @@
       </div>
     </header>
 
-    <main id="content" class="content sh-content @yield('content_class')" @unless($temaOscuro) data-tema-fijo="claro" @endunless>
+    <main id="content" class="content sh-content @yield('content_class')" @if($temaClaroForzado) data-tema-fijo="claro" @endif>
       @yield('content')
     </main>
   </div>

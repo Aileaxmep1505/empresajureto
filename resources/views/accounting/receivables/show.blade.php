@@ -1388,6 +1388,12 @@
       width:calc(100vw - 24px) !important;
     }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .bita-form, :root[data-theme="dark"] .bita-textarea, :root[data-theme="dark"] .bita-toggle,
+:root[data-theme="dark"] .bita-type, :root[data-theme="dark"] .bita-wrap, :root[data-theme="dark"] .collect-dialog,
+:root[data-theme="dark"] .collect-select, :root[data-theme="dark"] .collect-upload, :root[data-theme="dark"] .collect-balance,
+:root[data-theme="dark"] .collect-cancel{ background:#111d33; color:#eaf0fb; border-color:#243450; }
+:root[data-theme="dark"] .collect-upload:hover, :root[data-theme="dark"] .collect-close:hover{ background:rgba(255,255,255,.06); }
 </style>
 
 <div class="rcv-page">

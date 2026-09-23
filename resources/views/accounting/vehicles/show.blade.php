@@ -274,6 +274,13 @@
     .info-col{ width:100%; padding: 2rem; }
     .product-title{ font-size:2.5rem; }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] body{ background:var(--sh-page-bg, #0b1220); }
+:root[data-theme="dark"] .nav-item-custom, :root[data-theme="dark"] .promo-box{ background:#111d33; color:#eaf0fb; border-color:#243450; }
+:root[data-theme="dark"] .spec-value{ color:#eaf0fb; }
+:root[data-theme="dark"] .doc-link:hover{ background:rgba(255,255,255,.06); }
+:root[data-theme="dark"] .thumb-dot{ background:rgba(255,255,255,.3); }
+:root[data-theme="dark"] .thumb-dot.active{ background:#eaf0fb; }
 </style>
 
 <div class="split-container">

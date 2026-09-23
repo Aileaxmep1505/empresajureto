@@ -353,6 +353,9 @@
     .kv { grid-template-columns: 1fr; }
     .grid { grid-template-columns: 1fr; }
   }
+/* dark */
+:root[data-theme="dark"] .card-footer, :root[data-theme="dark"] .chip-soft, :root[data-theme="dark"] .mf{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .tbl tbody tr:hover{ background:rgba(255,255,255,.04); }
 </style>
 @endpush
 

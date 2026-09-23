@@ -584,6 +584,9 @@
       font-size:1.65rem;
     }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .ffcreate-summary, :root[data-theme="dark"] .ffcreate-combo-menu, :root[data-theme="dark"] .ffcreate-fixed-pill, :root[data-theme="dark"] .ffcreate-field input[readonly], :root[data-theme="dark"] .ffcreate-field textarea{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .ffcreate-back:hover, :root[data-theme="dark"] .ffcreate-combo-item:hover{ background:rgba(255,255,255,.05); }
 </style>
 @endpush
 

@@ -625,6 +625,10 @@
       grid-template-columns:1fr;
     }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .pf-pane, :root[data-theme="dark"] .pf-btn, :root[data-theme="dark"] .pf-empty-main, :root[data-theme="dark"] .pf-suggest, :root[data-theme="dark"] .pf-suggest-item, :root[data-theme="dark"] .pf-meta{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .pf-suggest-item.is-active, :root[data-theme="dark"] .pf-suggest-item:hover{ background:rgba(255,255,255,.05); }
+:root[data-theme="dark"] .pf-search-input:focus{ background:var(--card,#111d33); }
 </style>
 @endpush
 

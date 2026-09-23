@@ -117,6 +117,23 @@ tr:hover td{ background:#fafcff }
 .toast--ok{ border-color:#a7f3d0 } .toast--err{ border-color:#fecdd3 }
 @keyframes tin{ to{ transform:none; opacity:1 } }
 @keyframes tout{ to{ transform:translateY(-10px) scale(.96); opacity:0 } }
+
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .hero__icon{ background:var(--surface); border-color:var(--border); }
+:root[data-theme="dark"] .searchbar{ background:var(--surface); border-color:var(--border); box-shadow:none; }
+:root[data-theme="dark"] .pbtn{ color:#eaf0fb; background:rgba(59,130,246,.18); border-color:rgba(59,130,246,.4); }
+:root[data-theme="dark"] .pbtn:hover{ background:rgba(59,130,246,.30); }
+:root[data-theme="dark"] th{ background:var(--surface); color:var(--muted); }
+:root[data-theme="dark"] tr:hover td{ background:rgba(255,255,255,.04); }
+:root[data-theme="dark"] .client-name-main{ color:var(--text); }
+:root[data-theme="dark"] .tag{ background:rgba(59,130,246,.16); color:#bcd0f5; border-color:rgba(59,130,246,.32); }
+:root[data-theme="dark"] .icon-btn{ background:var(--surface); }
+:root[data-theme="dark"] .icon-btn:hover{ background:rgba(255,255,255,.06); }
+:root[data-theme="dark"] .sb-clear:hover{ background:rgba(255,255,255,.06); color:#cbd5e1; }
+:root[data-theme="dark"] tbody tr{ background:var(--surface); }
+:root[data-theme="dark"] .toast{ background:linear-gradient(180deg,var(--surface),var(--surface)); }
+:root[data-theme="dark"] .badge.activo{ background:rgba(34,197,94,.16); color:#86efac; border-color:rgba(34,197,94,.32); }
+:root[data-theme="dark"] .badge.inactivo{ background:rgba(244,63,94,.16); color:#fca5a5; border-color:rgba(244,63,94,.32); }
 </style>
 @endpush
 

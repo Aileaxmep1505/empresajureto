@@ -45,6 +45,11 @@
   #cat .a-dark:hover{ background:#222; }
   #cat .a-soft{ background:#fff; color:#111; border:1px solid var(--line); }
   #cat .a-soft:hover{ box-shadow:0 10px 24px rgba(0,0,0,.10); border-color:transparent; }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] #cat{ --card:#111d33; --bg:#0b1220; --line:#243450; --ink:#eaf0fb; --muted:#8a99b1; }
+:root[data-theme="dark"] #cat .a-soft{ background:#1a2740; color:var(--ink); }
+:root[data-theme="dark"] #cat .pill{ background:#1a2740; color:var(--ink); border-color:var(--line); }
+:root[data-theme="dark"] #cat .search{ background:var(--card); color:var(--ink); border-color:var(--line); }
 </style>
 
 <div id="cat">

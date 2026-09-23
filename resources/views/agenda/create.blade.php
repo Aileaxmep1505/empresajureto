@@ -129,6 +129,12 @@
     #view-modal .btn-ghost{
       background:transparent;
     }
+    /* ===== Modo oscuro ===== */
+    :root[data-theme="dark"] #agenda-cal{ --card:#111d33; --bg:#0b1220; --line:#243450; --ink:#eaf0fb; --muted:#8a99b1; }
+    :root[data-theme="dark"] #agenda-cal .fc-btn, :root[data-theme="dark"] #agenda-cal input, :root[data-theme="dark"] #agenda-cal select, :root[data-theme="dark"] #agenda-cal textarea{ background:var(--card); color:var(--ink); }
+    :root[data-theme="dark"] #agenda-modal{ background:var(--card); color:var(--ink); }
+    :root[data-theme="dark"] #agenda-modal input, :root[data-theme="dark"] #agenda-modal select, :root[data-theme="dark"] #agenda-modal textarea, :root[data-theme="dark"] #agenda-modal .chip, :root[data-theme="dark"] #agenda-modal .btn{ background:var(--card); color:var(--ink); }
+    :root[data-theme="dark"] #agenda-modal .btn.danger{ background:rgba(244,63,94,.14); color:#fca5a5; }
   </style>
 
   <div class="wrap">

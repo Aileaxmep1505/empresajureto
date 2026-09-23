@@ -455,6 +455,9 @@
     .pkc-title{font-size:1.7rem}
     .pkc-form-actions{flex-direction:column}
   }
+/* dark */
+:root[data-theme="dark"] .pkc-delivery-card, :root[data-theme="dark"] .pkc-fast-card, :root[data-theme="dark"] .pkc-combo input, :root[data-theme="dark"] .pkc-combo-menu, :root[data-theme="dark"] .pkc-btn-ghost, :root[data-theme="dark"] .pkc-count, :root[data-theme="dark"] .pkc-auto-number, :root[data-theme="dark"] .pkc-add-btn{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .pkc-combo-item:hover{ background:rgba(255,255,255,.05); }
 </style>
 @endpush
 

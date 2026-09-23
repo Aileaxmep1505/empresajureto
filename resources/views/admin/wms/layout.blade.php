@@ -498,6 +498,9 @@
   .modal__x{border:1px solid var(--line);background:#fff;border-radius:12px;width:40px;height:40px;cursor:pointer;font-weight:950}
   .modal__body{padding:12px 14px}
   .modal__foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .btn-ghost, :root[data-theme="dark"] .canvas-foot, :root[data-theme="dark"] .chip, :root[data-theme="dark"] .chip-soft, :root[data-theme="dark"] .inp, :root[data-theme="dark"] .modal__panel, :root[data-theme="dark"] .seg, :root[data-theme="dark"] .tool, :root[data-theme="dark"] .empty{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .inp:focus{ background:var(--card,#111d33); }
 </style>
 @endpush
 

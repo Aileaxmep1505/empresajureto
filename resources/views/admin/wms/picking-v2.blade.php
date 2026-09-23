@@ -966,6 +966,10 @@
     .pk-modal.is-open .pk-dialog { transform: translateY(0); }
     .pk-dialog-head { border-radius: 0; }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .pk-detail-head, :root[data-theme="dark"] .pk-detail-phase-head{ background:#0f1a2e; }
+:root[data-theme="dark"] .pk-btn-ghost:hover, :root[data-theme="dark"] .pk-detail-item:hover, :root[data-theme="dark"] .pk-icon-btn:hover{ background:rgba(255,255,255,.05); }
+:root[data-theme="dark"] .pk-item-chip-stage{ background:#1a2740; color:var(--ink,#eaf0fb); }
 </style>
 @endpush
 

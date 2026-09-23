@@ -319,6 +319,11 @@
     .btnx{ flex: 1 1 auto; justify-content:center; }
     .fleet-wrap{ padding: 0 10px; }
   }
+/* ===== Modo oscuro ===== */
+:root[data-theme="dark"] .h-card, :root[data-theme="dark"] .h-data, :root[data-theme="dark"] .h-info,
+:root[data-theme="dark"] .h-visual, :root[data-theme="dark"] .h-thumb-top,
+:root[data-theme="dark"] .search input, :root[data-theme="dark"] .btnx-soft{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .btnx-soft:hover{ background:rgba(255,255,255,.06); }
 </style>
 
 <div class="fleet-page">

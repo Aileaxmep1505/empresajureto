@@ -16,6 +16,10 @@
     #agenda .actions{display:flex; gap:8px}
     #agenda .btn-small{padding:6px 10px; border-radius:10px; border:1px solid var(--line); text-decoration:none; color:var(--ink); background:#fff}
     #agenda .btn-danger{border-color:#fecaca; color:#7f1d1d; background:#fff5f5}
+    /* ===== Modo oscuro ===== */
+    :root[data-theme="dark"] #agenda{ --card:#111d33; --bg:#0b1220; --line:#243450; --ink:#eaf0fb; --muted:#8a99b1; }
+    :root[data-theme="dark"] #agenda .btn-small{ background:var(--card); }
+    :root[data-theme="dark"] #agenda .btn-danger{ background:rgba(244,63,94,.14); color:#fca5a5; border-color:rgba(244,63,94,.32); }
   </style>
 
   @if(session('ok'))
