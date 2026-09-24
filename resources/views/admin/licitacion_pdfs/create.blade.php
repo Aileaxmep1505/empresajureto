@@ -274,6 +274,9 @@
     .btn-secondary-link:hover{
         text-decoration:underline;
     }
+/* dark */
+:root[data-theme="dark"] .card, :root[data-theme="dark"] .form-input{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .form-input:focus{ background:var(--card,#111d33); }
 </style>
 
 <div class="page-wrapper">

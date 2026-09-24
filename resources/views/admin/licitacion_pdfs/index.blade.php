@@ -410,6 +410,9 @@
 @media (prefers-reduced-motion: reduce){
   .rq-btn, .rq-item, .rq-open, .rq-input, .rq-select{ transition:none !important; animation:none !important; }
 }
+/* dark */
+:root[data-theme="dark"] .rq-btn, :root[data-theme="dark"] .rq-open, :root[data-theme="dark"] .rq-pill{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .rq-btn-ghost:hover, :root[data-theme="dark"] .rq-item:hover .rq-open{ background:rgba(255,255,255,.05); }
 </style>
 
 @if(session('status'))

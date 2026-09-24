@@ -721,6 +721,23 @@
   /* Nada de mayúsculas forzadas (como el index) */
   .form-label, .table th, .summary-grid label, .mlcat-badge{ text-transform:none; letter-spacing:0; }
 
+  /* ===== Compacto (menos scroll) ===== */
+  .wrap-ui{ padding-top:18px; margin-bottom:32px; }
+  .head-ui{ margin-bottom:16px; }
+  .head-ui__text h1{ font-size:1.35rem; }
+  .card{ padding:16px 18px; }
+  .grid{ gap:14px; }
+  .col-left, .col-right{ gap:14px; }
+  .grid-3{ gap:12px; }
+  .section-heading{ margin-bottom:12px; font-size:1rem; }
+  .section-header-flex{ margin-bottom:12px; }
+  .form-group{ margin-bottom:10px; }
+  .form-group.mb-6, .form-group.mb-5{ margin-bottom:12px; }
+  .form-label{ margin-bottom:5px; }
+  .form-input, .form-select{ padding:9px 12px; }
+  textarea[name="description"]{ min-height:96px !important; }
+  .media-preview{ aspect-ratio:4/3; margin-bottom:8px; }
+
   /* Botón "Volver" minimalista (sin marco) */
   .btn-volver{ display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 10px; border:0;
                border-radius:var(--radius-btn); background:none; color:var(--muted); font:inherit;
@@ -742,9 +759,6 @@
   <div class="head-ui">
     <div class="head-ui__text">
       <h1>{{ $isEdit ? 'Editar producto' : 'Nuevo producto' }} <span>Catálogo web</span></h1>
-      <p>
-        Completa la información de tu producto manualmente, o acelera el proceso extrayendo datos con Inteligencia Artificial desde tu factura o remisión.
-      </p>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <button type="button" class="tour-abrir" data-tour-start="producto-form">
@@ -1617,7 +1631,6 @@
 
 @push('scripts')
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
 
@@ -1688,13 +1701,9 @@
   });
 
   const UI = {
-    toast: Swal.mixin({
-      toast: true, position: 'bottom-center', showConfirmButton: false, timer: 4500,
-      background: '#0f172a', color: '#fff',
-      customClass: { popup: 'rounded-xl shadow-lg font-sans' }
-    }),
-    success: (msg) => UI.toast.fire({ icon: 'success', title: msg }),
-    error: (msg) => UI.toast.fire({ icon: 'error', title: msg }),
+    toast: { fire: (o) => window.showToast && window.showToast(o.title || o.text || '', (o.icon === 'error' || o.icon === 'warning') ? 'error' : 'ok') },
+    success: (msg) => window.showToast && window.showToast(msg, 'ok'),
+    error: (msg) => window.showToast && window.showToast(msg, 'error'),
     escape: (str) => String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])),
     money: (v) => isNaN(Number(v)) ? '—' : `$${Number(v).toFixed(2)}`
   };
@@ -2525,11 +2534,7 @@
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     localStorage.removeItem('cat_ai');
-    Swal.fire({
-      icon: 'success', title: 'Guardado', text: @json(session('ok')),
-      confirmButtonText: 'Continuar', confirmButtonColor: '#007aff',
-      customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 font-sans' }
-    });
+    // La confirmación la muestra el toast (_toast) automáticamente.
   });
 </script>
 @endif

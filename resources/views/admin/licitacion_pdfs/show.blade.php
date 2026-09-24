@@ -383,6 +383,8 @@
         height: 72vh;
         background:#0b1220;
     }
+/* dark */
+:root[data-theme="dark"] .lp-card, :root[data-theme="dark"] .lp-btn-ghost, :root[data-theme="dark"] .lp-chip, :root[data-theme="dark"] .lp-field input, :root[data-theme="dark"] .lp-inline, :root[data-theme="dark"] .lp-pill, :root[data-theme="dark"] .lp-split{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
 </style>
 
 <div

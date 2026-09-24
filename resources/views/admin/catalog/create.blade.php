@@ -589,6 +589,26 @@
   /* Nada de mayúsculas forzadas (como el index) */
   .form-label, .table th, .summary-grid label, .mlcat-badge{ text-transform:none; letter-spacing:0; }
 
+  /* ===== Compacto (menos scroll) ===== */
+  .wrap-ui{ padding-top:18px; margin-bottom:32px; }
+  .head-ui{ margin-bottom:16px; }
+  .head-ui__text h1{ font-size:1.35rem; }
+  .ai-copilot-wrapper{ padding:16px; margin-bottom:14px; }
+  .card{ padding:16px 18px; }
+  .grid{ gap:14px; }
+  .col-left, .col-right{ gap:14px; }
+  .grid-3{ gap:12px; }
+  .section-heading{ margin-bottom:12px; font-size:1rem; }
+  .section-header-flex{ margin-bottom:12px; }
+  .form-group{ margin-bottom:10px; }
+  .form-group.mb-6, .form-group.mb-5{ margin-bottom:12px; }
+  .form-label{ margin-bottom:5px; }
+  .form-input, .form-select{ padding:9px 12px; }
+  textarea[name="description"]{ min-height:96px !important; }
+  .pasos{ margin-bottom:12px; }
+  .paso-nav{ margin:12px 0; }
+  .media-preview{ aspect-ratio:4/3; margin-bottom:8px; }
+
   /* Micro-transiciones suaves */
   .btn-primary, .btn-ghost, .btn-outline, .btn-icon-square, .card, .form-input, .form-select, .media-preview{ transition:all .18s ease; }
 
@@ -626,6 +646,21 @@
   .card.paso{ display:none; animation:none; opacity:1; }
   .card.paso[data-activo]{ display:flex; }
 
+  /* ===== Sin scroll horizontal en la página ===== */
+  .wrap-ui{ overflow-x:clip; }
+  #catalogItemForm .card,
+  #catalogItemForm .grid,
+  #catalogItemForm .grid > *{ min-width:0; }
+  /* Fila de presentaciones: los inputs deben poder encogerse */
+  .pres-row{ min-width:0; }
+  .pres-row > div{ min-width:0; }
+  .pres-row input,
+  .pres-row label{ min-width:0; }
+  @media (max-width:860px){
+    .pres-row > div{ grid-template-columns:1fr 1fr !important; }
+    .pres-row .pres-remove{ grid-column:1 / -1; justify-self:end; }
+  }
+
   .paso-nav{ display:flex; align-items:center; gap:10px; margin:18px 0; }
   .paso-nav .cuenta{ margin-right:auto; color:var(--muted); font-size:13px; }
   @media (max-width:640px){
@@ -653,9 +688,6 @@
   <div class="head-ui">
     <div class="head-ui__text">
       <h1>{{ $isEdit ? 'Editar producto' : 'Nuevo producto' }} <span>Catálogo web</span></h1>
-      <p>
-        Completa la información de tu producto manualmente, o acelera el proceso extrayendo datos con Inteligencia Artificial desde tu factura o remisión.
-      </p>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <button type="button" class="tour-abrir" data-tour-start="producto-form">
@@ -1298,14 +1330,6 @@
         <button type="button" class="btn-outline" id="pasoContinuar">Continuar →</button>
       </div>
 
-      <div class="sticky-footer animate-enter" style="--stagger: 6;">
-        <div class="footer-actions">
-          <a href="{{ route('admin.catalog.index') }}" class="btn-ghost">Descartar</a>
-          <button type="submit" class="btn-primary">
-            {{ $isEdit ? 'Guardar Cambios' : 'Registrar Producto' }}
-          </button>
-        </div>
-      </div>
     </form>
   </div>
 </div>
@@ -1392,7 +1416,6 @@
 
 @push('scripts')
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
 
@@ -1488,13 +1511,9 @@
   document.addEventListener('DOMContentLoaded', syncSkuAndGtinFields);
 
   const UI = {
-    toast: Swal.mixin({
-      toast: true, position: 'bottom-center', showConfirmButton: false, timer: 4500,
-      background: '#0f172a', color: '#fff',
-      customClass: { popup: 'rounded-xl shadow-lg font-sans' }
-    }),
-    success: (msg) => UI.toast.fire({ icon: 'success', title: msg }),
-    error: (msg) => UI.toast.fire({ icon: 'error', title: msg }),
+    toast: { fire: (o) => window.showToast && window.showToast(o.title || o.text || '', (o.icon === 'error' || o.icon === 'warning') ? 'error' : 'ok') },
+    success: (msg) => window.showToast && window.showToast(msg, 'ok'),
+    error: (msg) => window.showToast && window.showToast(msg, 'error'),
     escape: (str) => String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])),
     money: (v) => isNaN(Number(v)) ? '—' : `$${Number(v).toFixed(2)}`
   };
@@ -2251,11 +2270,7 @@
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     localStorage.removeItem('cat_ai');
-    Swal.fire({
-      icon: 'success', title: 'Guardado', text: @json(session('ok')),
-      confirmButtonText: 'Continuar', confirmButtonColor: '#007aff',
-      customClass: { popup: 'rounded-2xl shadow-2xl border border-gray-100 font-sans' }
-    });
+    // La confirmación la muestra el toast (_toast) automáticamente.
   });
 </script>
 @endif
@@ -2343,21 +2358,30 @@
     });
     const chips = Array.from(nav.children);
 
+    const visitados = new Set();
     function estadoChips(){
       chips.forEach((c, i) => {
         if(i === idx){ c.dataset.estado = 'actual'; return; }
-        c.dataset.estado = faltantesDe(pasos[i]).length ? '' : 'listo';
+        if(!visitados.has(i)){ c.dataset.estado = ''; return; }   // aún no lo ves → neutro
+        c.dataset.estado = faltantesDe(pasos[i]).length ? 'falta' : 'listo';
       });
     }
     function ir(n){
       idx = Math.max(0, Math.min(pasos.length - 1, n));
+      visitados.add(idx);
       pasos.forEach((p, i) => i === idx ? p.setAttribute('data-activo','') : p.removeAttribute('data-activo'));
       estadoChips();
       if(btnAtras) btnAtras.style.visibility = idx === 0 ? 'hidden' : 'visible';
       if(btnCont)  btnCont.textContent = idx === pasos.length - 1 ? 'Terminar ✓' : 'Continuar →';
       if(cuenta)   cuenta.textContent = 'Paso ' + (idx + 1) + ' de ' + pasos.length;
-      const top = form.getBoundingClientRect().top + window.scrollY - 80;
-      window.scrollTo({ top: top < 0 ? 0 : top, behavior: 'smooth' });
+      // No saltar a lo alto en cada paso: solo acomoda si la barra de pasos
+      // quedó fuera de la vista (arriba o muy abajo).
+      const ref = (nav || form);
+      const r = ref.getBoundingClientRect();
+      const margen = 90;
+      if (r.top < margen || r.top > window.innerHeight - 120) {
+        window.scrollTo({ top: r.top + window.scrollY - margen, behavior: 'smooth' });
+      }
     }
 
     // Al pulsar un campo con error, se limpia su marca.
@@ -2368,7 +2392,13 @@
       const f = faltantesDe(pasos[idx]);
       if(f.length){ pintarFaltan(pasos[idx], f); chips[idx].dataset.estado = 'falta'; f[0].el.focus && f[0].el.focus(); return; }
       limpiarFaltan(pasos[idx]);
-      if(idx < pasos.length - 1) ir(idx + 1);
+      if(idx < pasos.length - 1){
+        ir(idx + 1);
+      } else {
+        // Último paso: "Terminar" guarda (dispara la validación de todos los pasos y envía).
+        if(typeof form.requestSubmit === 'function') form.requestSubmit();
+        else form.submit();
+      }
     });
 
     // Al registrar: revisa TODOS los pasos; si falta algo, no envía y salta ahí.

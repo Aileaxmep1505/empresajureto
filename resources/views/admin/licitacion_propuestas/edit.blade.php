@@ -75,6 +75,8 @@
         color:var(--muted);
         margin-left:10px;
     }
+/* dark */
+:root[data-theme="dark"] .card{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
 </style>
 
 <div class="page-wrapper">

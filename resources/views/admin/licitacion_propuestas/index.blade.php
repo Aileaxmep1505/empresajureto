@@ -316,6 +316,9 @@
     .pe-filters .pe-actions-inline{ justify-content:stretch; }
     .pe-btn{ width:100%; justify-content:center; }
   }
+/* dark */
+:root[data-theme="dark"] .pe-m-card, :root[data-theme="dark"] .pe-m-item, :root[data-theme="dark"] .pe-input, :root[data-theme="dark"] .pe-select, :root[data-theme="dark"] .pe-btn-ghost, :root[data-theme="dark"] .pe-pill, :root[data-theme="dark"] .pe-table thead th, :root[data-theme="dark"] .pe-table tbody td{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .pe-btn-ghost:hover, :root[data-theme="dark"] .pe-table tbody tr:hover td{ background:rgba(255,255,255,.04); }
 </style>
 
 @php

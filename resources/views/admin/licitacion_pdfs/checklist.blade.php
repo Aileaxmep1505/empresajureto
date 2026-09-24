@@ -65,6 +65,8 @@
   }
   .notes textarea:focus{border-color:rgba(37,99,235,.35);box-shadow:0 0 0 4px rgba(37,99,235,.10)}
   .saveHint{margin-top:8px;color:var(--muted);font-size:12px}
+/* dark */
+:root[data-theme="dark"] .btn, :root[data-theme="dark"] .item{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
 </style>
 
 @php

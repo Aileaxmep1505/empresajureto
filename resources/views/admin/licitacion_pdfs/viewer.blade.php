@@ -197,6 +197,9 @@
     .vBody{padding:10px}
     .pagesScroll{max-height:none;}
   }
+/* dark (las hojas del PDF .pageCard/.pageInner se dejan blancas) */
+:root[data-theme="dark"] .vBody, :root[data-theme="dark"] .vBack, :root[data-theme="dark"] .vInfo{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .pagesScroll{ background:#0b1220; }
 </style>
 
 @php

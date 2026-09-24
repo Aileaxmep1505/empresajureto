@@ -521,6 +521,7 @@
 @endphp
 
 <div class="wrap">
+  @include('admin.catalog._toast')
 
   {{-- ===================== Encabezado ===================== --}}
   <div class="head">
@@ -1188,10 +1189,10 @@
   revelar(); // primera carga
 
   @if(session('ok'))
-    if (window.Swal) Swal.fire({ toast:true, position:'top-end', icon:'success', title:@json(session('ok')), showConfirmButton:false, timer:2600, timerProgressBar:true, buttonsStyling:false, customClass:{ popup:'sa-toast', title:'sa-toast-title' } });
+    if (window.showToast) window.showToast(@json(session('ok')), 'ok');
   @endif
   @if(session('error'))
-    if (window.Swal) Swal.fire({ toast:true, position:'top-end', icon:'error', title:@json(session('error')), showConfirmButton:false, timer:3200, timerProgressBar:true, buttonsStyling:false, customClass:{ popup:'sa-toast', title:'sa-toast-title' } });
+    if (window.showToast) window.showToast(@json(session('error')), 'error');
   @endif
 })();
 </script>

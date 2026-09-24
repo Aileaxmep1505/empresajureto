@@ -283,6 +283,9 @@
         padding:8px 10px;
         border:1px solid #fecaca;
     }
+/* dark */
+:root[data-theme="dark"] .proposal-card, :root[data-theme="dark"] .attached-block, :root[data-theme="dark"] .attached-item, :root[data-theme="dark"] .attached-count, :root[data-theme="dark"] .form-input, :root[data-theme="dark"] .btn-secondary-soft{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
+:root[data-theme="dark"] .form-input:focus{ background:var(--card,#111d33); }
 </style>
 
 <div class="proposal-shell">

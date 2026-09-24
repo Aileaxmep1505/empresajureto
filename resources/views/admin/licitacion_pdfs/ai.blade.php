@@ -136,6 +136,8 @@
   .mBox{width:min(1100px,100%);height:min(85vh,820px);background:#0b1220;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,.10);box-shadow:0 26px 60px rgba(2,6,23,.55);display:flex;flex-direction:column}
   .mHead{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;color:#e5e7eb;border-bottom:1px solid rgba(255,255,255,.10)}
   .mIfr{flex:1;border:none;width:100%;background:#0b1220}
+/* dark */
+:root[data-theme="dark"] .aiBar, :root[data-theme="dark"] .aiBtn, :root[data-theme="dark"] .miniBtn, :root[data-theme="dark"] .srcItem{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }
 </style>
 
 @php

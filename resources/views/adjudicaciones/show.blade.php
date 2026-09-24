@@ -2,7 +2,8 @@
 @section('content_class', 'content--flush')
 @section('content')
 <link rel="stylesheet" href="{{ asset('css/cotizacion.css') }}?v={{ time() }}">
-<style>.fallo-table{width:100%;border-collapse:collapse;font-size:13px}.fallo-table th,.fallo-table td{border:1px solid #ececec;padding:9px;text-align:left}.fallo-table th{background:#f9fafb;font-weight:700}</style>
+<style>.fallo-table{width:100%;border-collapse:collapse;font-size:13px}.fallo-table th,.fallo-table td{border:1px solid #ececec;padding:9px;text-align:left}.fallo-table th{background:#f9fafb;font-weight:700}
+:root[data-theme="dark"] .fallo-table{ background:var(--card,#111d33); color:var(--ink,#eaf0fb); border-color:var(--line,#243450); }</style>
 
 <div class="jureto-quote-page">
   <div class="quote-wrap">
