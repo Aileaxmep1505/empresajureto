@@ -387,6 +387,65 @@
     .cc-main-grid { grid-template-columns: 1fr; }
     .cc-progress-grid { grid-template-columns: 1fr; }
   }
+
+  /* ═══════════════ MODO OSCURO (Control de licitaciones) ═══════════════
+     Las tarjetas/paneles ya heredan --card/--ink/--muted del layout.
+     Aquí solo corregimos los valores que estaban fijos en claro (#fff,
+     textos grises, tooltips y píldoras blancas). */
+  :root[data-theme="dark"] .cc-page{ background:transparent; color:var(--ink); }
+
+  :root[data-theme="dark"] .cc-title,
+  :root[data-theme="dark"] .cc-total,
+  :root[data-theme="dark"] .cc-panel-title,
+  :root[data-theme="dark"] .cc-chart-title,
+  :root[data-theme="dark"] .cc-progress-title,
+  :root[data-theme="dark"] .cc-progress-number,
+  :root[data-theme="dark"] .cc-shortcuts-title,
+  :root[data-theme="dark"] .cc-shortcut-head,
+  :root[data-theme="dark"] .cc-mini-title,
+  :root[data-theme="dark"] .cc-card-value{ color:var(--ink); }
+
+  :root[data-theme="dark"] .cc-label,
+  :root[data-theme="dark"] .cc-note-body{ color:var(--muted); }
+
+  /* Botones y píldoras */
+  :root[data-theme="dark"] .cc-btn{ background:var(--card); color:var(--ink); border-color:var(--line); }
+  :root[data-theme="dark"] .cc-btn:hover{ background:#1a2740; }
+  :root[data-theme="dark"] .cc-tag{ color:var(--ink); border-color:var(--line); }
+  :root[data-theme="dark"] .cc-tag:hover,
+  :root[data-theme="dark"] .cc-tag.is-active{ background:#1a2740; }
+  :root[data-theme="dark"] .cc-tag.is-muted{ background:transparent; color:var(--muted); }
+  :root[data-theme="dark"] .cc-badge-outline{ background:transparent; color:var(--ink); border-color:var(--line); }
+
+  /* Selects: fondo, texto y flecha */
+  :root[data-theme="dark"] .cc-select{
+    background-color:#0f1a2e; color:var(--ink); border-color:var(--line);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238a99b1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  }
+  :root[data-theme="dark"] .cc-select option{ background:#0f1a2e; color:var(--ink); }
+
+  /* Tooltip de gráficas */
+  :root[data-theme="dark"] .cc-chart-tooltip{
+    background:rgba(17,29,51,.98); color:var(--ink); border-color:var(--line);
+    box-shadow:0 12px 28px rgba(0,0,0,.45);
+  }
+
+  /* Barras de progreso y scrollbars */
+  :root[data-theme="dark"] .cc-progress-track{ background:#1a2740; }
+  :root[data-theme="dark"] .cc-shortcut-list::-webkit-scrollbar-thumb{ background:#2b3c5a; }
+
+  /* Cajitas de icono/avatar: tinte suave en vez de pastel brillante */
+  :root[data-theme="dark"] .cc-icon-box,
+  :root[data-theme="dark"] .cc-avatar{ background:rgba(26,115,232,.18); color:#6ea8ff; }
+
+  /* Chips de KPI: pastel translúcido para que no deslumbren */
+  :root[data-theme="dark"] .bg-blue{ background:rgba(26,115,232,.18); }
+  :root[data-theme="dark"] .bg-yellow{ background:rgba(217,119,6,.20); }
+  :root[data-theme="dark"] .bg-cyan{ background:rgba(2,132,199,.20); }
+  :root[data-theme="dark"] .bg-red{ background:rgba(220,38,38,.20); }
+  :root[data-theme="dark"] .bg-purple{ background:rgba(139,92,246,.20); }
+  :root[data-theme="dark"] .bg-gray{ background:rgba(148,163,184,.18); color:#c4cfe0; }
+  :root[data-theme="dark"] .bg-darkred{ background:rgba(190,24,93,.22); color:#f472b6; }
 </style>
 @endpush
 

@@ -183,9 +183,15 @@ window.UIScanner = (function () {
   const inputMan= dlg.querySelector('[data-scan-input]');
 
   const FORMATOS = ['qr_code','ean_13','ean_8','code_128','code_39','upc_a','upc_e','itf','codabar','data_matrix','pdf417'];
-  const ZXING_CDN = 'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js';
+  // ZXing se sirve DESDE la propia app (el teléfono en la red local casi nunca
+  // alcanza un CDN). Si por algo falta el archivo local, se intenta el CDN.
+  const ZXING_URLS = [
+    '/vendor/zxing/zxing.min.js',                 // mismo origen que abrió el teléfono
+    @js(asset('vendor/zxing/zxing.min.js')),      // por si la app vive en un subdirectorio
+    'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js', // último recurso
+  ];
 
-  let stream = null, corriendo = false, alLeer = null, zxCtrl = null;
+  let stream = null, corriendo = false, alLeer = null, zxCtrl = null, zxReader = null;
   let camaras = [], camIdx = 0, ultimo = '', ultimoT = 0;
 
   const esSeguro = () => window.isSecureContext || ['localhost','127.0.0.1'].includes(location.hostname);
@@ -262,6 +268,8 @@ window.UIScanner = (function () {
 
   function cerrarCamara() {
     corriendo = false;
+    if (zxReader?.reset) { try { zxReader.reset(); } catch {} }
+    zxReader = null;
     if (zxCtrl?.stop) { try { zxCtrl.stop(); } catch {} }
     zxCtrl = null;
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
@@ -290,26 +298,69 @@ window.UIScanner = (function () {
     return true;
   }
 
-  async function leerZXing() {
-    try {
-      if (!window.ZXingBrowser && !window.ZXing) {
+  // Carga la librería ZXing: primero el archivo local (siempre llega porque
+  // sale del mismo servidor que la página), y si falta, el CDN.
+  function tieneZXing() {
+    return !!((window.ZXingBrowser && window.ZXingBrowser.BrowserMultiFormatReader)
+           || (window.ZXing && window.ZXing.BrowserMultiFormatReader));
+  }
+
+  async function cargarZXing() {
+    if (tieneZXing()) return true;
+    for (const url of ZXING_URLS) {
+      try {
         await new Promise((res, rej) => {
           const s = document.createElement('script');
-          s.src = ZXING_CDN; s.async = true; s.onload = res; s.onerror = rej;
+          s.src = url; s.async = true;
+          s.onload = res;
+          s.onerror = () => rej(new Error('no cargó ' + url));
           document.head.appendChild(s);
         });
-      }
-      const ns = window.ZXingBrowser || window.ZXing;
-      const Reader = ns?.BrowserMultiFormatReader;
-      if (!Reader) throw new Error('sin ZXing');
+        if (tieneZXing()) return true;
+      } catch { /* prueba la siguiente URL */ }
+    }
+    return tieneZXing();
+  }
 
-      const lector = new Reader();
-      zxCtrl = await lector.decodeFromVideoElement(video, (res) => {
+  async function leerZXing() {
+    try {
+      if (!(await cargarZXing())) {
+        estado('No se pudo cargar el lector; escribe el código', 'err');
+        inputMan.focus();
+        return false;
+      }
+
+      const ns = window.ZXingBrowser || window.ZXing;
+      const Reader = ns.BrowserMultiFormatReader;
+
+      // Pistas: intentar más fuerte y limitar a los formatos que usamos.
+      let lector;
+      try {
+        if (ns.DecodeHintType && ns.BarcodeFormat) {
+          const hints = new Map();
+          hints.set(ns.DecodeHintType.TRY_HARDER, true);
+          lector = new Reader(hints, 200);
+        } else {
+          lector = new Reader();
+        }
+      } catch { lector = new Reader(); }
+
+      zxReader = lector;
+
+      // @zxing/library decodifica en continuo y se detiene con reset().
+      // (Algunas builds devuelven "controls" con .stop(); soportamos ambos.)
+      const ret = lector.decodeFromVideoElement(video, (res) => {
         if (res && corriendo) acertar(res.getText ? res.getText() : String(res));
       });
+      Promise.resolve(ret)
+        .then((ctrl) => { if (ctrl && ctrl.stop) zxCtrl = ctrl; })
+        .catch(() => {});
+
+      estado('Buscando código…', 'ok');
       return true;
     } catch {
       estado('Lectura automática no disponible; escribe el código', 'err');
+      inputMan.focus();
       return false;
     }
   }

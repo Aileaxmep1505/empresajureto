@@ -590,6 +590,32 @@
       transition-duration: 0ms !important;
     }
   }
+
+  /* ═══════════════ MODO OSCURO (barra lateral de Control) ═══════════════ */
+  :root[data-theme="dark"] {
+    --cc-sidebar-bg: #0e1a30;
+    --cc-sidebar-line: #243450;
+    --cc-sidebar-ink: #eaf0fb;
+    --cc-sidebar-ink-muted: #8a99b1;
+    --cc-sidebar-hover: #1a2740;
+  }
+  :root[data-theme="dark"] .cc-side-nav{ box-shadow:4px 0 18px rgba(0,0,0,.4); }
+  :root[data-theme="dark"] .cc-logo-text{ color:#eaf0fb; }
+  :root[data-theme="dark"] .cc-side-nav__link.is-active-gray{ color:#fff; }
+
+  /* Difuminados superior/inferior del scroll */
+  :root[data-theme="dark"] .cc-side-nav::before{ background:linear-gradient(180deg, rgba(14,26,48,.96), rgba(14,26,48,0)); }
+  :root[data-theme="dark"] .cc-side-nav::after{ background:linear-gradient(0deg, rgba(14,26,48,.96), rgba(14,26,48,0)); }
+
+  /* Tooltip flotante */
+  :root[data-theme="dark"] .cc-floating-tooltip{ background:#111d33; color:#eaf0fb; border-color:#243450; box-shadow:0 12px 30px rgba(0,0,0,.5); }
+  :root[data-theme="dark"] .cc-floating-tooltip::before{ background:#111d33; border-color:#243450; }
+
+  /* Menú de usuario */
+  :root[data-theme="dark"] .cc-user-menu{ background:#111d33; border-color:#243450; box-shadow:0 4px 12px rgba(0,0,0,.5); }
+  :root[data-theme="dark"] .cc-user-menu__item{ color:#eaf0fb; }
+  :root[data-theme="dark"] .cc-user-menu__item svg{ color:#8a99b1; }
+  :root[data-theme="dark"] .cc-user-menu__item:hover{ background:#1a2740; }
 </style>
 @endonce
 
