@@ -192,6 +192,7 @@ window.UIScanner = (function () {
   ];
 
   let stream = null, corriendo = false, alLeer = null, zxCtrl = null, zxReader = null;
+  let scanCanvas = null, scanCtx = null, scanTimer = null;
   let camaras = [], camIdx = 0, ultimo = '', ultimoT = 0;
 
   const esSeguro = () => window.isSecureContext || ['localhost','127.0.0.1'].includes(location.hostname);
@@ -268,6 +269,7 @@ window.UIScanner = (function () {
 
   function cerrarCamara() {
     corriendo = false;
+    if (scanTimer) { try { clearTimeout(scanTimer); } catch {} try { cancelAnimationFrame(scanTimer); } catch {} scanTimer = null; }
     if (zxReader?.reset) { try { zxReader.reset(); } catch {} }
     zxReader = null;
     if (zxCtrl?.stop) { try { zxCtrl.stop(); } catch {} }
@@ -322,47 +324,77 @@ window.UIScanner = (function () {
     return tieneZXing();
   }
 
-  async function leerZXing() {
+  // Construye las pistas de decodificación (formatos + "esfuérzate más").
+  function hintsZXing(ns) {
+    const hints = new Map();
+    try { hints.set(ns.DecodeHintType.TRY_HARDER, true); } catch {}
     try {
-      if (!(await cargarZXing())) {
-        estado('No se pudo cargar el lector; escribe el código', 'err');
-        inputMan.focus();
-        return false;
-      }
+      const BF = ns.BarcodeFormat;
+      const fmts = [BF.QR_CODE, BF.EAN_13, BF.EAN_8, BF.CODE_128, BF.CODE_39,
+                    BF.UPC_A, BF.UPC_E, BF.ITF, BF.CODABAR, BF.DATA_MATRIX, BF.PDF_417]
+                    .filter(v => v !== undefined);
+      if (fmts.length) hints.set(ns.DecodeHintType.POSSIBLE_FORMATS, fmts);
+    } catch {}
+    return hints;
+  }
 
-      const ns = window.ZXingBrowser || window.ZXing;
-      const Reader = ns.BrowserMultiFormatReader;
+  // En vez de dejar que ZXing "posea" el <video> (falla en iOS/Safari), NOSOTROS
+  // controlamos la cámara y le pasamos a ZXing un fotograma (canvas) a la vez.
+  async function leerZXing() {
+    if (!(await cargarZXing())) {
+      estado('No se pudo cargar el lector; escribe el código', 'err');
+      inputMan.focus();
+      return false;
+    }
 
-      // Pistas: intentar más fuerte y limitar a los formatos que usamos.
-      let lector;
-      try {
-        if (ns.DecodeHintType && ns.BarcodeFormat) {
-          const hints = new Map();
-          hints.set(ns.DecodeHintType.TRY_HARDER, true);
-          lector = new Reader(hints, 200);
-        } else {
-          lector = new Reader();
-        }
-      } catch { lector = new Reader(); }
-
-      zxReader = lector;
-
-      // @zxing/library decodifica en continuo y se detiene con reset().
-      // (Algunas builds devuelven "controls" con .stop(); soportamos ambos.)
-      const ret = lector.decodeFromVideoElement(video, (res) => {
-        if (res && corriendo) acertar(res.getText ? res.getText() : String(res));
-      });
-      Promise.resolve(ret)
-        .then((ctrl) => { if (ctrl && ctrl.stop) zxCtrl = ctrl; })
-        .catch(() => {});
-
-      estado('Buscando código…', 'ok');
-      return true;
+    const ns = window.ZXing || window.ZXingBrowser;
+    let reader, hints;
+    try {
+      reader = new ns.MultiFormatReader();
+      hints = hintsZXing(ns);
     } catch {
       estado('Lectura automática no disponible; escribe el código', 'err');
       inputMan.focus();
       return false;
     }
+    zxReader = reader;
+
+    if (!scanCanvas) {
+      scanCanvas = document.createElement('canvas');
+      scanCtx = scanCanvas.getContext('2d', { willReadFrequently: true });
+    }
+
+    const tick = () => {
+      if (!corriendo || zxReader !== reader) return;
+
+      const vw = video.videoWidth, vh = video.videoHeight;
+      if (video.readyState >= 2 && vw && vh) {
+        // Reescalamos a ~640px de ancho: rápido y suficiente para leer.
+        const escala = Math.min(1, 640 / vw);
+        const w = Math.max(1, Math.round(vw * escala));
+        const h = Math.max(1, Math.round(vh * escala));
+        if (scanCanvas.width !== w)  scanCanvas.width  = w;
+        if (scanCanvas.height !== h) scanCanvas.height = h;
+
+        try {
+          scanCtx.drawImage(video, 0, 0, w, h);
+          const fuente = new ns.HTMLCanvasElementLuminanceSource(scanCanvas);
+          const bitmap = new ns.BinaryBitmap(new ns.HybridBinarizer(fuente));
+          const res = reader.decode(bitmap, hints);
+          if (res) { acertar(res.getText ? res.getText() : String(res)); return; }
+        } catch (e) {
+          // NotFoundException en cada fotograma sin código: es lo normal.
+        } finally {
+          try { reader.reset(); } catch {}
+        }
+      }
+      // ~12 lecturas por segundo: fluido sin fundir el teléfono.
+      scanTimer = setTimeout(() => { scanTimer = requestAnimationFrame(tick); }, 80);
+    };
+
+    estado('Buscando código…', 'ok');
+    scanTimer = requestAnimationFrame(tick);
+    return true;
   }
 
   function acertar(codigo) {
